@@ -29,6 +29,15 @@
 !-----------------------------------------------------------------------
 !
       use ESMF
+      use NUOPC
+      use NUOPC_Driver, only:                                           &
+          NUOPC_SetServices            => routine_SetServices,          &
+          NUOPC_Type_IS                => type_InternalState,           &
+          NUOPC_Label_IS               => label_InternalState,          &
+          NUOPC_Label_SetModelCount    => label_SetModelCount,          &
+          NUOPC_Label_SetModelPetLists => label_SetModelPetLists,       &
+          NUOPC_Label_SetModelServices => label_SetModelServices,       &
+          NUOPC_Label_Finalize         => label_Finalize
 !
       use mod_types
 !
@@ -39,11 +48,11 @@
 !     Public subroutines 
 !-----------------------------------------------------------------------
 !
-      public :: ATM_SetServices
+      public :: ESM_SetServices
 !
       contains
 !
-      subroutine ATM_SetServices(gcomp, rc)
+      subroutine ESM_SetServices(gcomp, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -54,9 +63,306 @@
       integer, intent(inout) :: rc
 !
       rc = ESMF_SUCCESS
-
-
 !
-      end subroutine ATM_SetServices
+!-----------------------------------------------------------------------
+!     Register generic methods 
+!-----------------------------------------------------------------------
+!
+      call NUOPC_SetServices(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Attach specializing methods 
+!-----------------------------------------------------------------------
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetModelCount,       &
+                          userRoutine=ESM_SetModelCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetModelPetLists,    &
+                          userRoutine=ESM_SetModelPetLists, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetModelServices,    &
+                          userRoutine=ESM_SetModelServices, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Finalize,            &
+                          userRoutine=ESM_Finalize, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end subroutine ESM_SetServices
+!
+      subroutine ESM_SetModelCount(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!     
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(NUOPC_Type_IS) :: genIS
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(genIS%wrap)
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Label_IS,         &
+                                         genIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set model count
+!-----------------------------------------------------------------------
+!
+      genIS%wrap%modelCount = nModels
+      end subroutine ESM_SetModelCount
+!
+      subroutine ESM_SetModelPetLists(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!     
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j
+      type(NUOPC_Type_IS) :: genIS
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(genIS%wrap)
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Label_IS,         &
+                                         genIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set PET list for model components
+!-----------------------------------------------------------------------
+!
+      do i = 1, nModels
+        if (models(i)%modActive) then
+          genIS%wrap%modelPetLists(i)%petList => models(i)%petList(:)
+        end if
+      end do
+!
+!-----------------------------------------------------------------------
+!     Set PET list for connectors (couplers)
+!-----------------------------------------------------------------------
+!
+      do i = 1, nModels
+        do j = 1, nModels
+          if (connectors(i,j)%modActive) then
+            genIS%wrap%connectorPetLists(i,j)%petList =>                &
+                              connectors(i,j)%petList(:)
+          end if
+        end do
+      end do
+!
+      end subroutine ESM_SetModelPetLists
+!
+      subroutine ESM_SetModelServices(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!     
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, urc
+      type(NUOPC_Type_IS) :: genIS
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(genIS%wrap)
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Label_IS,         &
+                                         genIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create gridded components 
+!-----------------------------------------------------------------------
+!
+      do i = 1, nModels
+        if (models(i)%modActive) then
+          call ESMF_GridCompSet(genIS%wrap%modelComp(i),                &
+                                name=models(i)%name, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+        end if
+      end do
+!
+!-----------------------------------------------------------------------
+!     Create connector (coupled) components
+!-----------------------------------------------------------------------
+!
+      do i = 1, nModels
+        do j = 1, nModels
+          if (connectors(i,j)%modActive) then
+            call ESMF_CplCompSet(genIS%wrap%connectorComp(i,j),         &
+                                name=connectors(i,j)%name, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc,                        &
+                msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
+                return
+          end if
+        end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Change default run sequence 
+!-----------------------------------------------------------------------
+!
+      call NUOPC_RunSequenceDeallocate(genIS%wrap%runSeq, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_RunSequenceAdd(genIS%wrap%runSeq, 1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (models(Iatmos)%modActive .and.                                &
+          models(Iocean)%modActive .and.                                &
+          models(Iriver)%modActive) then
+        ! ATM -> OCN
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iatmos, j=Iocean, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        ! ATM -> RTM
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iatmos, j=Iriver, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        ! RTM -> OCN
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iriver, j=Iocean, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        ! OCN -> ATM
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iocean, j=Iatmos, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      else if (models(Iatmos)%modActive .and.                           &
+               models(Iocean)%modActive) then
+        ! ATM -> OCN
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iatmos, j=Iocean, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        ! OCN -> ATM
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iocean, j=Iatmos, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end if
+!
+      do i = 1, nModels
+        if (models(i)%modActive) then
+          call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                &
+                                   i=i, j=-1, phase=1, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+        end if
+      end do      
+      nullify(genIS%wrap%runSeq)
+!
+      call ESMF_MethodExecute(gcomp, label=NUOPC_Label_SetModelServices,&
+                              userRc=urc, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+                             line=__LINE__, file=FILENAME)) return
+      end subroutine ESM_SetModelServices
+!
+      subroutine ESM_Finalize(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!     
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: urc, stat
+      logical :: existflag
+      type(NUOPC_Type_IS) :: genIS
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Execute finalize routine 
+!-----------------------------------------------------------------------
+!
+      call ESMF_MethodExecute(gcomp, label=NUOPC_Label_Finalize,        &
+                              existflag=existflag,                      &
+                              userRc=urc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(genIS%wrap)
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Label_IS,         &
+                                         genIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Deallocate internal state 
+!-----------------------------------------------------------------------
+!
+      deallocate(genIS%wrap, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat,                 &
+          msg="Deallocation of internal state memory failed.",          &
+         line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+!
+      end subroutine ESM_Finalize
 !
       end module mod_esmf_esm

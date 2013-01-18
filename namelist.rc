@@ -7,7 +7,7 @@
 #     Note: Put zero to deactivate the component
 #-----------------------------------------------------------------------
 #
-PETs: 4 0 0
+PETs: 9 0 0
 #
 #-----------------------------------------------------------------------
 #     PET Layout Option (sequential | concurrent)

@@ -90,13 +90,13 @@
 !     ESM model holder
 !-----------------------------------------------------------------------
 !
-      type(ESM_Model), allocatable :: models(:) 
+      type(ESM_Model), allocatable, target :: models(:) 
 !
 !-----------------------------------------------------------------------
 !     ESM connector holder
 !-----------------------------------------------------------------------
 !
-      type(ESM_Model), allocatable :: connectors(:,:)
+      type(ESM_Model), allocatable, target :: connectors(:,:)
 !
 !-----------------------------------------------------------------------
 !     ESM model indices

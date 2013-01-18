@@ -164,10 +164,12 @@
 
       ! print model PETs
       do i = 1, nModels
-        k = ubound(models(i)%petList, dim=1)
-        write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
-        write(*, fmt=trim(fmt_123)) trim(models(i)%name)//'    ',      &
-              models(i)%modActive, models(i)%petList
+        if (models(i)%modActive) then
+          k = ubound(models(i)%petList, dim=1)
+          write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
+          write(*, fmt=trim(fmt_123)) trim(models(i)%name)//'    ',     &
+                models(i)%modActive, models(i)%petList
+        end if
       end do
 !
 !-----------------------------------------------------------------------
