@@ -20,7 +20,7 @@ vpath %.o util:.
 
 SUBDIRS = util
 
-LIBS = $(LUTILLIB) 
+LIBS = $(LUTILLIB) $(LMODSLIB) 
 
 if DO_COMPILE_LIBESMF
 LIBS += $(ESMFLIBPTH)
@@ -30,10 +30,12 @@ endif
 UTILLIBPTH = ./util
 
 UTILLIB = $(UTILLIBPTH)/libesmutil.a
+MODLIBS = src/libatm.a
 
 LUTILLIB = -L$(UTILLIBPTH) -lesmutil
+LMODSLIB = -L./src -latm
 
-CPPFLAGS += -I$(UTILLIBPTH)
+CPPFLAGS += -I$(UTILLIBPTH) -Isrc/atm/Main -Isrc/atm/Share
 
 bin_PROGRAMS = regesm.x
 
@@ -67,5 +69,5 @@ mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o
 mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o mod_esmf_atm.o \
                 mod_esmf_ocn.o mod_esmf_rtm.o mod_esmf_cpl.o
 regesm.o: regesm.F90 mod_esmf_esm.o mod_esmf_atm.o mod_esmf_ocn.o \
-          mod_esmf_rtm.o mod_esmf_cpl.o $(UTILLIB)
+          mod_esmf_rtm.o mod_esmf_cpl.o $(UTILLIB) $(MODSLIB)
 	$(MPIFC) $(CPPFLAGS) $(FCFLAGS) -c $<

@@ -53,9 +53,18 @@
            defaultShortName='sit', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-
-
-
+!
+      call NUOPC_FieldDictionaryAddEntry('surface_air_temperature',     &
+           canonicalUnits='K', defaultLongName='N/A',                   &
+           defaultShortName='tsfc', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('surface_specific_humidity',   &
+           canonicalUnits='1', defaultLongName='N/A',                   &
+           defaultShortName='qsfc', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 
       end subroutine set_field_dir 
 !
