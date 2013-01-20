@@ -57,7 +57,7 @@
 !     Add additional fields to NUOPC field dictionary 
 !-----------------------------------------------------------------------
 !
-!      call set_field_dir()
+      call set_field_dir()
 !
 !-----------------------------------------------------------------------
 !     Create ESM gridded component 

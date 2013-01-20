@@ -49,11 +49,13 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      integer :: time(6)
       integer :: i, j, k, localPet, petCount
       logical :: file_exists
-      character(100) :: fmt_123
+      character(100) :: fmt_123, str
 !
       type(ESMF_Config) :: cf
+      type(ESMF_CalKind_Flag) :: cflag
 !
       rc = ESMF_SUCCESS
 !
@@ -115,7 +117,50 @@
         call ESMF_ConfigGetAttribute(cf, petLayoutOption, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
-        write(*, fmt='(A12,A)') "PET Layout: ", trim(petLayoutOption)
+        if (localPet == 0) then
+          write(*, fmt='(A12,A)') "PET Layout: ", trim(petLayoutOption)
+        end if
+!
+        call ESMF_ConfigGetAttribute(cf, str, label='Calendar:', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        if (trim(str) == 'gregorian') cflag = ESMF_CALKIND_GREGORIAN
+        if (trim(str) == 'noleap'   ) cflag = ESMF_CALKIND_NOLEAP
+        if (trim(str) == '360_day'  ) cflag = ESMF_CALKIND_360DAY
+!
+        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
+                                     label='StartTime:', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        call ESMF_TimeSet(startTime, yy=time(1), mm=time(2), dd=time(3),&
+                          h=time(4), m=time(5), s=time(6),              &
+                          calkindflag=cflag, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
+                                     label='StopTime:', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        call ESMF_TimeSet(stopTime, yy=time(1), mm=time(2), dd=time(3), &
+                          h=time(4), m=time(5), s=time(6),              &
+                          calkindflag=cflag, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
+                                     label='TimeStep:', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        cal = ESMF_CalendarCreate(cflag, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        call ESMF_TimeIntervalSet(timeStep, calendar=cal,               &
+                                  yy=time(1), mm=time(2), d=time(3),    &
+                                  h=time(4), m=time(5), s=time(6),      &
+                                  rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
       end if
 !
 !-----------------------------------------------------------------------
@@ -163,14 +208,16 @@
       end select
 
       ! print model PETs
-      do i = 1, nModels
-        if (models(i)%modActive) then
-          k = ubound(models(i)%petList, dim=1)
-          write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
-          write(*, fmt=trim(fmt_123)) trim(models(i)%name)//'    ',     &
-                models(i)%modActive, models(i)%petList
-        end if
-      end do
+      if (localPet == 0) then
+        do i = 1, nModels
+          if (models(i)%modActive) then
+            k = ubound(models(i)%petList, dim=1)
+            write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
+            write(*, fmt=trim(fmt_123)) trim(models(i)%name)//'    ',   &
+                  models(i)%modActive, models(i)%petList
+          end if
+        end do
+      end if
 !
 !-----------------------------------------------------------------------
 !     Assign PETs to connectors 
@@ -201,16 +248,18 @@
       connectors(Iriver,Iatmos)%modActive = .false.
       connectors(Iocean,Iriver)%modActive = .false.
 !
-      do i = 1, nModels
-        do j = 1, nModels
-          if (connectors(i,j)%modActive) then
-            k = ubound(connectors(i,j)%petList, dim=1)
-            write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
-            write(*, fmt=trim(fmt_123)) connectors(i,j)%name,           &
-                  connectors(i,j)%modActive, connectors(i,j)%petList
-          end if
+      if (localPet == 0) then
+        do i = 1, nModels
+          do j = 1, nModels
+            if (connectors(i,j)%modActive) then
+              k = ubound(connectors(i,j)%petList, dim=1)
+              write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
+              write(*, fmt=trim(fmt_123)) connectors(i,j)%name,         &
+                    connectors(i,j)%modActive, connectors(i,j)%petList
+            end if
+          end do
         end do
-      end do
+      end if
 !
       end subroutine read_config
 !

@@ -37,7 +37,8 @@ CPPFLAGS += -I$(UTILLIBPTH)
 
 bin_PROGRAMS = regesm.x
 
-regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_atm.F90
+regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_atm.F90 \
+                   mod_esmf_ocn.F90 mod_esmf_rtm.F90 mod_esmf_cpl.F90
 
 FCLD = $(MPIFC)
 
@@ -59,7 +60,12 @@ clean-local:
 #
 # RegESM Main Program
 #
-mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o
 mod_esmf_atm.o: mod_esmf_atm.F90 mod_types.o
-regesm.o: regesm.F90 mod_esmf_esm.o mod_esmf_atm.o $(UTILLIB)
+mod_esmf_ocn.o: mod_esmf_ocn.F90 mod_types.o
+mod_esmf_rtm.o: mod_esmf_rtm.F90 mod_types.o
+mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o
+mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o mod_esmf_atm.o \
+                mod_esmf_ocn.o mod_esmf_rtm.o mod_esmf_cpl.o
+regesm.o: regesm.F90 mod_esmf_esm.o mod_esmf_atm.o mod_esmf_ocn.o \
+          mod_esmf_rtm.o mod_esmf_cpl.o $(UTILLIB)
 	$(MPIFC) $(CPPFLAGS) $(FCFLAGS) -c $<

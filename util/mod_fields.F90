@@ -48,23 +48,11 @@
 !     Add required fields to NUOPC field dictionary 
 !-----------------------------------------------------------------------
 !
-!      call NUOPC_FieldDictionaryAddEntry(                               &
-!           "sea_surface_temperature",                                   &
-!           "K",                                                         &
-!           !defaultLongName="Sea Surface Temperature",                   &
-!           !defaultShortName="sst",                                      &
-!           rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return
-
-      !call NUOPC_FieldDictionaryAddEntry(                               &
-      !     "sea_ice_thickness",                                         &
-      !     canonicalUnits="m",                                          &
-      !     defaultLongName="N/A",                                       &
-      !     defaultShortName="sit",                                      &
-      !     rc=rc)
-      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-      !    line=__LINE__, file=FILENAME)) return
+      call NUOPC_FieldDictionaryAddEntry('sea_ice_thickness',           &
+           canonicalUnits='mm', defaultLongName='N/A',                  &
+           defaultShortName='sit', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 
 
 

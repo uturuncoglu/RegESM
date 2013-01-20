@@ -40,6 +40,10 @@
           NUOPC_Label_Finalize         => label_Finalize
 !
       use mod_types
+      use mod_esmf_atm, only: ATM_SetServices
+      use mod_esmf_ocn, only: OCN_SetServices
+      use mod_esmf_rtm, only: RTM_SetServices
+      use mod_esmf_cpl, only: CPL_SetServices
 !
       implicit none
       private
@@ -202,6 +206,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, j, urc
+      type(ESMF_Clock) :: iClock
       type(NUOPC_Type_IS) :: genIS
 !
       rc = ESMF_SUCCESS
@@ -245,6 +250,66 @@
         end do
       end do
 !
+!-----------------------------------------------------------------------
+!     SetServices routine for model components 
+!-----------------------------------------------------------------------
+!
+      do i = 1, nModels
+        if (models(i)%modActive) then
+          if (i == Iatmos) then
+            call ESMF_GridCompSetServices(genIS%wrap%modelComp(i),      &
+                                          ATM_SetServices,              &
+                                          userRc=urc, rc=rc)
+          else if (i == Iocean) then
+            call ESMF_GridCompSetServices(genIS%wrap%modelComp(i),      &
+                                          OCN_SetServices,              &
+                                          userRc=urc, rc=rc)
+          else if (i == Iriver) then
+            call ESMF_GridCompSetServices(genIS%wrap%modelComp(i),      &
+                                          RTM_SetServices,              &
+                                          userRc=urc, rc=rc)
+          end if
+!
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+          if (ESMF_LogFoundError(rcToCheck=urc,msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+        end if
+      end do
+!
+!-----------------------------------------------------------------------
+!     SetServices routine for connector components 
+!-----------------------------------------------------------------------
+!
+      do i = 1, nModels
+        do j = 1, nModels
+          if (connectors(i,j)%modActive) then
+            call  ESMF_CplCompSetServices(genIS%wrap%connectorComp(i,j),&
+                                          CPL_SetServices,              &
+                                          userRc=urc, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc,                        &
+                msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
+                return
+            if (ESMF_LogFoundError(rcToCheck=urc,                       &
+                msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
+                return
+          end if
+        end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Set internal model clock 
+!-----------------------------------------------------------------------
+!
+      iClock = ESMF_ClockCreate(timeStep, startTime, stopTime=stopTime, &
+                                name='ESM_Internal_Clock', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridCompSet(gcomp, clock=iClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!  
 !-----------------------------------------------------------------------
 !     Change default run sequence 
 !-----------------------------------------------------------------------
@@ -302,14 +367,17 @@
               line=__LINE__, file=FILENAME)) return
         end if
       end do      
+!
+!      call ESMF_MethodExecute(gcomp, label=NUOPC_Label_SetModelServices,&
+!                              userRc=urc, rc=rc) 
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+!                             line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_RunSequencePrint(genIS%wrap%runSeq(1))
       nullify(genIS%wrap%runSeq)
 !
-      call ESMF_MethodExecute(gcomp, label=NUOPC_Label_SetModelServices,&
-                              userRc=urc, rc=rc) 
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
-                             line=__LINE__, file=FILENAME)) return
       end subroutine ESM_SetModelServices
 !
       subroutine ESM_Finalize(gcomp, rc)

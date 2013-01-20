@@ -3,18 +3,27 @@
 #-----------------------------------------------------------------------
 #
 #-----------------------------------------------------------------------
-#     PET distribution of model components (ATM, OCN, RTM)
-#     Note: Put zero to deactivate the component
+#     PET distribution of model components (ordered in ATM, OCN, RTM)
+#     Put zero to deactivate the model component. RTM can not be run
+#     in standalone mode.
 #-----------------------------------------------------------------------
 #
 PETs: 9 0 0
 #
 #-----------------------------------------------------------------------
 #     PET Layout Option (sequential | concurrent)
-#     sequential: active models defined on all PETs
-#     concurrent: active models defined on non-overlapping sets of PETs
-#                 PETs option is used for this purpose
-#                 Mediator and Connectors defined on all PETs
+#     <sequential> active models defined on all PETs
+#     <concurrent> active models defined on non-overlapping sets of PETs
+#     PETs option is used for this purpose. Mediator and Connectors 
+#     defined on all PETs
 #-----------------------------------------------------------------------
 #
 PETLayoutOption: concurrent 
+#-----------------------------------------------------------------------
+#     Coupled Model
+#     Calendar information (gregorian | noleap | 360_day) 
+#-----------------------------------------------------------------------
+Calendar: gregorian
+StartTime: 2012 11 01 00 00 00
+StopTime:  2012 11 01 01 00 00
+TimeStep:  0000 00 00 00 15 00
