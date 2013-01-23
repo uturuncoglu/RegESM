@@ -50,7 +50,17 @@ AC_ARG_WITH([esmf],
             [Path to ESMF installation (default: ESMF_LIB environment)]),
   [ESMF_PREFIX="$withval"], [ESMF_PREFIX="${ESMF_LIB}"]
 )
-AM_CONDITIONAL(DO_COMPILE_LIBESMF, [test -n "$ESMF_LIB"])
+AM_CONDITIONAL(DO_COMPILE_LIBESMF, [test -n "$ESMF_PREFIX"])
+
+# check ATM
+ATM=0
+AC_ARG_WITH([atm],
+  AC_HELP_STRING([--with-atm],
+            [Path to ATM model installation (default: yes)]),
+  [ATM_PREFIX="$withval"], [ATM_PREFIX="${PWD}/src/atm"]
+)
+AM_CONDITIONAL(DO_COMPILE_LIBATM, [test -n "$ATM_PREFIX"])
+AC_SUBST(ATM_PREFIX)
 
 # Set debug/production flags
 if eval "test x$DEBUG = x1"; then

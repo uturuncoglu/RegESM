@@ -33,6 +33,34 @@
       implicit none
 !
 !-----------------------------------------------------------------------
+!     ESM generic field data type 
+!-----------------------------------------------------------------------
+!
+      type ESM_Field
+        integer :: fid
+        integer :: gtype        
+        integer :: itype
+        character(len=100) :: short_name
+        character(len=100) :: long_name
+        character(len=100) :: units
+        character(len=100) :: export_units
+        real*8 :: scale_factor
+        real*8 :: add_offset
+      end type ESM_Field
+!
+!-----------------------------------------------------------------------
+!     ESM generic mesh data type 
+!-----------------------------------------------------------------------
+!
+      type ESM_Mesh
+        integer :: gid
+        integer :: gtype
+        !type(ESM_Field) :: lat
+        !type(ESM_Field) :: lon
+        !type(ESM_Field) :: mask
+      end type ESM_Mesh
+!
+!-----------------------------------------------------------------------
 !     ESM high-level generic data type 
 !-----------------------------------------------------------------------
 !
@@ -41,6 +69,10 @@
         integer :: nPets
         logical :: modActive
         integer, allocatable :: petList(:) 
+        type(ESM_Mesh), allocatable :: mesh(:) 
+        type(ESM_Field), allocatable :: importField(:)
+        type(ESM_Field), allocatable :: exportField(:)
+        type(ESMF_Grid) :: grid
       end type ESM_Model
 !
 !-----------------------------------------------------------------------
@@ -59,9 +91,51 @@
 !     ESM model indices
 !-----------------------------------------------------------------------
 !
+      character(len=3) :: COMPDES(3) = (/'ATM','OCN','RTM'/)
       integer, parameter :: Iatmos = 1
       integer, parameter :: Iocean = 2
       integer, parameter :: Iriver = 3
+!
+!-----------------------------------------------------------------------
+!     Staggered grid point indices
+!     d --------- d   d --- v --- d  
+!     |           |   |           |
+!     |     c     |   u     c     u
+!     |           |   |           |
+!     d --------- d   d --- v --- d     
+!     Arakawa - B     Arakawa - C
+!     RegCM           ROMS (c = rho, d = psi)
+!-----------------------------------------------------------------------
+!
+      character(len=6) :: GRIDDES(0:4) = (/'N/A','CROSS','DOT','U','V'/)
+      integer :: Inan   = 0
+      integer :: Icross  = 1
+      integer :: Idot    = 2
+      integer :: Iupoint = 3
+      integer :: Ivpoint = 4
+!
+!-----------------------------------------------------------------------
+!     Interpolation type        
+!-----------------------------------------------------------------------
+!
+      character(len=4) :: INTPDES(0:2) = (/'NONE','BLIN','CONS'/)
+      integer :: Inone  = 0 
+      integer :: Ibilin = 1 
+      integer :: Iconsv = 2
+!
+!-----------------------------------------------------------------------
+!     Table for definition of exchange fields 
+!-----------------------------------------------------------------------
+!
+!      type(ESM_Field) :: 
+!
+!      ftable%fid = 1
+!      
+!      'ATM', '->', 'OCN', 'psfc', tsfc, qsfc, swr, lwr, dlwr, lhfx, shfx, prec, uwnd, vwnd
+!      ocn -> atm : sst, sit
+!      atm -> rtm : prec, evap, roff
+!      rtm -> ocn : rdis
+      
 !
 !-----------------------------------------------------------------------
 !     Number of gridded component or model
@@ -75,9 +149,21 @@
 !
       character(ESMF_MAXSTR) :: config_fname="namelist.rc"
       character(ESMF_MAXSTR) :: petLayoutOption
-      type(ESMF_Time) :: startTime
-      type(ESMF_Time) :: stopTime
-      type(ESMF_TimeInterval) :: timeStep
-      type(ESMF_Calendar) :: cal
+      integer :: debugLevel
+      type(ESMF_Time) :: esmStartTime
+      type(ESMF_Time) :: esmStopTime
+      type(ESMF_TimeInterval) :: esmTimeStep
+      type(ESMF_Calendar) :: esmCal
+!
+!-----------------------------------------------------------------------
+!     Constants 
+!-----------------------------------------------------------------------
+!
+      real*8, parameter :: cp = 3985.0d0
+      real*8, parameter :: rho0 = 1025.0d0
+      real*8, parameter :: cf1 = rho0*cp
+      real*8, parameter :: cf2 = 1.0d0/cf1
+      real*8, parameter :: day2s = 1.0d0/86400.0d0
+      real*8, parameter :: mm2m = 1.0d0/1000.0d0
 
       end module mod_types

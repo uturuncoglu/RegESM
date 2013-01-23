@@ -301,7 +301,9 @@
 !     Set internal model clock 
 !-----------------------------------------------------------------------
 !
-      iClock = ESMF_ClockCreate(timeStep, startTime, stopTime=stopTime, &
+      iClock = ESMF_ClockCreate(esmTimeStep,                            &
+                                esmStartTime,                           &
+                                stopTime=esmStopTime,                   &
                                 name='ESM_Internal_Clock', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return

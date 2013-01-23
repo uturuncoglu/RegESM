@@ -65,6 +65,54 @@
            defaultShortName='qsfc', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('shortwave_radiation',         &
+           canonicalUnits='W m-2', defaultLongName='N/A',               &
+           defaultShortName='swrd', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('longwave_radiation',          &
+           canonicalUnits='W m-2', defaultLongName='N/A',               &
+           defaultShortName='lwrd', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('downward_longwave_radiation', &
+           canonicalUnits='W m-2', defaultLongName='N/A',               &
+           defaultShortName='dlwr', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('latent_heat_flux',            &
+           canonicalUnits='W m-2', defaultLongName='N/A',               &
+           defaultShortName='lhfx', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('sensible_heat_flux',          &
+           canonicalUnits='W m-2', defaultLongName='N/A',               &
+           defaultShortName='shfx', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('total_precipitation_flux',    &
+           canonicalUnits='kg m-2 s-1', defaultLongName='N/A',          &
+           defaultShortName='prec', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('evaporation_flux',            &
+           canonicalUnits='kg m-2 s-1', defaultLongName='N/A',          &
+           defaultShortName='evap', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('surface_runoff',              &
+           canonicalUnits='kg m-2 s-1', defaultLongName='N/A',          &
+           defaultShortName='roff', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 
       end subroutine set_field_dir 
 !

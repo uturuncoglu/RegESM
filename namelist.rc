@@ -19,10 +19,23 @@ PETs: 8 0 0
 #-----------------------------------------------------------------------
 #
 PETLayoutOption: concurrent 
+#
+#-----------------------------------------------------------------------
+#     Debug mode
+#     <0> no debug
+#     <1> only print informative messages 
+#     <2> previous level and plus write grid information in VTK format
+#     <3> previous level and plus write exchange fields into NetCDF
+#     <4> previous level and plus write exchange fileds into ASCII
+#-----------------------------------------------------------------------
+#
+DebugLevel: 1 
+#
 #-----------------------------------------------------------------------
 #     Coupled Model
 #     Calendar information (gregorian | noleap | 360_day) 
 #-----------------------------------------------------------------------
+#
 Calendar: gregorian
 StartTime: 2012 11 01 00 00 00
 StopTime:  2012 11 01 01 00 00
