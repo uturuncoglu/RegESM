@@ -719,21 +719,21 @@
 !     Create export fields 
 !-----------------------------------------------------------------------
 !
-!      do i = 1, itemCount
+      do i = 1, itemCount
 !
 !-----------------------------------------------------------------------
 !     Set staggering type 
 !-----------------------------------------------------------------------
 !
-!      if (models(Iatmos)%dataExport(i,n)%gtype == Icross) then
-!        staggerLoc = ESMF_STAGGERLOC_CENTER
-!      else if (models(Iatmos)%dataExport(i,n)%gtype == Idot) then
-!        staggerLoc = ESMF_STAGGERLOC_CORNER
-!      end if
+      !if (models(Iatmos)%dataExport(i,n)%gtype == Icross) then
+      !  staggerLoc = ESMF_STAGGERLOC_CENTER
+      !else if (models(Iatmos)%dataExport(i,n)%gtype == Idot) then
+      !  staggerLoc = ESMF_STAGGERLOC_CORNER
+      !end if
 
 
 !        print*, i, trim(itemNameList(i))
-!      end do 
+      end do 
 
       end subroutine ATM_SetStates
 !
