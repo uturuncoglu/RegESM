@@ -166,4 +166,38 @@
       real*8, parameter :: day2s = 1.0d0/86400.0d0
       real*8, parameter :: mm2m = 1.0d0/1000.0d0
 !
+      real*8, parameter :: MISSING_R8 = 1.0d20
+!
+      contains
+!
+      integer function get_varid(list, key)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESM_Field), intent(in) :: list(:)
+      character(len=*) :: key
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i
+!     
+!-----------------------------------------------------------------------
+!     Find index of specified field
+!-----------------------------------------------------------------------
+!
+      do i = 1, size(list, dim=1)
+        if (trim(list(i)%short_name) == trim(key)) then
+          get_varid = i
+          return
+        end if
+      end do
+      get_varid = -1 
+      return
+      end function get_varid
+!
       end module mod_types

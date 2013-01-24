@@ -292,17 +292,17 @@
 !-----------------------------------------------------------------------
 !
       integer :: iunit = 10
-      integer :: i, j, k, s, ios1, ios2, pos1, pos2, nf
+      integer :: i, j, k, l, s, p, ios1, ios2, pos1, pos2, nf
       integer :: m, mstr, mend, n, nstr, nend
       logical :: file_exists
-      character(len=400) :: str, dum
-      type(ESM_Field), allocatable :: exportField(:)
-      type(ESM_Field), allocatable :: importField(:)
+      character(len=400) :: str
+      character(len=200) :: dum(8)
+      logical :: flag
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Read exchange field table
+!     Read field table
 !-----------------------------------------------------------------------
 !
       inquire(file=trim(ifile), exist=file_exists)
@@ -311,9 +311,9 @@
         open(unit=iunit, file=trim(ifile), status='old')
         ios1 = 0
         do while (ios1 == 0)
+          ! read header
           read(iunit,*,iostat=ios1) nf, str
           if (ios1 /= 0) exit
-!
           ! define gridded components for import and export 
           select case (trim(str))
             case('atm2ocn')
@@ -328,130 +328,49 @@
             case('rtm2ocn')
               i = Iriver
               j = Iocean
-          end select          
+            case default
+              write(*,*) '[error] -- Undefined components: '//trim(str)
+              call ESMF_Finalize(endflag=ESMF_END_ABORT)  
+          end select   
 !
           if (debugLevel > 0 .and. localPet == 0) then
           write(*,fmt='(A,I2)') COMPDES(i)//' -> '//COMPDES(j)//' ', nf
           end if
 !
-          ! allocate (or expand) export field array
-          if (.not. allocated(models(i)%exportField)) then
-            mstr = 1
-            mend = nf
-            allocate(models(i)%exportField(nf))
-          else
-            mstr = ubound(models(i)%exportField, dim=1)+1
-            mend = mstr+nf-1
-            allocate(exportField(mend))
-            exportField(1:mstr-1) = models(i)%exportField
-            deallocate(models(i)%exportField)
-            allocate(models(i)%exportField(mend))
-            models(i)%exportField = exportField
-            deallocate(exportField)
-          end if
-!
-          ! allocate (or expand) import field array
-          if (.not. allocated(models(j)%importField)) then
-            nstr = 1
-            nend = nf
-            allocate(models(j)%importField(nf))
-          else
-            nstr = ubound(models(j)%importField, dim=1)+1
-            nend = nstr+nf-1
-            allocate(importField(nend))
-            importField(1:nstr-1) = models(j)%importField
-            deallocate(models(j)%importField)
-            allocate(models(j)%importField(nend))
-            models(j)%importField = importField
-            deallocate(importField)
-          end if
-!
           ! loop over fields
-          do k = 0, nf-1
-            m = mstr+k
-            n = nstr+k
-            ! read whole line
+          do k = 0, nf-1 
+            ! read data line 
             read(iunit,fmt='(A)',iostat=ios2) str
             if (ios2 /= 0) exit
-            models(i)%exportField(m)%fid = m
-            models(j)%importField(n)%fid = n
-            ! split fields and fill field data type
+            ! split fields
             s = 1
             pos1 = 1
             do
               pos2 = index(str(pos1:), ':')
               if (pos2 == 0) then
-                dum = trim(str(pos1:))
-                read(dum,*) models(i)%exportField(m)%add_offset
-                read(dum,*) models(j)%importField(n)%add_offset
+                dum(8) = trim(str(pos1:))
                 exit
-              end if
-              dum = trim(str(pos1:pos1+pos2-2))
-              if (s == 1) then
-                models(i)%exportField(m)%short_name = trim(dum)
-                models(j)%importField(n)%short_name = trim(dum)
-              else if (s == 2) then
-                models(i)%exportField(m)%long_name = trim(dum) 
-                models(j)%importField(n)%long_name = trim(dum) 
-              else if (s == 3) then
-                if (trim(dum) == 'bilinear') then
-                  models(i)%exportField(m)%itype = Ibilin
-                  models(j)%importField(n)%itype = Ibilin
-                else if (trim(dum) == 'conservative') then
-                  models(i)%exportField(m)%itype = Iconsv
-                  models(j)%importField(n)%itype = Iconsv
-                else
-                  models(i)%exportField(m)%itype = Inone
-                  models(j)%importField(n)%itype = Inone
-                end if
-              else if (s == 4) then
-                if (trim(dum) == 'cross') then
-                  models(i)%exportField(m)%gtype = Icross 
-                  models(j)%importField(n)%gtype = Icross 
-                else if (trim(dum) == 'dot') then
-                  models(i)%exportField(m)%gtype = Idot
-                  models(j)%importField(n)%gtype = Idot
-                else if (trim(dum) == 'u') then
-                  models(i)%exportField(m)%gtype = Iupoint
-                  models(j)%importField(n)%gtype = Iupoint
-                else if (trim(dum) == 'v') then
-                  models(i)%exportField(m)%gtype = Ivpoint
-                  models(j)%importField(n)%gtype = Ivpoint
-                else 
-                  models(i)%exportField(m)%gtype = Inan
-                  models(j)%importField(n)%gtype = Inan
-                end if
-              else if (s == 5) then
-                models(i)%exportField(m)%units = trim(dum)
-                models(j)%importField(n)%units = trim(dum)
-              else if (s == 6) then
-                models(i)%exportField(m)%export_units = trim(dum)
-                models(j)%importField(n)%export_units = trim(dum)
-              else if (s == 7) then
-                if (trim(dum) == 'cf1') then
-                  models(i)%exportField(m)%scale_factor = cf1
-                  models(j)%importField(n)%scale_factor = cf1
-                else if (trim(dum) == '-cf1') then
-                  models(i)%exportField(m)%scale_factor = -cf1
-                  models(j)%importField(n)%scale_factor = -cf1
-                else if (trim(dum) == 'cf2') then
-                  models(i)%exportField(m)%scale_factor = cf2
-                  models(j)%importField(n)%scale_factor = cf2
-                else if (trim(dum) == '-cf2') then
-                  models(i)%exportField(m)%scale_factor = -cf2
-                  models(j)%importField(n)%scale_factor = -cf2
-                else
-                  read(dum,*) models(i)%exportField(m)%scale_factor
-                  read(dum,*) models(j)%importField(n)%scale_factor
-                end if
+              else
+                dum(s) = trim(str(pos1:pos1+pos2-2))
               end if
               s = s+1
               pos1 = pos2+pos1
             end do
-!
-            ! print out
-            if (debugLevel > 0 .and. localPet == 0) then 
-            write(*,30) k, m,                                           &
+            ! check field is already added to the list or not?
+            flag = .true.
+            do l = 1, ubound(models(i)%exportField, dim=1)
+              if (trim(dum(1)) ==                                       &
+                  trim(models(i)%exportField(l)%short_name)) then
+                flag = .false.
+              end if
+            end do
+            ! add export field to the list
+            if (flag) then
+              call add_field(models(i)%exportField, dum)
+              ! print out
+              if (debugLevel > 0 .and. localPet == 0) then
+              m = ubound(models(i)%exportField, dim=1)
+              write(*,30) k, m,                                         &
                  adjustl(trim(models(i)%exportField(m)%short_name)),    &
                  adjustl(trim(models(i)%exportField(m)%long_name)),     &
                  adjustl(trim(models(i)%exportField(m)%units)),         &
@@ -459,8 +378,24 @@
                  adjustl(trim(GRIDDES(models(i)%exportField(m)%gtype))),&
                  adjustl(trim(INTPDES(models(i)%exportField(m)%itype))),&
                  models(i)%exportField(m)%scale_factor,                 &
-                 models(i)%exportField(m)%add_offset
-            write(*,30) k, n,                                           &
+                 models(i)%exportField(m)%add_offset, 'exp'
+              end if
+            end if
+            ! check field is already added to the list or not?
+            flag = .true.
+            do l = 1, ubound(models(j)%importField, dim=1)
+              if (trim(dum(1)) ==                                       &
+                  trim(models(j)%importField(l)%short_name)) then
+                flag = .false.
+              end if
+            end do
+            ! add import field to the list
+            if (flag) then
+              call add_field(models(j)%importField, dum)
+              ! print out
+              if (debugLevel > 0 .and. localPet == 0) then 
+              n = ubound(models(j)%importField, dim=1)
+              write(*,30) k, n,                                         &
                  adjustl(trim(models(j)%importField(n)%short_name)),    &
                  adjustl(trim(models(j)%importField(n)%long_name)),     &
                  adjustl(trim(models(j)%importField(n)%units)),         &
@@ -468,13 +403,14 @@
                  adjustl(trim(GRIDDES(models(j)%importField(n)%gtype))),&
                  adjustl(trim(INTPDES(models(j)%importField(n)%itype))),&
                  models(j)%importField(n)%scale_factor,                 &
-                 models(j)%importField(n)%add_offset
+                 models(j)%importField(n)%add_offset, 'imp'
+              end if
             end if
           end do
-
-        end do        
+        end do
       else
-        write(*,*) 'Exchange field table is not available:'//trim(ifile)
+        write(*,*) '[error] -- Exchange field table ['//trim(ifile)//   &
+                   'not available'
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
 !
@@ -482,8 +418,84 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(2I3,1X,A6,1X,A32,1X,A10,1X,A10,1X,A10,1X,A10,1X,2E15.4)
+ 30   format(2I3,1X,A6,1X,A32,1X,A10,1X,A10,1X,A10,1X,A10,1X,2E15.4,A4)
 !
       end subroutine read_field_table
+!
+      subroutine add_field(field, str)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESM_Field), allocatable, intent(inout) :: field(:)
+      character(len=*), intent(in) :: str(:)
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!     
+      integer :: n 
+      type(ESM_Field), allocatable :: dum(:)
+!
+!-----------------------------------------------------------------------
+!     Resize input list 
+!-----------------------------------------------------------------------
+!
+      if (allocated(field)) then
+        n = size(field, dim=1)
+        allocate(dum(n))
+        dum = field
+        deallocate(field)
+        allocate(field(n+1))
+        field(:n) = dum
+        n = n+1
+      else
+        n = 1
+        allocate(field(n))
+      end if
+!
+!-----------------------------------------------------------------------
+!     Add new data to the list 
+!-----------------------------------------------------------------------
+!
+      field(n)%fid = n
+      field(n)%short_name = trim(str(1))
+      field(n)%long_name = trim(str(2))
+      if (trim(str(3)) == 'bilinear') then
+        field(n)%itype = Ibilin
+      else if (trim(str(3)) == 'conservative') then
+        field(n)%itype = Iconsv
+      else
+        field(n)%itype = Inone
+      end if
+      if (trim(str(4)) == 'cross') then
+        field(n)%gtype = Icross
+      else if (trim(str(4)) == 'dot') then
+        field(n)%gtype = Idot
+      else if (trim(str(4)) == 'u') then
+        field(n)%gtype = Iupoint
+      else if (trim(str(4)) == 'v') then
+        field(n)%gtype = Ivpoint
+      else
+        field(n)%gtype = Inan
+      end if
+      field(n)%units = trim(str(5))
+      field(n)%export_units = trim(str(6))
+      if (trim(str(7)) == 'cf1') then
+        field(n)%scale_factor = cf1
+      else if (trim(str(7)) == '-cf1') then
+        field(n)%scale_factor = -cf1
+      else if (trim(str(7)) == 'cf2') then
+        field(n)%scale_factor = cf2
+      else if (trim(str(7)) == '-cf2') then
+        field(n)%scale_factor = -cf2
+      else
+        read(str(7),*) field(n)%scale_factor
+      end if
+      read(str(8),*) field(n)%add_offset
+!
+      end subroutine add_field
 !
       end module mod_config

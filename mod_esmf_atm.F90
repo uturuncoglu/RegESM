@@ -115,90 +115,37 @@
       type(ESMF_Clock) :: clock
       integer, intent(out) :: rc
 !
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i
+!
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
 !     Set import fields 
 !-----------------------------------------------------------------------
 !
-!      call NUOPC_StateAdvertiseField(importState, Units='K',            &
-!           StandardName='sea_surface_temperature', name='sst', rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
-!
-!      call NUOPC_StateAdvertiseField(importState, Units='mm',           &
-!           StandardName='sea_ice_thickness', name='sit', rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
+      do i = 1, ubound(models(Iatmos)%importField, dim=1)
+        call NUOPC_StateAdvertiseField(importState,                     &
+             StandardName=trim(models(Iatmos)%importField(i)%long_name),&
+             name=trim(models(Iatmos)%importField(i)%short_name), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do 
 !
 !-----------------------------------------------------------------------
 !     Set export fields 
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateAdvertiseField(exportState, Units='Pa',           &
-           StandardName='surface_air_pressure', name='psfc', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='K',            &
-           StandardName='surface_air_temperature', name='tsfc', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='1',            &
-           StandardName='surface_specific_humidity', name='qsfc', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='W m-2',        &
-           StandardName='shortwave_radiation', name='swrd', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='W m-2',        &
-           StandardName='longwave_radiation', name='lwrd', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='W m-2',        &
-           StandardName='downward_longwave_radiation',name='dlwr',rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='W m-2',        &
-           StandardName='sensible_heat_flux', name='shfx', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='W m-2',        &
-           StandardName='latent_heat_flux', name='lhfx', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='kg m-2 s-1',   &
-           StandardName='total_precipitation_flux', name='prec', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='kg m-2 s-1',   &
-           StandardName='evaporation_flux', name='evap', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='kg m-2 s-1',   &
-           StandardName='surface_runoff', name='roff', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='m s-1',   &
-           StandardName='eastward_10m_wind', name='wndu', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call NUOPC_StateAdvertiseField(exportState, Units='m s-1',   &
-           StandardName='northward_10m_wind', name='wndv', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+      do i = 1, ubound(models(Iatmos)%exportField, dim=1)
+        call NUOPC_StateAdvertiseField(exportState,                     &
+             StandardName=trim(models(Iatmos)%exportField(i)%long_name),&
+             name=trim(models(Iatmos)%exportField(i)%short_name), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do
 !
       end subroutine ATM_SetInitializeP1
 !
@@ -694,11 +641,23 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, itemCount
+      integer :: i, j, k, itemCount, localDECount
+      real*8, dimension(:,:), pointer :: ptr
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       type(ESMF_StaggerLoc) :: staggerLoc 
+      type(ESMF_Field) :: field
+      type(ESMF_ArraySpec) :: arraySpec
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Set array descriptor
+!-----------------------------------------------------------------------
+!
+      call ESMF_ArraySpecSet(arraySpec, typekind=ESMF_TYPEKIND_R8,      &
+                             rank=2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get list of export fields 
@@ -720,21 +679,169 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, itemCount
+      k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
 !
 !-----------------------------------------------------------------------
 !     Set staggering type 
 !-----------------------------------------------------------------------
 !
-      !if (models(Iatmos)%dataExport(i,n)%gtype == Icross) then
-      !  staggerLoc = ESMF_STAGGERLOC_CENTER
-      !else if (models(Iatmos)%dataExport(i,n)%gtype == Idot) then
-      !  staggerLoc = ESMF_STAGGERLOC_CORNER
-      !end if
-
-
-!        print*, i, trim(itemNameList(i))
-      end do 
-
+      if (models(Iatmos)%exportField(k)%gtype == Icross) then
+        staggerLoc = ESMF_STAGGERLOC_CENTER
+      else if (models(Iatmos)%exportField(k)%gtype == Idot) then
+        staggerLoc = ESMF_STAGGERLOC_CORNER
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create field 
+!-----------------------------------------------------------------------
+!
+      field = ESMF_FieldCreate(models(Iatmos)%grid,                     &
+                               arraySpec,                               &
+                               staggerloc=staggerLoc,                   &
+                               name=trim(itemNameList(i)),              &
+                               rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Attach interpolation type attribute of field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_AttributeSet(field,                                     &
+                             name='interpolation_type',                 &
+                             value=models(Iatmos)%exportField(k)%itype, &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid,                            &
+                        localDECount=localDECount,                      &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put data into state 
+!-----------------------------------------------------------------------
+! 
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize pointer 
+!-----------------------------------------------------------------------
+!
+      ptr = MISSING_R8
+      if (associated(ptr)) nullify(ptr)
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Add field export state
+!-----------------------------------------------------------------------
+!
+      call NUOPC_StateRealizeField(exportState, field=field, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end do
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create import fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+      k = get_varid(models(Iatmos)%importField, trim(itemNameList(i)))
+!
+!-----------------------------------------------------------------------
+!     Set staggering type 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%importField(k)%gtype == Icross) then
+        staggerLoc = ESMF_STAGGERLOC_CENTER
+      else if (models(Iatmos)%importField(k)%gtype == Idot) then
+        staggerLoc = ESMF_STAGGERLOC_CORNER
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create field 
+!-----------------------------------------------------------------------
+!
+      field = ESMF_FieldCreate(models(Iatmos)%grid,                     &
+                               arraySpec,                               &
+                               staggerloc=staggerLoc,                   &
+                               name=trim(itemNameList(i)),              &
+                               rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid,                            &
+                        localDECount=localDECount,                      &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put data into state 
+!-----------------------------------------------------------------------
+! 
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize pointer 
+!-----------------------------------------------------------------------
+!
+      ptr = MISSING_R8
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Add field import state
+!-----------------------------------------------------------------------
+!
+      call NUOPC_StateRealizeField(importState, field=field, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end do
+!
       end subroutine ATM_SetStates
 !
       end module mod_esmf_atm

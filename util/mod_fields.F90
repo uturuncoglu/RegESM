@@ -60,7 +60,7 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call NUOPC_FieldDictionaryAddEntry('surface_specific_humidity',   &
+      call NUOPC_FieldDictionaryAddEntry('surface_air_specific_humidity',&
            canonicalUnits='1', defaultLongName='N/A',                   &
            defaultShortName='qsfc', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -96,13 +96,13 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call NUOPC_FieldDictionaryAddEntry('total_precipitation_flux',    &
+      call NUOPC_FieldDictionaryAddEntry('total_precipitation',         &
            canonicalUnits='kg m-2 s-1', defaultLongName='N/A',          &
            defaultShortName='prec', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call NUOPC_FieldDictionaryAddEntry('evaporation_flux',            &
+      call NUOPC_FieldDictionaryAddEntry('evaporation',                 &
            canonicalUnits='kg m-2 s-1', defaultLongName='N/A',          &
            defaultShortName='evap', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
