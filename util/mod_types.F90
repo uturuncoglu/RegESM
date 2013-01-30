@@ -108,7 +108,7 @@
 !-----------------------------------------------------------------------
 !
       character(len=6) :: GRIDDES(0:4) = (/'N/A','CROSS','DOT','U','V'/)
-      integer :: Inan   = 0
+      integer :: Inan    = 0
       integer :: Icross  = 1
       integer :: Idot    = 2
       integer :: Iupoint = 3
@@ -122,20 +122,6 @@
       integer :: Inone  = 0 
       integer :: Ibilin = 1 
       integer :: Iconsv = 2
-!
-!-----------------------------------------------------------------------
-!     Table for definition of exchange fields 
-!-----------------------------------------------------------------------
-!
-!      type(ESM_Field) :: 
-!
-!      ftable%fid = 1
-!      
-!      'ATM', '->', 'OCN', 'psfc', tsfc, qsfc, swr, lwr, dlwr, lhfx, shfx, prec, uwnd, vwnd
-!      ocn -> atm : sst, sit
-!      atm -> rtm : prec, evap, roff
-!      rtm -> ocn : rdis
-      
 !
 !-----------------------------------------------------------------------
 !     Number of gridded component or model

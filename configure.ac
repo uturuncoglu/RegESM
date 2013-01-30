@@ -53,14 +53,25 @@ AC_ARG_WITH([esmf],
 AM_CONDITIONAL(DO_COMPILE_LIBESMF, [test -n "$ESMF_PREFIX"])
 
 # check ATM
-ATM=0
 AC_ARG_WITH([atm],
   AC_HELP_STRING([--with-atm],
-            [Path to ATM model installation (default: yes)]),
+            [Path to ATM model (RegCM) installation (default: yes)]),
   [ATM_PREFIX="$withval"], [ATM_PREFIX="${PWD}/src/atm"]
 )
 AM_CONDITIONAL(DO_COMPILE_LIBATM, [test -n "$ATM_PREFIX"])
 AC_SUBST(ATM_PREFIX)
+
+# check OCN
+AC_ARG_WITH([ocn],
+  AC_HELP_STRING([--with-ocn],
+            [Path to OCN model (ROMS) installation (default: yes)]),
+  [OCN_PREFIX="$withval"], [OCN_PREFIX="${PWD}/src/ocn"]
+)
+AM_CONDITIONAL(DO_COMPILE_LIBOCN, [test -n "$OCN_PREFIX"])
+AC_SUBST(OCN_PREFIX)
+AC_CHECK_FILE([$OCN_PREFIX/Build/seaice.o],
+              [AM_CPPFLAGS="-DROMSICE $AM_CPPFLAGS"; AC_MSG_WARN([Compiling with support of ROMS-ICE model])],
+               AC_MSG_WARN([Compiling with ROMS model]))
 
 # Set debug/production flags
 if eval "test x$DEBUG = x1"; then

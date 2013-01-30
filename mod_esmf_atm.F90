@@ -98,7 +98,9 @@
 !
       call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
                           userRoutine=ATM_ModelAdvance, rc=rc)
-
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
       end subroutine ATM_SetServices
 !
       subroutine ATM_SetInitializeP1(gcomp, importState, exportState,   &
@@ -195,7 +197,7 @@
 !     Set-up internal clock for gridded component
 !-----------------------------------------------------------------------
 !
-      call ATM_SetClock(clock, rc)
+      call ATM_SetClock(gcomp, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -215,26 +217,7 @@
 !
       end subroutine ATM_SetInitializeP2
 !
-      subroutine ATM_ModelAdvance(gcomp, rc)
-      implicit none
-!
-!-----------------------------------------------------------------------
-!     Imported variable declarations 
-!-----------------------------------------------------------------------
-!
-      type(ESMF_GridComp) :: gcomp
-      integer, intent(out) :: rc
-!
-!-----------------------------------------------------------------------
-!     Local variable declarations 
-!-----------------------------------------------------------------------
-!
-!
-      rc = ESMF_SUCCESS 
-!
-      end subroutine ATM_ModelAdvance
-!
-      subroutine ATM_SetClock(clock, rc)
+      subroutine ATM_SetClock(gcomp, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
@@ -250,7 +233,7 @@
 !     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-      type(ESMF_Clock) :: clock
+      type(ESMF_GridComp) :: gcomp
       integer :: rc
 !
 !-----------------------------------------------------------------------
@@ -264,6 +247,7 @@
       integer :: ref_minute, str_minute, end_minute
       integer :: ref_second, str_second, end_second
 !
+      type(ESMF_Clock) :: clock
       type(ESMF_TimeInterval) :: timeStep
       type(ESMF_Time) :: refTime, startTime, stopTime
       type(ESMF_Calendar) :: cal
@@ -371,6 +355,14 @@
       clock = ESMF_ClockCreate(name='atm_clock', refTime=refTime,       &
                                timeStep=timeStep, startTime=startTime,  &
                                stopTime=stopTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add clock to component
+!-----------------------------------------------------------------------
+!
+      call NUOPC_GridCompSetClock(gcomp, clock, timeStep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -843,5 +835,43 @@
       end do
 !
       end subroutine ATM_SetStates
+!
+      subroutine ATM_ModelAdvance(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_Clock) :: clock
+      type(ESMF_State) :: importState, exportState
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Retrieve component information 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, clock=clock, importState=importState,&
+                            exportState=exportState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Debug: write current time
+!-----------------------------------------------------------------------
+!
+      call NUOPC_ClockPrintCurrTime(clock,                              &
+                                    '--> Running ATM component from: ', &
+                                    rc=rc)
+!
+      end subroutine ATM_ModelAdvance
 !
       end module mod_esmf_atm

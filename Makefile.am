@@ -29,15 +29,26 @@ LIBS += $(ESMFLIBPTH)
 CPPFLAGS += $(ESMFINCPTH)
 endif
 
+noinst_LIBRARIES =
+
 if DO_COMPILE_LIBATM
 LIBS += -L${PWD} -latm
 CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib -I$(ATM_PREFIX)/Share
-noinst_LIBRARIES = libatm.a
+noinst_LIBRARIES += libatm.a
 libatm_a_SOURCES = 
 libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/Main/*.o)     \
                   $(wildcard $(ATM_PREFIX)/Main/*/*.o)   \
                   $(wildcard $(ATM_PREFIX)/Main/*/*/*.o) \
                   $(wildcard $(ATM_PREFIX)/Share/*.o)
+endif
+
+if DO_COMPILE_LIBOCN
+LIBS += -L${PWD} -locn
+CPPFLAGS += -I$(OCN_PREFIX)/Build
+noinst_LIBRARIES += libocn.a
+libocn_a_SOURCES =
+skip_files  = $(OCN_PREFIX)/Build/master.o
+libocn_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(OCN_PREFIX)/Build/*.o))
 endif
 
 bin_PROGRAMS = regesm.x

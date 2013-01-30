@@ -48,7 +48,9 @@
 !     Initialize ESMF framework
 !-----------------------------------------------------------------------
 !
-      call ESMF_Initialize(logkindflag=ESMF_LOGKIND_MULTI, vm=vm, rc=rc)
+      call ESMF_Initialize(logkindflag=ESMF_LOGKIND_MULTI,              &
+                           defaultCalkind=ESMF_CALKIND_GREGORIAN,       &
+                           vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=__FILE__))                                &
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -60,7 +62,7 @@
       call set_field_dir()
 !
 !-----------------------------------------------------------------------
-!     Create ESM gridded component 
+!     Create component 
 !-----------------------------------------------------------------------
 !
       esmComp = ESMF_GridCompCreate(name="regesm", rc=rc)
@@ -69,7 +71,7 @@
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
-!     Read ESM configuration file 
+!     Read main configuration file 
 !-----------------------------------------------------------------------
 !
       call read_config(vm, rc)
@@ -78,7 +80,7 @@
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
-!     Register ESM gridded component 
+!     Register component 
 !-----------------------------------------------------------------------
 !
       call ESMF_GridCompSetServices(esmComp,                            &
@@ -88,15 +90,45 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=__FILE__))                                &
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
-!     Initialize ESM gridded component 
+!     Initialize component 
 !-----------------------------------------------------------------------
 !
       call ESMF_GridCompInitialize(esmComp, userRc=urc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=__FILE__))                                &
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+!
+!-----------------------------------------------------------------------
+!     Run component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompRun(esmComp, userRc=urc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+!
+!-----------------------------------------------------------------------
+!     Finalize component 
+!-----------------------------------------------------------------------
+!
+!      call ESMF_GridCompFinalize(esmComp, userRc=urc, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=__FILE__))                                &
+!          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+!      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+!          line=__LINE__, file=__FILE__))                                &
+!          call ESMF_Finalize(endflag=ESMF_END_ABORT)
 ! 
 !-----------------------------------------------------------------------
 !     Finalize ESMF framework 

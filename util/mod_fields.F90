@@ -113,6 +113,12 @@
            defaultShortName='roff', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('river_discharge',             &
+           canonicalUnits='m3', defaultLongName='N/A',                  &
+           defaultShortName='rdis', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 
       end subroutine set_field_dir 
 !

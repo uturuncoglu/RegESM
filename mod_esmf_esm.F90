@@ -206,7 +206,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, j, urc
-      type(ESMF_Clock) :: iClock
+      type(ESMF_Clock) :: clock
       type(NUOPC_Type_IS) :: genIS
 !
       rc = ESMF_SUCCESS
@@ -231,6 +231,16 @@
                                 name=models(i)%name, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
+!
+          if (debugLevel > 1) then
+          call ESMF_AttributeSet(genIS%wrap%modelComp(i),               &
+                                 name="Verbosity",                      &
+                                 value="high",                          &
+                                 convention="NUOPC",                    &
+                                 purpose="General", rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          end if
         end if
       end do
 !
@@ -246,6 +256,17 @@
             if (ESMF_LogFoundError(rcToCheck=rc,                        &
                 msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
                 return
+!
+            if (debugLevel > 1) then
+            call ESMF_AttributeSet(genIS%wrap%connectorComp(i,j),       &
+                                   name="Verbosity",                    &
+                                   value="high",                        &
+                                   convention="NUOPC",                  &
+                                   purpose="General", rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc,                        &
+                msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
+                return
+            end if
           end if
         end do
       end do
@@ -269,7 +290,7 @@
                                           RTM_SetServices,              &
                                           userRc=urc, rc=rc)
           end if
-!
+
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
                                  line=__LINE__, file=FILENAME)) return
           if (ESMF_LogFoundError(rcToCheck=urc,msg=ESMF_LOGERR_PASSTHRU,&
@@ -301,14 +322,14 @@
 !     Set internal model clock 
 !-----------------------------------------------------------------------
 !
-      iClock = ESMF_ClockCreate(esmTimeStep,                            &
-                                esmStartTime,                           &
-                                stopTime=esmStopTime,                   &
-                                name='ESM_Internal_Clock', rc=rc)
+      clock = ESMF_ClockCreate(esmTimeStep,                             &
+                               esmStartTime,                            &
+                               stopTime=esmStopTime,                    &
+                               name='esm_clock', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridCompSet(gcomp, clock=iClock, rc=rc)
+      call ESMF_GridCompSet(gcomp, clock=clock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !  
@@ -378,7 +399,7 @@
 !                             line=__LINE__, file=FILENAME)) return
 !
       call NUOPC_RunSequencePrint(genIS%wrap%runSeq(1))
-      nullify(genIS%wrap%runSeq)
+!      nullify(genIS%wrap%runSeq)
 !
       end subroutine ESM_SetModelServices
 !
