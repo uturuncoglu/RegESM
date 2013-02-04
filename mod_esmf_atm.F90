@@ -1101,7 +1101,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get export fields 
+!     Get list of export fields 
 !-----------------------------------------------------------------------
 !
       call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
@@ -1120,13 +1120,13 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Loop over excahange fields 
+!     Loop over export fields 
 !-----------------------------------------------------------------------
 !
       do i = 1, itemCount
 !
 !-----------------------------------------------------------------------
-!     Get field 
+!     Get field from export state 
 !-----------------------------------------------------------------------
 !
       call ESMF_StateGet(exportState, trim(itemNameList(i)),            &
@@ -1253,14 +1253,14 @@
 !     Debug: write field to a file (ASCII or netCDF)    
 !-----------------------------------------------------------------------
 !
-!      if (debugLevel == 4) then
-!        write(ofile,80) 'atm_export', trim(itemNameList(i)),            &
-!                        iyear, imonth, iday, ihour, localPet, j
-!        iunit = localPet*10
-!        open(unit=iunit, file=trim(ofile)//'.txt') 
-!        call print_matrix_r8(ptr, 1, 1, localPet, iunit, "PTR/ATM/EXP")
-!        close(unit=iunit)
-!      end if 
+      if (debugLevel == 4) then
+        write(ofile,80) 'atm_export', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet, j
+        iunit = localPet*10
+        open(unit=iunit, file=trim(ofile)//'.txt') 
+        call print_matrix_r8(ptr, 1, 1, localPet, iunit, "PTR/ATM/EXP")
+        close(unit=iunit)
+      end if 
 !
       end do
 !
@@ -1283,9 +1283,9 @@
 !     part in the memory 
 !-----------------------------------------------------------------------
 !
-!      if (associated(ptr)) then
-!        nullify(ptr)
-!      end if
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
 !
 !-----------------------------------------------------------------------
 !     Format definition 
