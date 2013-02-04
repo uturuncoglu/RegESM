@@ -85,10 +85,10 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-!      call ESMF_MethodAdd(ccomp, label=NUOPC_Label_ReleaseRH,           &
-!                          userRoutine=CPL_ReleaseRH, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return
+      call ESMF_MethodAdd(ccomp, label=NUOPC_Label_ReleaseRH,           &
+                          userRoutine=CPL_ReleaseRH, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 !
       end subroutine CPL_SetServices
 !
@@ -333,7 +333,7 @@
 !-----------------------------------------------------------------------
 !
       if ((debugLevel > 0) .and. (localPet == 0)) then
-      write(*,50) trim(cname),                                          &
+      write(*,40) trim(cname),                                          &
                   trim(models(isrc)%exportField(sid)%short_name),       &
                   trim(GRIDDES(models(isrc)%exportField(sid)%gtype)),   &
                   trim(models(idst)%importField(did)%short_name),       &
@@ -364,7 +364,7 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 50   format(A8,': routehandle ',A4,'[',A,'] to ',A4,'[',A,']',' >> ',A)
+ 40   format(A8,': routehandle ',A4,'[',A,'] to ',A4,'[',A,']',' >> ',A)
 !
       end subroutine CPL_ComputeRH
 !
@@ -503,10 +503,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-!      call ESMF_FieldPrint(dstFields(i), rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return
-!
 !-----------------------------------------------------------------------
 !     Debug: print out exchange fields    
 !-----------------------------------------------------------------------
@@ -534,7 +530,6 @@
 !-----------------------------------------------------------------------
 !
  60   format(A8,': regrid ',A4,'[',A,'] to ',A4,'[',A,']',' >> ',A)
-!
 !
       end subroutine CPL_ExecuteRH
 !

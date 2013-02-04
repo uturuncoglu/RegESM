@@ -18,7 +18,8 @@ PETs: 4 2 0
 #     defined on all PETs
 #-----------------------------------------------------------------------
 #
-PETLayoutOption: concurrent 
+#PETLayoutOption: concurrent 
+PETLayoutOption: sequential 
 #
 #-----------------------------------------------------------------------
 #     Debug mode
@@ -29,7 +30,7 @@ PETLayoutOption: concurrent
 #     <4> previous level and plus write exchange fileds into ASCII
 #-----------------------------------------------------------------------
 #
-DebugLevel: 1 
+DebugLevel: 4
 #
 #-----------------------------------------------------------------------
 #     Coupled Model
@@ -39,4 +40,4 @@ DebugLevel: 1
 Calendar: gregorian
 StartTime: 1996 01 01 00 00 00
 StopTime:  2008 12 31 18 00 00
-TimeStep:  0000 00 00 00 15 00
+TimeStep:  0000 00 00 03 00 00

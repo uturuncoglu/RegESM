@@ -92,7 +92,7 @@
 !-----------------------------------------------------------------------
 !
       character(len=3) :: COMPDES(3) = (/'ATM','OCN','RTM'/)
-      integer, parameter :: Iatmos = 1
+      integer, parameter :: Iatmos = 1 
       integer, parameter :: Iocean = 2
       integer, parameter :: Iriver = 3
 !

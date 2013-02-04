@@ -151,7 +151,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j
+      integer :: i, j 
       type(NUOPC_Type_IS) :: genIS
 !
       rc = ESMF_SUCCESS
@@ -345,42 +345,16 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      if (models(Iatmos)%modActive .and.                                &
-          models(Iocean)%modActive .and.                                &
-          models(Iriver)%modActive) then
-        ! ATM -> OCN
-        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
-                                 i=Iatmos, j=Iocean, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        ! ATM -> RTM
-        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
-                                 i=Iatmos, j=Iriver, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        ! RTM -> OCN
-        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
-                                 i=Iriver, j=Iocean, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        ! OCN -> ATM
-        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
-                                 i=Iocean, j=Iatmos, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      else if (models(Iatmos)%modActive .and.                           &
-               models(Iocean)%modActive) then
-        ! ATM -> OCN
-        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
-                                 i=Iatmos, j=Iocean, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        ! OCN -> ATM
-        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
-                                 i=Iocean, j=Iatmos, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      end if
+      do i = 1, nModels
+      do j = 1, nModels
+        if (connectors(i,j)%modActive) then      
+          call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                &
+                                   i=i, j=j, phase=1, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+        end if
+      end do
+      end do
 !
       do i = 1, nModels
         if (models(i)%modActive) then
@@ -389,17 +363,9 @@
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
         end if
-      end do      
-!
-!      call ESMF_MethodExecute(gcomp, label=NUOPC_Label_SetModelServices,&
-!                              userRc=urc, rc=rc) 
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
-!      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
-!                             line=__LINE__, file=FILENAME)) return
+      end do
 !
       call NUOPC_RunSequencePrint(genIS%wrap%runSeq(1))
-!      nullify(genIS%wrap%runSeq)
 !
       end subroutine ESM_SetModelServices
 !

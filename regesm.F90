@@ -49,7 +49,6 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_Initialize(logkindflag=ESMF_LOGKIND_MULTI,              &
-                           defaultCalkind=ESMF_CALKIND_GREGORIAN,       &
                            vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=__FILE__))                                &

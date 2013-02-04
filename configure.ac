@@ -32,18 +32,6 @@ AC_PROG_FC
 
 AC_LANG([Fortran])
 
-# check DEBUG
-DEBUG="0"
-AC_ARG_ENABLE(debug,
-  AC_HELP_STRING([--enable-debug],
-                 [Enable debugging flags and per processor log file]),
-  [DEBUG="1"]
-)
-if eval "test x$DEBUG = x1"; then
-  AM_CPPFLAGS="-DDEBUG $AM_CPPFLAGS"
-  AC_SUBST(AM_CPPFLAGS)
-fi
-
 # check ESMF
 AC_ARG_WITH([esmf],
   AC_HELP_STRING([--with-esmf],
@@ -70,8 +58,20 @@ AC_ARG_WITH([ocn],
 AM_CONDITIONAL(DO_COMPILE_LIBOCN, [test -n "$OCN_PREFIX"])
 AC_SUBST(OCN_PREFIX)
 AC_CHECK_FILE([$OCN_PREFIX/Build/seaice.o],
-              [AM_CPPFLAGS="-DROMSICE $AM_CPPFLAGS"; AC_MSG_WARN([Compiling with support of ROMS-ICE model])],
+              [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_WARN([Compiling with support of ROMS-ICE model])],
                AC_MSG_WARN([Compiling with ROMS model]))
+
+# check DEBUG
+DEBUG="0"
+AC_ARG_ENABLE(debug,
+  AC_HELP_STRING([--enable-debug],
+                 [Enable debugging flags and per processor log file]),
+  [DEBUG="1"]
+)
+if eval "test x$DEBUG = x1"; then
+  AM_CPPFLAGS="-DDEBUG $AM_CPPFLAGS"
+  AC_SUBST(AM_CPPFLAGS)
+fi
 
 # Set debug/production flags
 if eval "test x$DEBUG = x1"; then
@@ -151,6 +151,9 @@ else
   ESMFINCPTH="$tmp_inc"
   ESMFLIBPTH="$tmp_lib"
 fi
+
+CPPFLAGS="$AM_CPPFLAGS"
+AC_SUBST(CPPFLAGS)
 
 # add MPI compiler
 ACX_MPI

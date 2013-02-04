@@ -33,7 +33,8 @@ noinst_LIBRARIES =
 
 if DO_COMPILE_LIBATM
 LIBS += -L${PWD} -latm
-CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib -I$(ATM_PREFIX)/Share
+CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib \
+            -I$(ATM_PREFIX)/Main/batslib -I$(ATM_PREFIX)/Share
 noinst_LIBRARIES += libatm.a
 libatm_a_SOURCES = 
 libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/Main/*.o)     \
