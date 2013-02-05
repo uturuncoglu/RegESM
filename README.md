@@ -13,6 +13,5 @@ Prerequisites
 =============
 
 * RegESM itself
-* Earth System Modeling Framework (ESMF, >= 6.2.0) Library
-  http://www.earthsystemmodeling.org
+* Earth System Modeling Framework (ESMF, >= 6.2.0) Library - http://www.earthsystemmodeling.org
 * Model Components (installed with coupling support)
