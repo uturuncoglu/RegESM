@@ -40,7 +40,7 @@
 !     Local variable declarations  
 !-----------------------------------------------------------------------
 !
-      integer :: rc, urc, localPet, petCount
+      integer :: rc, urc
       type(ESMF_GridComp) :: esmComp
       type(ESMF_VM) :: vm
 !

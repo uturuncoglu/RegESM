@@ -1405,7 +1405,6 @@
 !
       sfac = models(Iocean)%importField(id)%scale_factor
       addo = models(Iocean)%importField(id)%add_offset
-      print*, trim(itemNameList(i)), sfac, addo
 !
       select case (trim(adjustl(itemNameList(i))))
       case ('psfc')
@@ -1553,7 +1552,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: ng, i, j, ii, jj, iyear, iday, imonth, ihour
+      integer :: ng, i, j, ii, jj, iunit, iyear, iday, imonth, ihour
       integer :: petCount, localPet, itemCount, localDECount
       integer :: IstrR, IendR, JstrR, JendR
       integer :: LBi, UBi, LBj, UBj
@@ -1594,6 +1593,21 @@
       end if
 !
 !-----------------------------------------------------------------------
+!     Get current time 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 2) then
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
+                        dd=iday, h=ihour, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
 !     Get limits of the arrays (based on PET id)
 !-----------------------------------------------------------------------
 !
@@ -1617,7 +1631,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get export fields 
+!     Get list of export fields 
 !-----------------------------------------------------------------------
 !
       call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
@@ -1636,13 +1650,13 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Loop over excahange fields 
+!     Loop over export fields 
 !-----------------------------------------------------------------------
 !
       do i = 1, itemCount
 !
 !-----------------------------------------------------------------------
-!     Get field 
+!     Get export field 
 !-----------------------------------------------------------------------
 !
       call ESMF_StateGet(exportState, trim(itemNameList(i)),            &
@@ -1653,7 +1667,7 @@
       do j = 0, localDECount-1
 !
 !-----------------------------------------------------------------------
-!     Get field and pointer 
+!     Get pointer 
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
@@ -1688,31 +1702,17 @@
       end select
 !
 !-----------------------------------------------------------------------
-!     Debug: write field to a file (ASCII or netCDF)    
+!     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-      if (debugLevel > 2) then
-        call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-!
-        call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                &
-                          dd=iday, h=ihour, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-!
-        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
-                        iyear, imonth, iday, ihour, localPet
-!
-        if (debugLevel == 4) then 
-          open(unit=99, file=trim(ofile)//'.txt') 
-          call print_matrix_r8(ptr, 1, 1, localPet, 99, "PTR/OCN/EXP")
-          close(unit=99)
-        else if (debugLevel == 3) then
-          call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-                                 line=__LINE__, file=FILENAME)) return
-        end if
+      if (debugLevel == 4) then
+        iunit = localPet
+        write(ofile,80) 'ocn_export', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet, j
+        open(unit=iunit, file=trim(ofile)//'.txt') 
+        call print_matrix_r8(ptr(IstrR:IendR,JstrR:JendR), 1, 1,        &
+                             localPet, iunit, "PTR/OCN/EXP")
+        close(unit=iunit)
       end if         
 !
 !-----------------------------------------------------------------------
@@ -1723,17 +1723,28 @@
       if (associated(ptr)) then
         nullify(ptr)
       end if
-
-
-
+!
       end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in netCDF format    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 3) then
+        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
       end do
 !
 !-----------------------------------------------------------------------
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 80   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
+ 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
  90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
 !
       end subroutine OCN_Put

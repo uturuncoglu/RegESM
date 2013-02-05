@@ -65,7 +65,7 @@
       jmin = lbound(inp, dim=2)
       jmax = ubound(inp, dim=2)
 !
-      write(6, fmt="('PET(',I2,') - ',A)") pet, trim(header)
+      write(id, fmt="('PET(',I2,') - ',A)") pet, trim(header)
 !
       write(fmt_123, fmt="('(/, 5X, ', I3, 'I10)')") (imax-imin)+1
       write(id, fmt=trim(fmt_123))  (i, i=imin, imax, iskip)

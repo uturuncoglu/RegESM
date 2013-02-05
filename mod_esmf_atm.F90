@@ -982,7 +982,11 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-
+      use mod_constants
+      use mod_bats_common, only : lveg, iveg1, ldmsk1, sncv
+      use mod_atm_interface, only : sfs
+      use mod_dynparam, only : ici1, ici2, jci1, jci2, nnsg
+      use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
 !
@@ -997,12 +1001,29 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: petCount, localPet
-      character(ESMF_MAXSTR) :: cname
+      integer :: i, j, k, ii, jj, n, m, id, imin, imax, jmin, jmax
+      integer :: iyear, iday, imonth, ihour, iunit
+      integer :: localPet, petCount, itemCount, localDECount
+      character(ESMF_MAXSTR) :: cname, msgString, ofile
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      real(ESMF_KIND_R8) :: sfac, addo
+      real(ESMF_KIND_R8), pointer :: ptr(:,:)
+      real*8 :: hice, toth, tol
+#ifdef OCNICE
+      ! minimum ice depth in mm: less that this is removed
+      real*8, parameter :: iceminh = d_10
+      ! reference hgt in mm for latent heat removal from ice
+      real*8, parameter :: href = d_two * iceminh
+      ! steepness factor of latent heat removal
+      real*8, parameter :: steepf = 1.0D0  ! Tuning needed
+#endif
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+      type(ESMF_Field) :: field
       type(ESMF_State) :: importState
+      type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
 !
       rc = ESMF_SUCCESS
 !
@@ -1019,7 +1040,197 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      print*, "call ATM_Get ... ", localPet
+!-----------------------------------------------------------------------
+!     Get current time 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 2) then
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
+                        dd=iday, h=ihour, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid,                            &
+                        localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      if (.not. allocated(itemTypeList)) then
+        allocate(itemTypeList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList,        &
+                         itemTypeList=itemTypeList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over excahange fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+!
+      id = get_varid(models(Iatmos)%importField, itemNameList(i))
+!
+!-----------------------------------------------------------------------
+!     Get field
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over decomposition elements (DEs) 
+!-----------------------------------------------------------------------
+!
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Debug: write size of pointers    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+      write(*,60) localPet, j, adjustl("PTR/ATM/IMP/"//itemNameList(i)),&
+                  lbound(ptr, dim=1), ubound(ptr, dim=1),               &
+                  lbound(ptr, dim=2), ubound(ptr, dim=2)
+      write(*,60) localPet, j, adjustl("IND/ATM/IMP/"//itemNameList(i)),&
+                  ici1, ici2, jci1, jci2
+      end if
+!
+!-----------------------------------------------------------------------
+!     Put data to ATM component variable
+!-----------------------------------------------------------------------
+!
+      tol = MISSING_R8/2.0d0
+      sfac = models(Iatmos)%importField(id)%scale_factor
+      addo = models(Iatmos)%importField(id)%add_offset
+!
+      select case (trim(adjustl(itemNameList(i))))
+      case ('sst')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            do k = 1, nnsg
+              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
+                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
+                sfs%tga(n,m) = (ptr(ii,jj)*sfac)+addo
+                sfs%tgb(n,m) = (ptr(ii,jj)*sfac)+addo
+              end if
+            end do
+          end do
+        end do 
+#ifdef OCNICE
+      case ('sit')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            do k = 1, nnsg
+              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
+                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
+                hice = (ptr(ii,jj)*sfac)+addo
+                if (hice .gt. iceminh) then
+                  ! change land-use type as ice covered
+                  ldmsk1(k,n,m) = 2
+                  lveg(k,n,m) = 12
+                  ! reduce sensible heat flux for ice presence                    
+                  toth = hice+sncv(k,n,m) 
+                  if ( toth > href ) then
+                    sfs%hfx(n,m) = sfs%hfx(n,m)*(href/toth)**steepf
+                  end if
+                else
+                  ! change land-use type to its original value
+                  ldmsk1(k,n,m) = 0
+                  lveg(k,n,m) = iveg1(k,n,m)
+                end if
+              end if
+            end do
+          end do
+        end do
+#endif
+      end select
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in ASCII format   
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 4) then
+        write(ofile,70) 'atm_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet, j
+        iunit = localPet*10
+        open(unit=iunit, file=trim(ofile)//'.txt')
+        imin = global_cross_istart+ici1-1
+        imax = global_cross_istart+ici2-1
+        jmin = global_cross_jstart+jci1-1
+        jmax = global_cross_jstart+jci2-1
+        call print_matrix_r8(ptr(imin:imax,jmin:jmax), 1, 1,            &
+                             localPet, iunit, "PTR/ATM/IMP")
+        close(unit=iunit)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in netCDF format    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 3) then
+        write(ofile,80) 'atm_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
+ 70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+!
       end subroutine ATM_Get
 !
       subroutine ATM_Put(gcomp, rc)
@@ -1048,7 +1259,8 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, ii, jj, m, n, iyear, iday, imonth, ihour, iunit
+      integer :: i, j, ii, jj, m, n, imin, imax, jmin, jmax
+      integer :: iyear, iday, imonth, ihour, iunit
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, msgString, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
@@ -1250,33 +1462,22 @@
       end select
 !
 !-----------------------------------------------------------------------
-!     Debug: write field to a file (ASCII or netCDF)    
+!     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
       if (debugLevel == 4) then
+        iunit = localPet
         write(ofile,80) 'atm_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
-        iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix_r8(ptr, 1, 1, localPet, iunit, "PTR/ATM/EXP")
+        imin = global_cross_istart+ici1-1
+        imax = global_cross_istart+ici2-1
+        jmin = global_cross_jstart+jci1-1
+        jmax = global_cross_jstart+jci2-1
+        call print_matrix_r8(ptr(imin:imax,jmin:jmax), 1, 1,            &
+                             localPet, iunit, "PTR/ATM/EXP")
         close(unit=iunit)
       end if 
-!
-      end do
-!
-!-----------------------------------------------------------------------
-!     Debug: write field in netCDF format    
-!-----------------------------------------------------------------------
-!
-      if (debugLevel == 3) then
-        write(ofile,70) 'atm_export', trim(itemNameList(i)),            &
-                        iyear, imonth, iday, ihour, localPet
-        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-      end if
-!
-      end do
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
@@ -1287,13 +1488,28 @@
         nullify(ptr)
       end if
 !
+      end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in netCDF format    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 3) then
+        write(ofile,90) 'atm_export', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end do
+!
 !-----------------------------------------------------------------------
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
- 70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
  80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
 !
       end subroutine ATM_Put
 !
