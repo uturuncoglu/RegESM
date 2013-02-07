@@ -154,6 +154,13 @@
 !
       subroutine ATM_SetInitializeP2(gcomp, importState, exportState,   &
                                      clock, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_update, only : ATM_Allocate => RCM_Allocate
+!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -192,7 +199,8 @@
 !     Initialize the gridded component 
 !-----------------------------------------------------------------------
 !
-      call ATM_initialize(mpiCommunicator=comm)
+      call ATM_Initialize(mpiCommunicator=comm)
+      call ATM_Allocate()
 !
 !-----------------------------------------------------------------------
 !     Set-up internal clock for gridded component
@@ -982,10 +990,11 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_constants
-      use mod_bats_common, only : lveg, iveg1, ldmsk1, sncv
-      use mod_atm_interface, only : sfs
-      use mod_dynparam, only : ici1, ici2, jci1, jci2, nnsg
+!      use mod_constants
+!      use mod_bats_common, only : lveg, iveg1, ldmsk1, sncv
+!      use mod_atm_interface, only : sfs
+      use mod_update, only : importFields 
+      use mod_dynparam, only : ici1, ici2, jci1, jci2 !, nnsg
       use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
@@ -1008,15 +1017,15 @@
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8) :: sfac, addo
       real(ESMF_KIND_R8), pointer :: ptr(:,:)
-      real*8 :: hice, toth, tol
-#ifdef OCNICE
-      ! minimum ice depth in mm: less that this is removed
-      real*8, parameter :: iceminh = d_10
-      ! reference hgt in mm for latent heat removal from ice
-      real*8, parameter :: href = d_two * iceminh
-      ! steepness factor of latent heat removal
-      real*8, parameter :: steepf = 1.0D0  ! Tuning needed
-#endif
+!      real*8 :: hice, toth, tol
+!#ifdef OCNICE
+!      ! minimum ice depth in mm: less that this is removed
+!      real*8, parameter :: iceminh = d_10
+!      ! reference hgt in mm for latent heat removal from ice
+!      real*8, parameter :: href = d_two * iceminh
+!      ! steepness factor of latent heat removal
+!      real*8, parameter :: steepf = 1.0D0  ! Tuning needed
+!#endif
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
@@ -1130,7 +1139,7 @@
 !     Put data to ATM component variable
 !-----------------------------------------------------------------------
 !
-      tol = MISSING_R8/2.0d0
+      !tol = MISSING_R8/2.0d0
       sfac = models(Iatmos)%importField(id)%scale_factor
       addo = models(Iatmos)%importField(id)%add_offset
 !
@@ -1140,13 +1149,14 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            do k = 1, nnsg
-              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
-                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
-                sfs%tga(n,m) = (ptr(ii,jj)*sfac)+addo
-                sfs%tgb(n,m) = (ptr(ii,jj)*sfac)+addo
-              end if
-            end do
+            importFields%sst(n,m) = (ptr(ii,jj)*sfac)+addo
+!            do k = 1, nnsg
+!              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
+!                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
+!                sfs%tga(n,m) = (ptr(ii,jj)*sfac)+addo
+!                sfs%tgb(n,m) = (ptr(ii,jj)*sfac)+addo
+!              end if
+!            end do
           end do
         end do 
 #ifdef OCNICE
@@ -1155,26 +1165,27 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            do k = 1, nnsg
-              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
-                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
-                hice = (ptr(ii,jj)*sfac)+addo
-                if (hice .gt. iceminh) then
-                  ! change land-use type as ice covered
-                  ldmsk1(k,n,m) = 2
-                  lveg(k,n,m) = 12
-                  ! reduce sensible heat flux for ice presence                    
-                  toth = hice+sncv(k,n,m) 
-                  if ( toth > href ) then
-                    sfs%hfx(n,m) = sfs%hfx(n,m)*(href/toth)**steepf
-                  end if
-                else
-                  ! change land-use type to its original value
-                  ldmsk1(k,n,m) = 0
-                  lveg(k,n,m) = iveg1(k,n,m)
-                end if
-              end if
-            end do
+            importFields%sit(n,m) = (ptr(ii,jj)*sfac)+addo
+!            do k = 1, nnsg
+!              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
+!                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
+!                hice = (ptr(ii,jj)*sfac)+addo
+!                if (hice .gt. iceminh) then
+!                  ! change land-use type as ice covered
+!                  ldmsk1(k,n,m) = 2
+!                  lveg(k,n,m) = 12
+!                  ! reduce sensible heat flux for ice presence                    
+!                  toth = hice+sncv(k,n,m) 
+!                  if ( toth > href ) then
+!                    sfs%hfx(n,m) = sfs%hfx(n,m)*(href/toth)**steepf
+!                  end if
+!                else
+!                  ! change land-use type to its original value
+!                  ldmsk1(k,n,m) = 0
+!                  lveg(k,n,m) = iveg1(k,n,m)
+!                end if
+!              end if
+!            end do
           end do
         end do
 #endif
@@ -1184,7 +1195,7 @@
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-      if (debugLevel == 4) then
+      if (debugLevel == 40) then
         write(ofile,70) 'atm_import', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10

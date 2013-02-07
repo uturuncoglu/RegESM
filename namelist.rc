@@ -8,7 +8,7 @@
 #     Put zero to deactivate the model component. 
 #-----------------------------------------------------------------------
 #
-PETs: 6 6 0
+PETs: 36 24 0
 #
 #-----------------------------------------------------------------------
 #     PET Layout Option (sequential | concurrent)
@@ -30,7 +30,7 @@ PETLayoutOption: concurrent
 #     <4> previous level and plus write exchange fileds into ASCII
 #-----------------------------------------------------------------------
 #
-DebugLevel: 4
+DebugLevel: 1
 #
 #-----------------------------------------------------------------------
 #     Coupled Model
