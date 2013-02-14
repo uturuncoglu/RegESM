@@ -187,6 +187,7 @@
       character(ESMF_MAXSTR) :: gname, msgString
 !
       type(ESMF_VM) :: vm
+      type(ESMF_Time) :: startTime, currTime 
 !
       rc = ESMF_SUCCESS
 !
@@ -224,17 +225,6 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Check for error 
-!-----------------------------------------------------------------------
-!
-!      if (exit_flag /= NoError) then
-!        write(msgString,'(A,I5)') trim(gname)//                         &
-!              ': exit with flag = ', exit_flag
-!        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-!        call OCN_Finalize()
-!      end if 
-!
-!-----------------------------------------------------------------------
 !     Set-up internal clock for gridded component
 !-----------------------------------------------------------------------
 !
@@ -255,6 +245,23 @@
 !-----------------------------------------------------------------------
 !
       call OCN_SetStates(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Get start and current time
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, startTime=startTime,                    &
+                         currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put export fields in case of restart run 
+!-----------------------------------------------------------------------
+!
+      if (restarted .and. currTime == startTime) then
+        call OCN_Put(gcomp, rc=rc)
+      end if
 !
       end subroutine OCN_SetInitializeP2
 !
@@ -542,6 +549,12 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(deBlockList)) deallocate(deBlockList) 
+!
+!-----------------------------------------------------------------------
 !     Set array descriptor
 !-----------------------------------------------------------------------
 !
@@ -813,7 +826,6 @@
       integer :: staggerEdgeLWidth(2)
       integer :: staggerEdgeUWidth(2)
       integer :: TLW(2), TUW(2)
-      integer, allocatable :: TLWidth(:,:), TUWidth(:,:)
       character(ESMF_MAXSTR) :: cname, msgString
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real*8, dimension(:,:), pointer :: ptr
@@ -848,15 +860,6 @@
         ng = 1
       else
         ng = Ngrids
-      end if
-!
-!-----------------------------------------------------------------------
-!     Allocate arrays 
-!-----------------------------------------------------------------------
-!
-      if (.not. allocated(TLWidth)) then
-        allocate(TLWidth(2,0:NtileI(ng)*NtileJ(ng)-1))
-        allocate(TUWidth(2,0:NtileI(ng)*NtileJ(ng)-1))
       end if
 !
 !-----------------------------------------------------------------------
@@ -991,6 +994,12 @@
       end do
 !
 !-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+!
+!-----------------------------------------------------------------------
 !     Sets the TimeStamp Attribute according to clock
 !     on all the Fields in export state 
 !-----------------------------------------------------------------------
@@ -1007,7 +1016,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      if (allocated(itemNameList)) deallocate(itemNameList)
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
       end if
@@ -1101,6 +1109,12 @@
       end do
 !
 !-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+!
+!-----------------------------------------------------------------------
 !     Sets the TimeStamp Attribute according to clock
 !     on all the Fields in import state 
 !-----------------------------------------------------------------------
@@ -1140,7 +1154,7 @@
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
       type(ESMF_TimeInterval) :: timeStep
-      type(ESMF_Time) :: startTime, stopTime, currTime
+      type(ESMF_Time) :: refTime, stopTime, currTime
       type(ESMF_State) :: importState, exportState
 !
       rc = ESMF_SUCCESS
@@ -1162,7 +1176,7 @@
 !     Get start, stop and current time and time step
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(clock, timeStep=timeStep, startTime=startTime, &
+      call ESMF_ClockGet(clock, timeStep=timeStep, refTime=refTime, &
                          stopTime=stopTime, currTime=currTime, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1201,7 +1215,7 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      if (currTime /= startTime) then
+      if ((currTime /= refTime) .or. restarted) then
         call OCN_Get(gcomp, rc=rc)
       end if
 !
@@ -1262,7 +1276,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: ng, i, j, ii, jj, id, iyear, iday, imonth, ihour
-      integer :: LBi, UBi, LBj, UBj
+      integer :: LBi, UBi, LBj, UBj, iunit
       integer :: IstrR, IendR, JstrR, JendR
       integer :: IstrU, IendU, JstrU, JendU     
       integer :: IstrV, IendV, JstrV, JendV
@@ -1327,6 +1341,21 @@
       UBi = BOUNDS(ng)%UBi(localPet)
       LBj = BOUNDS(ng)%LBj(localPet)
       UBj = BOUNDS(ng)%UBj(localPet)
+!
+!-----------------------------------------------------------------------
+!     Get current time 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 2) then
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
+                        dd=iday, h=ihour, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
@@ -1476,51 +1505,58 @@
       end select
 !
 !-----------------------------------------------------------------------
-!     Debug: write field to a file (ASCII or netCDF)    
+!     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-!      if (debugLevel > 2) then
-!        call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=FILENAME)) return
-!
-!        call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                &
-!                          dd=iday, h=ihour, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=FILENAME)) return
-!
-!        write(ofile,70) 'ocn_import', trim(itemNameList(i)),            &
-!                        iyear, imonth, iday, ihour, localPet
-!
-!        if (debugLevel == 4) then 
-!          open(unit=99, file=trim(ofile)//'.txt') 
-!          call print_matrix_r8(ptr, 1, 1, localPet, 99, "PTR/OCN/IMP")
-!          close(unit=99)
-!        else if (debugLevel == 3) then
-!          call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
-!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-!                                 line=__LINE__, file=FILENAME)) return
-!        end if
-!      end if         
+      if (debugLevel == 4) then
+        iunit = localPet
+        write(ofile,70) 'ocn_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet, j
+        open(unit=iunit, file=trim(ofile)//'.txt')
+        call print_matrix_r8(ptr(LBi:UBi,LBj:UBj), 1, 1,                &
+                             localPet, iunit, "PTR/OCN/IMP")
+        close(unit=iunit)
+      end if
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
 !     part in the memory 
 !-----------------------------------------------------------------------
 !
-!      if (associated(ptr)) then
-!        nullify(ptr)
-!      end if
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
 !
       end do       
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in netCDF format    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 3) then
+        write(ofile,80) 'ocn_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
       end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (allocated(itemTypeList)) deallocate(itemTypeList)
 !
 !-----------------------------------------------------------------------
 !     Format definition 
 !-----------------------------------------------------------------------
 !
  60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
- 70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+ 70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
 !
       end subroutine OCN_Get
 !
@@ -1739,6 +1775,13 @@
       end if
 !
       end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (allocated(itemTypeList)) deallocate(itemTypeList)
 !
 !-----------------------------------------------------------------------
 !     Format definition 

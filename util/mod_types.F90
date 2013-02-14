@@ -136,7 +136,9 @@
       character(ESMF_MAXSTR) :: config_fname="namelist.rc"
       character(ESMF_MAXSTR) :: petLayoutOption
       integer :: debugLevel
+      logical :: restarted
       type(ESMF_Time) :: esmStartTime
+      type(ESMF_Time) :: esmRestartTime
       type(ESMF_Time) :: esmStopTime
       type(ESMF_TimeInterval) :: esmTimeStep
       type(ESMF_Calendar) :: esmCal

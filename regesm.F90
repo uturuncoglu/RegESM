@@ -106,6 +106,15 @@
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
+!     Wait for finishing initialize phase
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMBarrier(vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+!
+!-----------------------------------------------------------------------
 !     Run component 
 !-----------------------------------------------------------------------
 !

@@ -322,10 +322,22 @@
 !     Set internal model clock 
 !-----------------------------------------------------------------------
 !
-      clock = ESMF_ClockCreate(esmTimeStep,                             &
-                               esmStartTime,                            &
-                               stopTime=esmStopTime,                    &
-                               name='esm_clock', rc=rc)
+      restarted = .false.
+      if (esmStartTime /= esmRestartTime) then
+        restarted = .true.
+      end if
+!
+      if (restarted) then
+        clock = ESMF_ClockCreate(esmTimeStep,                           &
+                                 esmRestartTime,                        &
+                                 stopTime=esmStopTime,                  &
+                                 name='esm_clock', rc=rc)
+      else
+        clock = ESMF_ClockCreate(esmTimeStep,                           &
+                                 esmStartTime,                          &
+                                 stopTime=esmStopTime,                  &
+                                 name='esm_clock', rc=rc)
+      end if
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !

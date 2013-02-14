@@ -9,6 +9,7 @@
 #-----------------------------------------------------------------------
 #
 PETs: 36 24 0
+#PETs: 6 6 0
 #
 #-----------------------------------------------------------------------
 #     PET Layout Option (sequential | concurrent)
@@ -19,7 +20,8 @@ PETs: 36 24 0
 #     Connectors (or coupler) defined on all PETs
 #-----------------------------------------------------------------------
 #
-PETLayoutOption: concurrent 
+#PETLayoutOption: concurrent 
+PETLayoutOption: sequential 
 #
 #-----------------------------------------------------------------------
 #     Debug mode
@@ -40,7 +42,8 @@ DebugLevel: 1
 #     <360_day> 
 #-----------------------------------------------------------------------
 #
-Calendar: gregorian
-StartTime: 1996 01 01 00 00 00
-StopTime:  2008 12 31 18 00 00
-TimeStep:  0000 00 00 03 00 00
+Calendar:    gregorian
+StartTime:   1996 01 01 00 00 00
+RestartTime: 1996 03 01 00 00 00
+StopTime:    2008 12 31 18 00 00
+TimeStep:    0000 00 00 03 00 00

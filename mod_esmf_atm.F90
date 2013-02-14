@@ -160,6 +160,7 @@
 !-----------------------------------------------------------------------
 !
       use mod_update, only : ATM_Allocate => RCM_Allocate
+      use mod_runparams, only : dtsrf
 !
       implicit none
 !
@@ -179,6 +180,7 @@
 !
       integer :: comm, localPet, petCount
       type(ESMF_VM) :: vm
+      type(ESMF_Time) :: startTime, currTime
 !
       rc = ESMF_SUCCESS
 !
@@ -223,6 +225,35 @@
 !-----------------------------------------------------------------------
 !
       call ATM_SetStates(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Get start and current time
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, startTime=startTime,                    &
+                         currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put export fields in case of restart run 
+!-----------------------------------------------------------------------
+!
+      if (restarted .and. currTime == startTime) then
+!
+!-----------------------------------------------------------------------
+!     Run ATM component (run only one time step to fill variables)
+!-----------------------------------------------------------------------
+!
+      call ATM_Run(0.0d0, dtsrf)
+!
+!-----------------------------------------------------------------------
+!     Put export fields
+!-----------------------------------------------------------------------
+!
+      call ATM_Put(gcomp, rc=rc)
+!
+      end if
 !
       end subroutine ATM_SetInitializeP2
 !
@@ -585,7 +616,8 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Nullify pointers 
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
 !-----------------------------------------------------------------------
 !
       if (associated(ptrY)) then
@@ -594,6 +626,7 @@
       if (associated(ptrX)) then
         nullify(ptrX)
       end if
+!
       end do
 !
 !-----------------------------------------------------------------------
@@ -751,7 +784,14 @@
 !
       ptr = MISSING_R8
 !
-      if (associated(ptr)) nullify(ptr)
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
 !
       end do
 !
@@ -763,6 +803,12 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList) 
 !
 !-----------------------------------------------------------------------
 !     Sets the TimeStamp Attribute according to clock
@@ -781,7 +827,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      if (allocated(itemNameList)) deallocate(itemNameList)
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
       end if
@@ -860,6 +905,12 @@
       end do
 !
 !-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+!
+!-----------------------------------------------------------------------
 !     Sets the TimeStamp Attribute according to clock
 !     on all the Fields in import state 
 !-----------------------------------------------------------------------
@@ -871,6 +922,9 @@
       end subroutine ATM_SetStates
 !
       subroutine ATM_ModelAdvance(gcomp, rc)
+      use mod_runparams, only : ifrest, ktau, dtsrf
+      use mod_update, only : importFields
+!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -891,7 +945,7 @@
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
       type(ESMF_TimeInterval) :: timeStep, timeFrom, timeTo
-      type(ESMF_Time) :: startTime, stopTime, currTime
+      type(ESMF_Time) :: refTime, startTime, stopTime, currTime
       type(ESMF_State) :: importState, exportState
 !
       rc = ESMF_SUCCESS
@@ -913,8 +967,9 @@
 !     Get start, stop and current time and time step
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(clock, timeStep=timeStep, startTime=startTime, &
-                         stopTime=stopTime, currTime=currTime, rc=rc) 
+      call ESMF_ClockGet(clock, timeStep=timeStep, refTime=refTime,     &
+                         startTime=startTime, stopTime=stopTime,        &
+                         currTime=currTime, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -931,6 +986,8 @@
       call ESMF_TimeIntervalGet(timeTo, s_r8=tend, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+      if (restarted .and. startTime == currTime) tstr = tstr+dtsrf
 !
 !-----------------------------------------------------------------------
 !     Debug: write time information 
@@ -958,7 +1015,7 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      if (currTime /= startTime) then
+      if ((currTime /= refTime) .or. restarted) then
         call ATM_Get(gcomp, rc=rc)
       end if
 !
@@ -973,6 +1030,18 @@
 !-----------------------------------------------------------------------
 !
       call ATM_Put(gcomp, rc=rc)
+!
+!-----------------------------------------------------------------------
+!     Garbage collection: destroy states 
+!-----------------------------------------------------------------------
+!
+!      call ESMF_StateDestroy(importState, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!
+!      call ESMF_StateDestroy(exportState, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Formats 
@@ -990,11 +1059,8 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-!      use mod_constants
-!      use mod_bats_common, only : lveg, iveg1, ldmsk1, sncv
-!      use mod_atm_interface, only : sfs
       use mod_update, only : importFields 
-      use mod_dynparam, only : ici1, ici2, jci1, jci2 !, nnsg
+      use mod_dynparam, only : ici1, ici2, jci1, jci2
       use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
@@ -1017,15 +1083,6 @@
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8) :: sfac, addo
       real(ESMF_KIND_R8), pointer :: ptr(:,:)
-!      real*8 :: hice, toth, tol
-!#ifdef OCNICE
-!      ! minimum ice depth in mm: less that this is removed
-!      real*8, parameter :: iceminh = d_10
-!      ! reference hgt in mm for latent heat removal from ice
-!      real*8, parameter :: href = d_two * iceminh
-!      ! steepness factor of latent heat removal
-!      real*8, parameter :: steepf = 1.0D0  ! Tuning needed
-!#endif
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
@@ -1139,7 +1196,6 @@
 !     Put data to ATM component variable
 !-----------------------------------------------------------------------
 !
-      !tol = MISSING_R8/2.0d0
       sfac = models(Iatmos)%importField(id)%scale_factor
       addo = models(Iatmos)%importField(id)%add_offset
 !
@@ -1150,13 +1206,6 @@
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
             importFields%sst(n,m) = (ptr(ii,jj)*sfac)+addo
-!            do k = 1, nnsg
-!              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
-!                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
-!                sfs%tga(n,m) = (ptr(ii,jj)*sfac)+addo
-!                sfs%tgb(n,m) = (ptr(ii,jj)*sfac)+addo
-!              end if
-!            end do
           end do
         end do 
 #ifdef OCNICE
@@ -1166,26 +1215,6 @@
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
             importFields%sit(n,m) = (ptr(ii,jj)*sfac)+addo
-!            do k = 1, nnsg
-!              if ((iveg1(k,n,m) == 12 .or. iveg1(k,n,m) == 14 .or.      &
-!                   iveg1(k,n,m) == 15) .and. (ptr(ii,jj) .lt. tol)) then
-!                hice = (ptr(ii,jj)*sfac)+addo
-!                if (hice .gt. iceminh) then
-!                  ! change land-use type as ice covered
-!                  ldmsk1(k,n,m) = 2
-!                  lveg(k,n,m) = 12
-!                  ! reduce sensible heat flux for ice presence                    
-!                  toth = hice+sncv(k,n,m) 
-!                  if ( toth > href ) then
-!                    sfs%hfx(n,m) = sfs%hfx(n,m)*(href/toth)**steepf
-!                  end if
-!                else
-!                  ! change land-use type to its original value
-!                  ldmsk1(k,n,m) = 0
-!                  lveg(k,n,m) = iveg1(k,n,m)
-!                end if
-!              end if
-!            end do
           end do
         end do
 #endif
@@ -1195,7 +1224,7 @@
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-      if (debugLevel == 40) then
+      if (debugLevel == 4) then
         write(ofile,70) 'atm_import', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
@@ -1207,6 +1236,15 @@
         call print_matrix_r8(ptr(imin:imax,jmin:jmax), 1, 1,            &
                              localPet, iunit, "PTR/ATM/IMP")
         close(unit=iunit)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
       end if
 !
       end do
@@ -1226,13 +1264,11 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Nullify pointer to make sure that it does not point on a random 
-!     part in the memory 
+!     Deallocate arrays    
 !-----------------------------------------------------------------------
 !
-      if (associated(ptr)) then
-        nullify(ptr)
-      end if
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (allocated(itemTypeList)) deallocate(itemTypeList)
 !
 !-----------------------------------------------------------------------
 !     Format definition 
@@ -1514,6 +1550,13 @@
       end if
 !
       end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (allocated(itemTypeList)) deallocate(itemTypeList)
 !
 !-----------------------------------------------------------------------
 !     Format definition 

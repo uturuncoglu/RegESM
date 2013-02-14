@@ -145,6 +145,17 @@
             line=__LINE__, file=FILENAME)) return
 !
         call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
+                                     label='RestartTime:', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        call ESMF_TimeSet(esmRestartTime,                               &
+                          yy=time(1), mm=time(2), dd=time(3),           &
+                          h=time(4), m=time(5), s=time(6),              &
+                          calkindflag=cflag, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
                                      label='StopTime:', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return

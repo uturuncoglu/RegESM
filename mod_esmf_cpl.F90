@@ -515,15 +515,36 @@
                   trim(GRIDDES(models(idst)%importField(did)%gtype)),   &
                   trim(INTPDES(models(isrc)%exportField(sid)%itype))
       end if
+!
+!-----------------------------------------------------------------------
+!     Garbage collection: destroy fields 
+!-----------------------------------------------------------------------
+!
+!      call ESMF_FieldDestroy(srcFields(i), rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return
+!
+!      call ESMF_FieldDestroy(dstFields(i), rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return      
+!
+!-----------------------------------------------------------------------
+!     Garbage collection: destroy routehandle
+!-----------------------------------------------------------------------
+!
+!      call ESMF_RouteHandleDestroy(routeHandle, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return
       end do
 !
 !-----------------------------------------------------------------------
-!     Deallocate arrays
+!     Deallocate temporary arrays
 !-----------------------------------------------------------------------
 !
       if (allocated(srcFields)) deallocate(srcFields)
       if (allocated(dstFields)) deallocate(dstFields)
       deallocate(srcList)
+      deallocate(dstList)
 !
 !-----------------------------------------------------------------------
 !     Formats 

@@ -3,7 +3,7 @@ psfc:surface_air_pressure:bilinear:cross:mb:mb:1.0:0.0
 tsfc:surface_air_temperature:bilinear:cross:K:C:1.0:-273.15
 qsfc:surface_air_specific_humidity:bilinear:cross:kg/kg:kg/kg:1.0:0.0
 swrd:shortwave_radiation:bilinear:cross:W/m^2:Cm/s:cf2:0.0
-lwrd:longwave_radiation:conservative:cross:W/m^2:Cm/s:-cf2:0.0
+lwrd:longwave_radiation:bilinear:cross:W/m^2:Cm/s:-cf2:0.0
 dlwr:downward_longwave_radiation:bilinear:cross:W/m^2:Cm/s:cf2:0.0
 lhfx:latent_heat_flux:bilinear:cross:W/m^2:Cm/s:cf2:0.0
 shfx:sensible_heat_flux:bilinear:cross:W/m^2:Cm/s:cf2:0.0
