@@ -106,9 +106,11 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, isrc, idst, sid, did, localPet, petCount
-      integer :: itype, cplCount, srcCount, dstCount
-      character(ESMF_MAXSTR) :: cname, msgString
+      logical :: flag
+      integer :: i, j, localPet, petCount
+      integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
+      integer :: cplCount, srcCount, dstCount, itemCount
+      character(ESMF_MAXSTR) :: cname, fname, rname, msgString
       character(ESMF_MAXSTR), pointer :: cplList(:)
       character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
 !
@@ -119,8 +121,8 @@
       type(ESMF_StaggerLoc) :: srcSLoc, dstSLoc
       type(ESMF_UnmappedAction_Flag) :: unmap
       type(ESMF_RegridMethod_Flag) :: regridMethod
-      type(ESMF_Field), allocatable :: srcFields(:), dstFields(:)
-      type(ESMF_RouteHandle), allocatable :: routeHandle(:)
+      type(ESMF_RouteHandle) :: routeHandle
+      type(ESMF_Field) :: srcField, dstField
 !
       type(NUOPC_Type_IS) :: genIS
 !
@@ -141,8 +143,8 @@
       do j = 1, nModels
         if (connectors(i,j)%modActive .and.                             &
             trim(connectors(i,j)%name) == trim(cname)) then       
-          isrc = i
-          idst = j
+          iSrc = i
+          iDst = j
         end if
       end do
       end do
@@ -192,7 +194,6 @@
       allocate(cplList(cplCount))
       allocate(srcList(cplCount))
       allocate(dstList(cplCount))
-      allocate(routeHandle(cplCount))
 !
 !-----------------------------------------------------------------------
 !     Query field lists
@@ -211,20 +212,8 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Query fields from field bundle 
+!     Loop over exchange fields 
 !-----------------------------------------------------------------------
-!
-      if (.not. allocated(srcFields)) allocate(srcFields(srcCount))
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldList=srcFields, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (.not. allocated(dstFields)) allocate(dstFields(dstCount))
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
-                               fieldList=dstFields, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
 !
       do i = 1, cplCount 
 !
@@ -232,25 +221,56 @@
 !     Get source and destination field index 
 !-----------------------------------------------------------------------
 !
-      sid = get_varid(models(isrc)%exportField, srcList(i))
-      did = get_varid(models(idst)%importField, dstList(i))
+      idSrc = get_varid(models(iSrc)%exportField, srcList(i))
+      idDst = get_varid(models(iDst)%importField, dstList(i))
 !
 !-----------------------------------------------------------------------
 !     Get interpolation type 
 !-----------------------------------------------------------------------
 !
-      itype = models(isrc)%exportField(sid)%itype
+      itSrc = models(iSrc)%exportField(idSrc)%itype
+      itDst = models(iDst)%importField(idDst)%itype
+!
+      if (itSrc /= itDst) then
+        write(msgString,'(a)') trim(cname)//                            &
+              ': src and dst field interpolation type does not match!'
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get grid type 
+!-----------------------------------------------------------------------
+!
+      grSrc = models(iSrc)%exportField(idSrc)%gtype
+      grDst = models(iDst)%importField(idDst)%gtype
 !
 !-----------------------------------------------------------------------
 !     Get source and destination field
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldGet(srcFields(i), arrayspec=srcArrSpec,            &
+      fname = trim(models(iSrc)%exportField(idSrc)%short_name)
+!
+      call ESMF_FieldBundleGet(genIS%wrap%srcFields, trim(fname),       &
+                               field=srcField, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldBundleGet(genIS%wrap%dstFields, trim(fname),       &
+                               field=dstField, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get source and destination field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(srcField, arrayspec=srcArrSpec,                &
                          grid=srcGrid, staggerloc=srcSLoc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldGet(dstFields(i), arrayspec=dstArrSpec,            &
+      call ESMF_FieldGet(dstField, arrayspec=dstArrSpec,                &
                          grid=dstGrid, staggerloc=dstSLoc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -259,7 +279,7 @@
 !     Create frac fields for conservative type regridding 
 !-----------------------------------------------------------------------
 !
-      if (itype == Iconsv) then
+      if (itSrc == Iconsv) then
       srcFrac = ESMF_FieldCreate(srcGrid, srcArrSpec,                   &
                                  staggerloc=srcSLoc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -272,48 +292,62 @@
       end if 
 !
 !-----------------------------------------------------------------------
-!     Create routehandle based on selected interpolation type 
+!     Check: routehandle created or not 
 !-----------------------------------------------------------------------
 !
+      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(INTPDES(itSrc))
+!
+      call ESMF_StateGet(genIS%wrap%state,itemSearch='rh_'//trim(rname),&
+                         itemCount=itemCount, rc=rc)
+!
+      flag = .false.
+      if (itemCount <= 0) flag = .true.
+!
+!-----------------------------------------------------------------------
+!     Create routehandle based on selected grid and interpolation type 
+!-----------------------------------------------------------------------
+!
+      if (flag) then
       unmap = ESMF_UNMAPPEDACTION_IGNORE
-      if (itype == Iconsv) then
+      if (itSrc == Iconsv) then
         regridMethod = ESMF_REGRIDMETHOD_CONSERVE
-        call ESMF_FieldRegridStore(srcField=srcFields(i),               &
-                                   dstField=dstFields(i),               &
+        call ESMF_FieldRegridStore(srcField=srcField,                   &
+                                   dstField=dstField,                   &
                                    srcFracField=srcFrac,                &
                                    dstFracField=dstfrac,                &
                                    unmappedaction=unmap,                &
-                                   routeHandle=routeHandle(i),          &
+                                   routeHandle=routeHandle,             &
                                    regridmethod=regridMethod,           &
                                    rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
-      else if (itype == Ibilin) then
+      else if (itSrc == Ibilin) then
         regridMethod = ESMF_REGRIDMETHOD_BILINEAR
-        if (isrc == Iocean) then
-        call ESMF_FieldRegridStore(srcField=srcFields(i),               &
-                                   dstField=dstFields(i),               &
+        if (iSrc == Iocean) then
+        call ESMF_FieldRegridStore(srcField=srcField,                   &
+                                   dstField=dstField,                   &
                                    srcMaskValues=(/0/),                 &
                                    unmappedaction=unmap,                &
-                                   routeHandle=routeHandle(i),          &
+                                   routeHandle=routeHandle,             &
                                    regridmethod=regridMethod,           &
                                    rc=rc)
         else
-        call ESMF_FieldRegridStore(srcField=srcFields(i),               &
-                                   dstField=dstFields(i),               &
+        call ESMF_FieldRegridStore(srcField=srcField,                   &
+                                   dstField=dstField,                   &
                                    unmappedaction=unmap,                &
-                                   routeHandle=routeHandle(i),          &
+                                   routeHandle=routeHandle,             &
                                    regridmethod=regridMethod,           &
                                    rc=rc)
         end if
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
-      else if (itype == Inone) then
+      else if (itSrc == Inone) then
          write(msgString,'(a)') trim(cname)//': no interpolation '//    &
                'needed! skip routehandle generation phase.'
       else
         write(msgString,'(a)') trim(cname)//': selected '//             &
-              'interpolation type is not supported! '//INTPDES(itype)
+              'interpolation type is not supported! '//INTPDES(itSrc)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
@@ -322,11 +356,20 @@
 !     Add name to routehandle    
 !-----------------------------------------------------------------------
 !
-      call ESMF_RouteHandleSet(routeHandle(i), name='rh_'//             &
-                         trim(models(isrc)%exportField(sid)%short_name),&
-                         rc=rc)
+      call ESMF_RouteHandleSet(routeHandle,                             &
+                               name='rh_'//trim(rname), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add routehandle to the state    
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateAdd(genIS%wrap%state, (/ routeHandle /), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end if
 !
 !-----------------------------------------------------------------------
 !     Debug: print out exchange fields    
@@ -334,37 +377,22 @@
 !
       if ((debugLevel > 0) .and. (localPet == 0)) then
       write(*,40) trim(cname),                                          &
-                  trim(models(isrc)%exportField(sid)%short_name),       &
-                  trim(GRIDDES(models(isrc)%exportField(sid)%gtype)),   &
-                  trim(models(idst)%importField(did)%short_name),       &
-                  trim(GRIDDES(models(idst)%importField(did)%gtype)),   &
-                  trim(INTPDES(models(isrc)%exportField(sid)%itype))
+                  trim(models(iSrc)%exportField(idSrc)%short_name),     &
+                  trim(GRIDDES(models(iSrc)%exportField(idSrc)%gtype)), &
+                  trim(models(iDst)%importField(idDst)%short_name),     &
+                  trim(GRIDDES(models(iDst)%importField(idDst)%gtype)), &
+                  trim(INTPDES(models(iSrc)%exportField(idSrc)%itype)), &
+                  flag
       end if
       end do
-!
-!-----------------------------------------------------------------------
-!     Add routehandles to the state    
-!-----------------------------------------------------------------------
-!
-      call ESMF_StateAdd(genIS%wrap%state, routeHandle, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Deallocate arrays 
-!-----------------------------------------------------------------------
-!
-      if (allocated(srcFields)) deallocate(srcFields)
-      if (allocated(dstFields)) deallocate(dstFields)
-      if (allocated(routeHandle)) deallocate(routeHandle)
-      deallocate(cplList, srcList, dstList)
       end if
 !
 !-----------------------------------------------------------------------
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 40   format(A8,': routehandle ',A4,'[',A,'] to ',A4,'[',A,']',' >> ',A)
+ 40   format(A8,': routehandle ',A4,'[',A,'] to ',A4,'[',A,']',         &
+             ' >> ',A, ' - ',L1)
 !
       end subroutine CPL_ComputeRH
 !
@@ -383,14 +411,15 @@
 !-----------------------------------------------------------------------
 !
       integer :: localPet, petCount
-      integer :: i, j, sid, did, isrc, idst, srcCount, dstCount
+      integer :: i, j, srcCount, dstCount
+      integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
       character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
-      character(ESMF_MAXSTR) :: cname
+      character(ESMF_MAXSTR) :: msgString, cname, fname, rname
 !
       type(NUOPC_Type_IS) :: genIS
       type(ESMF_VM) :: vm
       type(ESMF_RouteHandle) :: routeHandle
-      type(ESMF_Field), allocatable :: srcFields(:), dstFields(:)
+      type(ESMF_Field) :: srcField, dstField
 !
       rc = ESMF_SUCCESS
 !
@@ -409,8 +438,8 @@
       do j = 1, nModels
         if (connectors(i,j)%modActive .and.                             &
             trim(connectors(i,j)%name) == trim(cname)) then
-          isrc = i
-          idst = j
+          iSrc = i
+          iDst = j
         end if
       end do
       end do
@@ -456,22 +485,6 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get source and destination fields
-!-----------------------------------------------------------------------
-!
-      if (.not. allocated(srcFields)) allocate(srcFields(srcCount))
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldList=srcFields, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (.not. allocated(dstFields)) allocate(dstFields(dstCount))
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
-                               fieldList=dstFields, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Loop over exchange fields 
 !-----------------------------------------------------------------------
 !
@@ -481,15 +494,54 @@
 !     Get source and destination field index 
 !-----------------------------------------------------------------------
 !
-      sid = get_varid(models(isrc)%exportField, srcList(i))
-      did = get_varid(models(idst)%importField, dstList(i))
+      idSrc = get_varid(models(iSrc)%exportField, srcList(i))
+      idDst = get_varid(models(iDst)%importField, dstList(i))
+!
+!-----------------------------------------------------------------------
+!     Get interpolation type 
+!-----------------------------------------------------------------------
+!
+      itSrc = models(iSrc)%exportField(idSrc)%itype
+      itDst = models(iDst)%importField(idDst)%itype
+!
+      if (itSrc /= itDst) then
+        write(msgString,'(a)') trim(cname)//                            &
+              ': src and dst field interpolation type does not match!'
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get grid type 
+!-----------------------------------------------------------------------
+!
+      grSrc = models(iSrc)%exportField(idSrc)%gtype
+      grDst = models(iDst)%importField(idDst)%gtype
+!
+!-----------------------------------------------------------------------
+!     Get source and destination field
+!-----------------------------------------------------------------------
+!
+      fname = trim(models(iSrc)%exportField(idSrc)%short_name)
+!
+      call ESMF_FieldBundleGet(genIS%wrap%srcFields, trim(fname),       &
+                               field=srcField, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldBundleGet(genIS%wrap%dstFields, trim(fname),       &
+                               field=dstField, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get routehandle from state 
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateGet(genIS%wrap%state, 'rh_'//                      &
-                         trim(models(isrc)%exportField(sid)%short_name),&
+      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(INTPDES(itSrc))
+!
+      call ESMF_StateGet(genIS%wrap%state, 'rh_'//trim(rname),          &
                          routeHandle, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -498,7 +550,7 @@
 !     Perform regrid operation
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldRegrid(srcFields(i), dstFields(i), routeHandle,    &
+      call ESMF_FieldRegrid(srcField, dstField, routeHandle,            &
                             zeroregion=ESMF_REGION_SELECT, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -509,11 +561,11 @@
 !
       if ((debugLevel > 0) .and. (localPet == 0)) then
       write(*,60) trim(cname),                                          &
-                  trim(models(isrc)%exportField(sid)%short_name),       &
-                  trim(GRIDDES(models(isrc)%exportField(sid)%gtype)),   &
-                  trim(models(idst)%importField(did)%short_name),       &
-                  trim(GRIDDES(models(idst)%importField(did)%gtype)),   &
-                  trim(INTPDES(models(isrc)%exportField(sid)%itype))
+                  trim(models(iSrc)%exportField(idSrc)%short_name),     &
+                  trim(GRIDDES(models(iSrc)%exportField(idSrc)%gtype)), &
+                  trim(models(iDst)%importField(idDst)%short_name),     &
+                  trim(GRIDDES(models(iDst)%importField(idDst)%gtype)), &
+                  trim(INTPDES(models(iSrc)%exportField(idSrc)%itype))
       end if
 !
 !-----------------------------------------------------------------------
@@ -541,8 +593,6 @@
 !     Deallocate temporary arrays
 !-----------------------------------------------------------------------
 !
-      if (allocated(srcFields)) deallocate(srcFields)
-      if (allocated(dstFields)) deallocate(dstFields)
       deallocate(srcList)
       deallocate(dstList)
 !
