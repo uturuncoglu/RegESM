@@ -923,7 +923,6 @@
 !
       subroutine ATM_ModelAdvance(gcomp, rc)
       use mod_runparams, only : ifrest, ktau, dtsrf
-      use mod_update, only : importFields
 !
       implicit none
 !
@@ -1286,12 +1285,9 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_bats_common
-      use mod_mppparam , only : ma
-      use mod_constants, only : wlhv
-      use mod_dynparam , only : ice1, ice2, jce1, jce2
-      use mod_dynparam , only : ici1, ici2, jci1, jci2, kz
-      use mod_dynparam , only : global_cross_istart, global_cross_jstart
+      use mod_update, only : exportFields
+      use mod_dynparam, only : ici1, ici2, jci1, jci2
+      use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
 !
@@ -1423,7 +1419,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = (sfps(n,m)+ptop)*d_10
+            ptr(ii,jj) = exportFields%psfc(n,m)
           end do
         end do
       case ('tsfc')
@@ -1431,7 +1427,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = t2m(1,n,m) 
+            ptr(ii,jj) = exportFields%tsfc(n,m) 
           end do
         end do
       case ('qsfc')
@@ -1439,7 +1435,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = q2m(1,n,m)
+            ptr(ii,jj) = exportFields%qsfc(n,m)
           end do
         end do
       case ('lwrd')
@@ -1447,7 +1443,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = flw(n,m)
+            ptr(ii,jj) = exportFields%lwrd(n,m)
           end do
         end do
       case ('dlwr')
@@ -1455,7 +1451,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = flwd(n,m)
+            ptr(ii,jj) = exportFields%dlwr(n,m)
           end do
         end do
       case ('lhfx')
@@ -1463,7 +1459,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = evpr(1,n,m)*wlhv
+            ptr(ii,jj) = exportFields%lhfx(n,m)
           end do
         end do
       case ('shfx')
@@ -1471,7 +1467,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = sent(1,n,m)
+            ptr(ii,jj) = exportFields%shfx(n,m)
           end do
         end do
       case ('prec')
@@ -1479,7 +1475,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = totpr(n,m)
+            ptr(ii,jj) = exportFields%prec(n,m)
           end do
         end do
       case ('wndu')
@@ -1487,7 +1483,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = u10m(1,n,m)
+            ptr(ii,jj) = exportFields%wndu(n,m)
           end do
         end do
       case ('wndv')
@@ -1495,7 +1491,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = v10m(1,n,m)
+            ptr(ii,jj) = exportFields%wndv(n,m)
           end do
         end do
       case ('swrd')
@@ -1503,7 +1499,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = fsw(n,m)
+            ptr(ii,jj) = exportFields%swrd(n,m)
           end do
         end do
       end select
