@@ -103,6 +103,17 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!-----------------------------------------------------------------------
+!     Register finalize routine    
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_FINALIZE,  &
+                                      userRoutine=OCN_SetFinalize,      &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
       end subroutine OCN_SetServices
 !
       subroutine OCN_SetInitializeP1(gcomp, importState, exportState,   &
@@ -1252,6 +1263,41 @@
              A, ' --> ', A, ' [', E12.2, ']')
 !
       end subroutine OCN_ModelAdvance
+!
+      subroutine OCN_SetFinalize(gcomp, importState, exportState,       &
+                                 clock, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Call model finalize routines
+!-----------------------------------------------------------------------
+!
+      call OCN_Finalize()
+!
+      end subroutine OCN_SetFinalize
 !
       subroutine OCN_Get(gcomp, rc)
 !

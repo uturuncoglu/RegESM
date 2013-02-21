@@ -102,6 +102,17 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!-----------------------------------------------------------------------
+!     Register finalize routine    
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_FINALIZE,  &
+                                      userRoutine=ATM_SetFinalize,      &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
       end subroutine ATM_SetServices
 !
       subroutine ATM_SetInitializeP1(gcomp, importState, exportState,   &
@@ -1051,6 +1062,41 @@
              A, ' --> ', A, ' [',E12.2, '-', E12.2, ']')
 !
       end subroutine ATM_ModelAdvance
+!
+      subroutine ATM_SetFinalize(gcomp, importState, exportState,       &
+                                 clock, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Call model finalize routines
+!-----------------------------------------------------------------------
+!
+      call ATM_Finalize()
+!
+      end subroutine ATM_SetFinalize
 !
       subroutine ATM_Get(gcomp, rc)
 !
