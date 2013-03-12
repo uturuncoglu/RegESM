@@ -188,12 +188,21 @@
       select case (trim(petLayoutOption))
       case ('sequential')
         do i = 1, nModels
-          models(i)%nPets = petCount
+          if ((i == Iatmos) .or. (i == Iocean)) then
+            models(i)%nPets = petCount
+          else if (i == Iriver) then
+            models(i)%nPets = 1
+          end if
+!
           if (.not. allocated(models(i)%petList)) then
             allocate(models(i)%petList(models(i)%nPets))
           end if
 !
-          models(i)%petList = (/ (k, k = 0, petCount-1) /)
+          if ((i == Iatmos) .or. (i == Iocean)) then
+            models(i)%petList = (/ (k, k = 0, petCount-1) /)
+          else if (i == Iriver) then
+            models(i)%petList = (/ (k, k = petCount-1, petCount-1) /)
+          end if
         end do 
       case ('concurrent')
         do i = 1, nModels
@@ -283,7 +292,20 @@
 !     Read exchange field table 
 !-----------------------------------------------------------------------
 !
-      call read_field_table('util/exfield0.tbl', localPet, rc)
+      if (models(Iatmos)%modActive .and.                                &
+          models(Iocean)%modActive .and. .not.                          &
+          models(Iriver)%modActive) then
+        call read_field_table('util/exfield0.tbl', localPet, rc)
+      else if (models(Iatmos)%modActive .and.                           &
+               models(Iocean)%modActive .and.                           &
+               models(Iriver)%modActive) then
+        call read_field_table('util/exfield1.tbl', localPet, rc)
+      else
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+             msg='Unknown coupling setup: please activate one of the '//&
+             'following options -> ATM-OCN | ATM-OCN-RTM')
+        return        
+      end if
 !
       end subroutine read_config
 !
@@ -389,7 +411,7 @@
                  adjustl(trim(GRIDDES(models(i)%exportField(m)%gtype))),&
                  adjustl(trim(INTPDES(models(i)%exportField(m)%itype))),&
                  models(i)%exportField(m)%scale_factor,                 &
-                 models(i)%exportField(m)%add_offset, 'exp'
+                 models(i)%exportField(m)%add_offset, COMPDES(i)//'-EXP'
               end if
             end if
             ! check field is already added to the list or not?
@@ -414,7 +436,7 @@
                  adjustl(trim(GRIDDES(models(j)%importField(n)%gtype))),&
                  adjustl(trim(INTPDES(models(j)%importField(n)%itype))),&
                  models(j)%importField(n)%scale_factor,                 &
-                 models(j)%importField(n)%add_offset, 'imp'
+                 models(j)%importField(n)%add_offset, COMPDES(j)//'-IMP'
               end if
             end if
           end do
@@ -429,7 +451,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(2I3,1X,A6,1X,A32,1X,A10,1X,A10,1X,A10,1X,A10,1X,2E15.4,A4)
+ 30   format(2I3,1X,A6,1X,A32,1X,A10,1X,A10,1X,A10,1X,A10,1X,2E15.4,1X,A7)
 !
       end subroutine read_field_table
 !

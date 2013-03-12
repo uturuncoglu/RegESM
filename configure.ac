@@ -61,6 +61,15 @@ AC_CHECK_FILE([$OCN_PREFIX/Build/seaice.o],
               [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_WARN([Compiling with support of ROMS-ICE model])],
                AC_MSG_WARN([Compiling with ROMS model]))
 
+# check RTM
+AC_ARG_WITH([rtm],
+  AC_HELP_STRING([--with-rtm],
+            [Path to RTM model (HD) installation (default: yes)]),
+  [RTM_PREFIX="$withval"], [RTM_PREFIX="${PWD}/src/rtm"]
+)
+AM_CONDITIONAL(DO_COMPILE_LIBRTM, [test -n "$RTM_PREFIX"])
+AC_SUBST(RTM_PREFIX)
+
 # check DEBUG
 DEBUG="0"
 AC_ARG_ENABLE(debug,

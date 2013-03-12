@@ -52,6 +52,15 @@ skip_files  = $(OCN_PREFIX)/Build/master.o
 libocn_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(OCN_PREFIX)/Build/*.o))
 endif
 
+if DO_COMPILE_LIBRTM
+LIBS += -L${PWD} -lrtm
+CPPFLAGS += -I$(RTM_PREFIX)/src
+noinst_LIBRARIES += librtm.a
+librtm_a_SOURCES =
+skip_files  = $(RTM_PREFIX)/src/hdmain.o
+librtm_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(RTM_PREFIX)/src/*.o))
+endif
+
 bin_PROGRAMS = regesm.x
 
 regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_atm.F90 \

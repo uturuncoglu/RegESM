@@ -3,15 +3,6 @@
 #-----------------------------------------------------------------------
 #
 #-----------------------------------------------------------------------
-#     PET distribution of model components (ordered in ATM, OCN, RTM)
-#
-#     Put zero to deactivate the model component. 
-#-----------------------------------------------------------------------
-#
-PETs: 36 24 0
-#PETs: 6 6 0
-#
-#-----------------------------------------------------------------------
 #     PET Layout Option (sequential | concurrent)
 #     <sequential> active models defined on all PETs
 #     <concurrent> active models defined on non-overlapping sets of PETs
@@ -20,8 +11,15 @@ PETs: 36 24 0
 #     Connectors (or coupler) defined on all PETs
 #-----------------------------------------------------------------------
 #
-#PETLayoutOption: concurrent 
-PETLayoutOption: sequential 
+PETLayoutOption: sequential
+#-----------------------------------------------------------------------
+#     PET distribution of model components (ordered in ATM, OCN, RTM)
+#     when 'concurrent' mode activated. i.e. 36 24 0
+#
+#     Put zero to deactivate the model component. 
+#-----------------------------------------------------------------------
+#
+PETs: 8 8 8
 #
 #-----------------------------------------------------------------------
 #     Debug mode
@@ -35,15 +33,17 @@ PETLayoutOption: sequential
 DebugLevel: 1
 #
 #-----------------------------------------------------------------------
-#     Coupled Model
-#     Calendar:
-#     <gregorian>
-#     <noleap>
-#     <360_day> 
+#     Coupled model run information
+#
+#     Calendar   : calendar information (gregorian | noleap | 360_day)
+#     StartTime  : simulation start time (YYYY MM DD hh mm ss)
+#     RestartTime: simulation restart time (YYYY MM DD hh mm ss)
+#     StartTime  : simulation stop time (YYYY MM DD hh mm ss)
+#     TimeStep   : unit coupling time step (YYYY MM DD hh mm ss)
 #-----------------------------------------------------------------------
 #
 Calendar:    gregorian
 StartTime:   1996 01 01 00 00 00
-RestartTime: 2008 12 01 00 00 00
+RestartTime: 1996 01 01 00 00 00 
 StopTime:    2009 01 01 00 00 00
 TimeStep:    0000 00 00 03 00 00
