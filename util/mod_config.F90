@@ -303,7 +303,7 @@
       else
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
              msg='Unknown coupling setup: please activate one of the '//&
-             'following options -> ATM-OCN | ATM-OCN-RTM')
+             'following options -> ATM-OCN or ATM-OCN-RTM')
         return        
       end if
 !
