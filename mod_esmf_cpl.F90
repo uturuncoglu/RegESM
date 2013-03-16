@@ -166,14 +166,17 @@
       call NUOPC_CplCompAttributeGet(ccomp, cplListSize=cplCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
                                fieldCount=srcCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
                                fieldCount=dstCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       if (cplCount /= srcCount .or. cplCount /= dstCount) then
         write(msgString,'(a)') trim(cname)//                            &
               ': cplList count does not agree with FieldBundle counts!'
@@ -202,10 +205,12 @@
       call NUOPC_CplCompAttributeGet(ccomp, cplList=cplList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
                                fieldNameList=srcList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
                                fieldNameList=dstList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -246,7 +251,7 @@
       grDst = models(iDst)%importField(idDst)%gtype
 !
 !-----------------------------------------------------------------------
-!     Get source and destination field
+!     Get source and destination field bundle
 !-----------------------------------------------------------------------
 !
       fname = trim(models(iSrc)%exportField(idSrc)%short_name)
@@ -262,6 +267,14 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Create route handle. Currently two option is supported. 
+!     + route handle to perfrom regridding (field2d -> field2d)
+!     + route handle to redistribute field (field1d -> field2d)
+!-----------------------------------------------------------------------
+!
+      if ((itSrc /= Inone) .and. (itDst /= Inone)) then
+!
+!-----------------------------------------------------------------------
 !     Get source and destination field
 !-----------------------------------------------------------------------
 !
@@ -273,7 +286,7 @@
       call ESMF_FieldGet(dstField, arrayspec=dstArrSpec,                &
                          grid=dstGrid, staggerloc=dstSLoc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+         line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Create frac fields for conservative type regridding 
@@ -290,6 +303,22 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
       end if 
+!
+      else
+!
+!-----------------------------------------------------------------------
+!     Get source and destination field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(srcField, arrayspec=srcArrSpec, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldGet(dstField, arrayspec=dstArrSpec, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+      end if
 !
 !-----------------------------------------------------------------------
 !     Check: routehandle created or not 
@@ -343,8 +372,10 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else if (itSrc == Inone) then
-         write(msgString,'(a)') trim(cname)//': no interpolation '//    &
-               'needed! skip routehandle generation phase.'
+        call ESMF_FieldRedistStore(srcField, dstField,                  &
+                                   routehandle=routeHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
       else
         write(msgString,'(a)') trim(cname)//': selected '//             &
               'interpolation type is not supported! '//INTPDES(itSrc)
@@ -384,6 +415,7 @@
                   trim(INTPDES(models(iSrc)%exportField(idSrc)%itype)), &
                   flag
       end if
+!
       end do
       end if
 !
@@ -410,6 +442,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      integer :: srcValueList(9), dstValueList(9)
       integer :: localPet, petCount
       integer :: i, j, srcCount, dstCount
       integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
@@ -546,6 +579,8 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
+      if ((itSrc /= Inone) .and. (itDst /= Inone)) then
+!
 !-----------------------------------------------------------------------
 !     Perform regrid operation
 !-----------------------------------------------------------------------
@@ -554,6 +589,17 @@
                             zeroregion=ESMF_REGION_SELECT, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+      else
+!
+!-----------------------------------------------------------------------
+!     Redistribute data from source component to destination 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldRedist(srcField, dstField,                         &
+                            routehandle=routeHandle, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Debug: print out exchange fields    
@@ -569,24 +615,33 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Garbage collection: destroy fields 
+!     Debug: print out import/export fields time stamp info    
 !-----------------------------------------------------------------------
 !
-!      call ESMF_FieldDestroy(srcFields(i), rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return
+      if ((debugLevel > 0) .and. (localPet == 0)) then
+        call ESMF_AttributeGet(srcField, name="TimeStamp",              &
+                               valueList=srcValueList,                  &
+                               convention="NUOPC", purpose="General",   &
+                               rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
 !
-!      call ESMF_FieldDestroy(dstFields(i), rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return      
+        call ESMF_AttributeGet(dstField, name="TimeStamp",              &
+                               valueList=dstValueList,                  &
+                               convention="NUOPC", purpose="General",   &
+                               rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
 !
-!-----------------------------------------------------------------------
-!     Garbage collection: destroy routehandle
-!-----------------------------------------------------------------------
+        write(*,50) trim(cname),                                        &
+                    trim(models(iSrc)%exportField(idSrc)%short_name),   &
+                    srcValueList(1), srcValueList(2), srcValueList(3),  &
+                    srcValueList(4), srcValueList(5),                   &
+                    trim(models(iDst)%importField(idDst)%short_name),   &
+                    dstValueList(1), dstValueList(2), dstValueList(3),  &
+                    dstValueList(4), dstValueList(5)
+      end if
 !
-!      call ESMF_RouteHandleDestroy(routeHandle, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return
       end do
 !
 !-----------------------------------------------------------------------
@@ -600,7 +655,10 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 60   format(A8,': regrid ',A4,'[',A,'] to ',A4,'[',A,']',' >> ',A)
+ 50   format(A8,': tstamp ',A4,' [',I4,'-',I2.2,'-',                    &
+             I2.2,'_',I2.2,'_',I2.2,'] to ',A4,' [',I4,'-',I2.2,'-',    &
+             I2.2,'_',I2.2,'_',I2.2,']')
+ 60   format(A8,': regrid ',A4,' [',A,'] to ',A4,' [',A,']',' >> ',A)
 !
       end subroutine CPL_ExecuteRH
 !

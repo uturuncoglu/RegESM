@@ -31,8 +31,14 @@
       use ESMF
       use NUOPC
       use NUOPC_Model, only :                                           &
-          NUOPC_SetServices       => routine_SetServices,               &
-          NUOPC_Label_Advance     => label_Advance
+          NUOPC_SetServices          => routine_SetServices,            &
+          NUOPC_Routine_Run          => routine_Run,                    &
+          NUOPC_Type_IS              => type_InternalState,             &
+          NUOPC_Label_IS             => label_InternalState,            &
+          NUOPC_Label_Advance        => label_Advance,                  &
+          NUOPC_Label_SetClock       => label_SetClock,                 &
+          NUOPC_Label_SetRunClock    => label_SetRunClock,              &
+          NUOPC_Label_CheckImport    => label_CheckImport
 !
       use mod_types
       use mod_utils
@@ -41,7 +47,6 @@
           OCN_Initialize => ROMS_initialize,                            &
           OCN_Run        => ROMS_run,                                   &
           OCN_Finalize   => ROMS_finalize
-      use mod_forces, only : FORCES
 !
       implicit none
       private
@@ -51,6 +56,15 @@
 !-----------------------------------------------------------------------
 !
       public :: OCN_SetServices
+!
+      type type_InternalStateStruct
+        type(ESMF_Clock) :: slowClock
+        type(ESMF_Clock) :: fastClock
+      end type
+!
+      type type_InternalState
+        type(type_InternalStateStruct), pointer :: wrap
+      end type
 !
       contains
 !
@@ -95,11 +109,47 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Attach specializing method(s)   
+!     Attach specializing methods for RUN: FAST (phase 2)  
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN,           &
+                                      userRoutine=NUOPC_Routine_Run,    &
+                                      phase=1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetRunClock,         &
+                          index=1, userRoutine=OCN_SetRunClockF, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Attach specializing methods for RUN: SLOW (phase 1)  
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN,           &
+                                      userRoutine=NUOPC_Routine_Run,    &
+                                      phase=2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetRunClock,         &
+                          index=2, userRoutine=OCN_SetRunClockS, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Attach phase independent specializing methods
+!     Setting the slow and fast model clocks 
 !-----------------------------------------------------------------------
 !
       call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
                           userRoutine=OCN_ModelAdvance, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetClock,            &
+                          userRoutine=OCN_SetClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -134,7 +184,8 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i
+      integer :: i, stat
+      type(type_InternalState)  :: locIS
 !
       rc = ESMF_SUCCESS
 !
@@ -161,6 +212,19 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end do
+!
+!-----------------------------------------------------------------------
+!     Allocate memory for the internal state and set it in the component 
+!-----------------------------------------------------------------------
+!
+      allocate(locIS%wrap, stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat,                   &
+          msg="Allocation of internal state memory failed.",            &
+          line=__LINE__, file=FILENAME, rcToReturn=rc)) return
+!
+      call ESMF_GridCompSetInternalState(gcomp, locIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
 !
       end subroutine OCN_SetInitializeP1
 !
@@ -236,14 +300,6 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Set-up internal clock for gridded component
-!-----------------------------------------------------------------------
-!
-      call OCN_SetClock(gcomp, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Set-up grid and load coordinate data 
 !-----------------------------------------------------------------------
 !
@@ -276,6 +332,112 @@
 !
       end subroutine OCN_SetInitializeP2
 !
+      subroutine OCN_SetRunClockF(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(NUOPC_Type_IS) :: genIS
+      type(type_InternalState)  :: locIS
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(locIS%wrap)
+      call ESMF_GridCompGetInternalState(gcomp, locIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set fast clock to be the component clock 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompSet(gcomp, clock=locIS%wrap%fastClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Check and set the model clock against the driver clock 
+!-----------------------------------------------------------------------
+!
+      nullify(genIS%wrap)
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Label_IS,         &
+                                         genIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_GridCompCheckSetClock(gcomp,                           &
+                                       genIS%wrap%driverClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end subroutine OCN_SetRunClockF
+!
+      subroutine OCN_SetRunClockS(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(NUOPC_Type_IS) :: genIS
+      type(type_InternalState)  :: locIS
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(locIS%wrap)
+      call ESMF_GridCompGetInternalState(gcomp, locIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set fast clock to be the component clock 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompSet(gcomp, clock=locIS%wrap%slowClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Check and set the model clock against the driver clock 
+!-----------------------------------------------------------------------
+!
+      nullify(genIS%wrap)
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Label_IS,         &
+                                         genIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_GridCompCheckSetClock(gcomp,                           &
+                                       genIS%wrap%driverClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end subroutine OCN_SetRunClockS
+!
       subroutine OCN_SetClock(gcomp, rc)
 !
 !-----------------------------------------------------------------------
@@ -298,7 +460,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: ng
+      integer :: ng, fac1, fac2, maxdiv
       integer :: ref_year,   str_year,   end_year
       integer :: ref_month,  str_month,  end_month
       integer :: ref_day,    str_day,    end_day
@@ -312,8 +474,18 @@
       type(ESMF_TimeInterval) :: timeStep
       type(ESMF_Time) :: refTime, startTime, stopTime
       type(ESMF_Calendar) :: cal   
+      type(type_InternalState) :: locIS
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(locIS%wrap)
+      call ESMF_GridCompGetInternalState(gcomp, locIS, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Create gridded component clock 
@@ -432,30 +604,45 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Set time interval
-!-----------------------------------------------------------------------
-!
-!      call ESMF_TimeIntervalSet(timeStep, s=int(minval(dt)), rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Create component clock
 !-----------------------------------------------------------------------
 !
-      clock = ESMF_ClockCreate(name='ocn_clock', refTime=refTime,       &
-!                               timeStep=timeStep, startTime=startTime,  &
-                               timeStep=esmTimeStep, startTime=startTime,  &
+      clock = ESMF_ClockCreate(name='ocn_clock',                        &
+                               refTime=refTime,                         &
+                               timeStep=esmTimeStep,                    &
+                               startTime=startTime,                     &
                                stopTime=stopTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Add clock to component
+!     Set internal component clock
+!     + slowClock is an alias to the current component clock
 !-----------------------------------------------------------------------
 !
-!      call NUOPC_GridCompSetClock(gcomp, clock, timeStep, rc=rc)
-      call NUOPC_GridCompSetClock(gcomp, clock, esmTimeStep, rc=rc)
+      locIS%wrap%slowClock = clock
+!
+      call NUOPC_GridCompSetClock(gcomp, clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set internal component clock
+!     + fastClock is an alias to the current component clock
+!     + modify its timeStep by dividing to ratio
+!-----------------------------------------------------------------------
+!
+      locIS%wrap%fastClock = clock
+!
+      call ESMF_ClockGet(clock, timeStep=timeStep, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      fac1 = maxval(connectors(Iocean,:)%divDT,mask=models(:)%modActive)
+      fac2 = maxval(connectors(:,Iocean)%divDT,mask=models(:)%modActive)
+      maxdiv = max(fac1, fac2)
+!
+      call ESMF_ClockSet(clock, timeStep=timeStep/maxdiv, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -495,7 +682,6 @@
       integer, pointer :: ptrM(:,:)
       character(ESMF_MAXSTR) :: cname, name, msgString
 !
-      type(ESMF_ArraySpec) :: arraySpec
       type(ESMF_StaggerLoc) :: staggerLoc
       type(ESMF_DistGrid) :: distGrid
 !
@@ -564,15 +750,6 @@
 !-----------------------------------------------------------------------
 !
       if (allocated(deBlockList)) deallocate(deBlockList) 
-!
-!-----------------------------------------------------------------------
-!     Set array descriptor
-!-----------------------------------------------------------------------
-!
-      call ESMF_ArraySpecSet(arraySpec, typekind=ESMF_TYPEKIND_R8,      &
-                             rank=2, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Define component grid (dot and cross points)
@@ -842,7 +1019,6 @@
       real*8, dimension(:,:), pointer :: ptr
 !
       type(ESMF_VM) :: vm
-      type(ESMF_Clock) :: clock
       type(ESMF_Field) :: field
       type(ESMF_ArraySpec) :: arraySpec
       type(ESMF_StaggerLoc) :: staggerLoc 
@@ -854,7 +1030,7 @@
 !     Check number of nested grids 
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompGet(gcomp, clock=clock, importState=importState,&
+      call ESMF_GridCompGet(gcomp, importState=importState,             &
                             exportState=exportState, vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1015,9 +1191,9 @@
 !     on all the Fields in export state 
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateSetTimestamp(exportState, clock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call NUOPC_StateSetTimestamp(exportState, clock, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get list of import fields 
@@ -1130,9 +1306,9 @@
 !     on all the Fields in import state 
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateSetTimestamp(importState, clock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call NUOPC_StateSetTimestamp(importState, clock, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
       end subroutine OCN_SetStates
 !
@@ -1159,7 +1335,7 @@
 !-----------------------------------------------------------------------
 !
       real*8 :: trun
-      integer :: localPet, petCount
+      integer :: localPet, petCount, phase, fac1, fac2, maxdiv
       character(ESMF_MAXSTR) :: str1, str2
 !     
       type(ESMF_VM) :: vm
@@ -1175,7 +1351,8 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_GridCompGet(gcomp, clock=clock, importState=importState,&
-                            exportState=exportState, vm=vm, rc=rc)
+                            exportState=exportState, currentPhase=phase,&
+                            vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1196,7 +1373,10 @@
 !     Get time interval 
 !-----------------------------------------------------------------------
 !
-      call ESMF_TimeIntervalGet(timeStep, s_r8=trun, rc=rc)
+      fac1 = maxval(connectors(Iocean,:)%divDT,mask=models(:)%modActive)
+      fac2 = maxval(connectors(:,Iocean)%divDT,mask=models(:)%modActive)
+      maxdiv = max(fac1, fac2)
+      call ESMF_TimeIntervalGet(esmTimeStep/maxdiv, s_r8=trun, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1210,15 +1390,15 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_TimeGet(currTime+esmTimeStep,                         &
+        call ESMF_TimeGet(currTime+(esmTimeStep/maxdiv),                &
                           timeStringISOFrac=str2, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
         if (debugLevel == 1) then
-          write(*,40) trim(str1), trim(str2)
+          write(*,40) trim(str1), trim(str2), phase
         else
-          write(*,50) trim(str1), trim(str2), trun-minval(dt)
+          write(*,50) trim(str1), trim(str2), phase, trun-minval(dt)
         end if
       end if
 !
@@ -1258,9 +1438,9 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 40   format(' Running OCN Component: ', A, ' --> ', A)
- 50   format(' Running OCN Component: ',                                &
-             A, ' --> ', A, ' [', E12.2, ']')
+ 40   format(' Running OCN Component: ',A,' --> ',A,' Phase: ',I1)
+ 50   format(' Running OCN Component: ',A,' --> ',A,' Phase: ',I1,      &
+             ' [', E12.2, ']')
 !
       end subroutine OCN_ModelAdvance
 !

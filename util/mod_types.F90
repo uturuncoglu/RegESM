@@ -17,6 +17,8 @@
 !
 !-----------------------------------------------------------------------
 !
+#define FILENAME "util/mod_types.F90" 
+!
 !-----------------------------------------------------------------------
 !     Module for user defined types 
 !-----------------------------------------------------------------------
@@ -55,9 +57,6 @@
       type ESM_Mesh
         integer :: gid
         integer :: gtype
-        !type(ESM_Field) :: lat
-        !type(ESM_Field) :: lon
-        !type(ESM_Field) :: mask
       end type ESM_Mesh
 !
 !-----------------------------------------------------------------------
@@ -66,6 +65,7 @@
 !
       type ESM_Model
         character(len=7) :: name
+        integer :: divDT 
         integer :: nPets
         logical :: modActive
         integer, allocatable :: petList(:) 
@@ -88,6 +88,12 @@
       type(ESM_Model), allocatable, target :: connectors(:,:)
 !
 !-----------------------------------------------------------------------
+!     Number of gridded component or model
+!-----------------------------------------------------------------------
+!
+      integer :: nModels
+!
+!-----------------------------------------------------------------------
 !     ESM model indices
 !-----------------------------------------------------------------------
 !
@@ -108,26 +114,28 @@
 !-----------------------------------------------------------------------
 !
       character(len=6) :: GRIDDES(0:4) = (/'N/A','CROSS','DOT','U','V'/)
-      integer :: Inan    = 0
-      integer :: Icross  = 1
-      integer :: Idot    = 2
-      integer :: Iupoint = 3
-      integer :: Ivpoint = 4
+      integer, parameter :: Inan    = 0
+      integer, parameter :: Icross  = 1
+      integer, parameter :: Idot    = 2
+      integer, parameter :: Iupoint = 3
+      integer, parameter :: Ivpoint = 4
 !
 !-----------------------------------------------------------------------
 !     Interpolation type        
 !-----------------------------------------------------------------------
 !
       character(len=4) :: INTPDES(0:2) = (/'NONE','BLIN','CONS'/)
-      integer :: Inone  = 0 
-      integer :: Ibilin = 1 
-      integer :: Iconsv = 2
+      integer, parameter :: Inone  = 0 
+      integer, parameter :: Ibilin = 1 
+      integer, parameter :: Iconsv = 2
 !
 !-----------------------------------------------------------------------
-!     Number of gridded component or model
+!     Running mode        
 !-----------------------------------------------------------------------
 !
-      integer :: nModels
+      character(len=10) :: RUNNDES(2) = (/'SEQUENTIAL','CONCURENT'/)
+      integer, parameter :: Iseq = 1
+      integer, parameter :: Ipar = 2
 !
 !-----------------------------------------------------------------------
 !     ESM model parameters
@@ -135,13 +143,16 @@
 !
       character(ESMF_MAXSTR) :: config_fname="namelist.rc"
       character(ESMF_MAXSTR) :: petLayoutOption
-      integer :: debugLevel
-      logical :: restarted
       type(ESMF_Time) :: esmStartTime
       type(ESMF_Time) :: esmRestartTime
       type(ESMF_Time) :: esmStopTime
       type(ESMF_TimeInterval) :: esmTimeStep
       type(ESMF_Calendar) :: esmCal
+      type(ESMF_Clock) :: esmClock
+!
+      integer :: runMod
+      integer :: debugLevel
+      logical :: restarted
 !
 !-----------------------------------------------------------------------
 !     Constants 
@@ -155,6 +166,7 @@
       real*8, parameter :: mm2m = 1.0d0/1000.0d0
 !
       real*8, parameter :: MISSING_R8 = 1.0d20
+      real  , parameter :: MISSING_R4 = 1.0e20
 !
       contains
 !

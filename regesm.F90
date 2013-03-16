@@ -19,7 +19,7 @@
 #define FILENAME "regesm.F90"
 !
 !-----------------------------------------------------------------------
-!     RegESM (REGional Earth System Model) Application Driver 
+!     RegESM (REGional Earth System Model) Application
 !-----------------------------------------------------------------------
 !
       program regesm
@@ -130,13 +130,13 @@
 !     Finalize component 
 !-----------------------------------------------------------------------
 !
-!      call ESMF_GridCompFinalize(esmComp, userRc=urc, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=__FILE__))                                &
-!          call ESMF_Finalize(endflag=ESMF_END_ABORT)
-!      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
-!          line=__LINE__, file=__FILE__))                                &
-!          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      call ESMF_GridCompFinalize(esmComp, userRc=urc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU,   &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
 ! 
 !-----------------------------------------------------------------------
 !     Finalize ESMF framework 

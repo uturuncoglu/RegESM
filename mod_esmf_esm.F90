@@ -205,8 +205,9 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, urc
-      type(ESMF_Clock) :: clock
+      integer :: i, j, maxdiv, urc
+      character(len=13) :: cname
+      type(ESMF_Clock) :: iclock
       type(NUOPC_Type_IS) :: genIS
 !
       rc = ESMF_SUCCESS
@@ -231,21 +232,11 @@
                                 name=models(i)%name, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
-!
-          if (debugLevel > 1) then
-          call ESMF_AttributeSet(genIS%wrap%modelComp(i),               &
-                                 name="Verbosity",                      &
-                                 value="high",                          &
-                                 convention="NUOPC",                    &
-                                 purpose="General", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-              line=__LINE__, file=FILENAME)) return
-          end if
         end if
       end do
 !
 !-----------------------------------------------------------------------
-!     Create connector (coupled) components
+!     Create connector (coupler) components
 !-----------------------------------------------------------------------
 !
       do i = 1, nModels
@@ -256,17 +247,6 @@
             if (ESMF_LogFoundError(rcToCheck=rc,                        &
                 msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
                 return
-!
-            if (debugLevel > 1) then
-            call ESMF_AttributeSet(genIS%wrap%connectorComp(i,j),       &
-                                   name="Verbosity",                    &
-                                   value="high",                        &
-                                   convention="NUOPC",                  &
-                                   purpose="General", rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc,                        &
-                msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
-                return
-            end if
           end if
         end do
       end do
@@ -290,7 +270,7 @@
                                           RTM_SetServices,              &
                                           userRc=urc, rc=rc)
           end if
-
+!
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
                                  line=__LINE__, file=FILENAME)) return
           if (ESMF_LogFoundError(rcToCheck=urc,msg=ESMF_LOGERR_PASSTHRU,&
@@ -319,7 +299,9 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Set internal model clock 
+!     Set internal clock for application (ESM or driver) component 
+!     The ESM time step must be set to the longest time interval of
+!     the connector components
 !-----------------------------------------------------------------------
 !
       restarted = .false.
@@ -328,56 +310,158 @@
       end if
 !
       if (restarted) then
-        clock = ESMF_ClockCreate(esmTimeStep,                           &
-                                 esmRestartTime,                        &
-                                 stopTime=esmStopTime,                  &
-                                 name='esm_clock', rc=rc)
+        esmClock = ESMF_ClockCreate(esmTimeStep,                        &
+                                    esmRestartTime,                     &
+                                    stopTime=esmStopTime,               &
+                                    name='ESM_clock', rc=rc)
       else
-        clock = ESMF_ClockCreate(esmTimeStep,                           &
-                                 esmStartTime,                          &
-                                 stopTime=esmStopTime,                  &
-                                 name='esm_clock', rc=rc)
+        esmClock = ESMF_ClockCreate(esmTimeStep,                        &
+                                    esmStartTime,                       &
+                                    stopTime=esmStopTime,               &
+                                    name='ESM_clock', rc=rc)
       end if
+!
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridCompSet(gcomp, clock=clock, rc=rc)
+      call ESMF_GridCompSet(gcomp, clock=esmClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !  
 !-----------------------------------------------------------------------
-!     Change default run sequence 
+!     Change default run sequence. Currently, two options are supported:
+!     - single runSeq for ATM-OCN coupling
+!     - multiple (2) runSeq for ATM-OCN-RTM coupling
+!       + fast processes (ATM-OCN and OCN-ATM coupling) i.e. 3-hr
+!       + slow processes (ATM-RTM and RTM-OCN coupling) i.e. 1-day
 !-----------------------------------------------------------------------
 !
       call NUOPC_RunSequenceDeallocate(genIS%wrap%runSeq, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!  
+!-----------------------------------------------------------------------
+!     ATM and OCN model components are activated
+!-----------------------------------------------------------------------
 !
-      call NUOPC_RunSequenceAdd(genIS%wrap%runSeq, 1, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+      if (models(Iatmos)%modActive .and.                                &
+          models(Iocean)%modActive .and. .not.                          &
+          models(Iriver)%modActive) then
+        call NUOPC_RunSequenceAdd(genIS%wrap%runSeq, 1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
 !
-      do i = 1, nModels
-      do j = 1, nModels
-        if (connectors(i,j)%modActive) then      
-          call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                &
-                                   i=i, j=j, phase=1, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-                                 line=__LINE__, file=FILENAME)) return
-        end if
-      end do
-      end do
+        do i = 1, nModels
+          do j = 1, nModels
+            if (connectors(i,j)%modActive) then      
+              call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),            &
+                                       i=i, j=j, phase=1, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc,                      &
+                                     msg=ESMF_LOGERR_PASSTHRU,          &
+                                     line=__LINE__,                     &
+                                     file=FILENAME)) return
+            end if
+          end do
+        end do
 !
-      do i = 1, nModels
-        if (models(i)%modActive) then
-          call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                &
-                                   i=i, j=-1, phase=1, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-              line=__LINE__, file=FILENAME)) return
-        end if
-      end do
+        do i = 1, nModels
+          if (models(i)%modActive) then
+            call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),              &
+                                     i=i, j=-1, phase=1, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc,                        &
+                                   msg=ESMF_LOGERR_PASSTHRU,&
+                                   line=__LINE__, file=FILENAME)) return
+          end if
+        end do
 !
-      call NUOPC_RunSequencePrint(genIS%wrap%runSeq(1))
+        call NUOPC_RunSequencePrint(genIS%wrap%runSeq(1), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!  
+!-----------------------------------------------------------------------
+!     ATM, OCN and RTM model components are activated
+!     Two runSeq are defined. runSeq(1) is for slow processes and 
+!     runSeq(2) is for fast processes (ATM-OCN coupling)
+!-----------------------------------------------------------------------
+!
+      else if (models(Iatmos)%modActive .and.                           &
+               models(Iocean)%modActive .and.                           &
+               models(Iriver)%modActive) then
+        call NUOPC_RunSequenceAdd(genIS%wrap%runSeq, 2, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iatmos, j=Iriver, phase=1, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iriver, j=Iocean, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=-2, j=0, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),                  &
+                                 i=Iriver, j=-1, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        maxdiv = max(connectors(Iatmos,Iocean)%divDT,                   &
+                     connectors(Iocean,Iatmos)%divDT) 
+        cname = trim(connectors(Iatmos,Iocean)%name)//'_clock'
+!
+        if (restarted) then
+          iclock = ESMF_ClockCreate(esmTimeStep/maxdiv,                 &
+                                    esmRestartTime,                     &
+                                    stopTime=esmStopTime,               &
+                                    name=trim(cname), rc=rc)
+        else
+          iclock = ESMF_ClockCreate(esmTimeStep/maxdiv,                 &
+                                    esmStartTime,                       &
+                                    stopTime=esmStopTime,               &
+                                    name=trim(cname), rc=rc)
+        end if       
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunSequenceSet(genIS%wrap%runSeq(2), iclock, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(2),                  &
+                             i=Iatmos, j=Iocean, phase=1, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(2),                  &
+                             i=Iocean, j=Iatmos, phase=1, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(2),                  &
+                             i=Iatmos, j=-1, phase=1, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunElementAdd(genIS%wrap%runSeq(2),                  &
+                             i=Iocean, j=-1, phase=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_RunSequencePrint(genIS%wrap%runSeq, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      else
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+             msg='Unknown coupling setup: please activate one of the '//&
+             'following options -> ATM-OCN or ATM-OCN-RTM')
+        return
+      end if
 !
       end subroutine ESM_SetModelServices
 !

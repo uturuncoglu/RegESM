@@ -74,119 +74,154 @@
       inquire(file=trim(config_fname), exist=file_exists)
 !
       if (file_exists) then
-        cf = ESMF_ConfigCreate(rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_ConfigLoadFile(cf, trim(config_fname), rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+      cf = ESMF_ConfigCreate(rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigLoadFile(cf, trim(config_fname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get run mode (concurent vs. sequential) 
+!-----------------------------------------------------------------------
+! 
+      call ESMF_ConfigFindLabel(cf, 'PETLayoutOption:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigGetAttribute(cf, petLayoutOption, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      runMod = Iseq
+      if (trim(petLayoutOption) == 'concurent') runMod = Ipar
+      if (localPet == 0) then
+        write(*, fmt='(A12,A)') "PET Layout: ", trim(RUNNDES(runMod)) 
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get number of component (or model) 
+!-----------------------------------------------------------------------
 !        
-        nModels = ESMF_ConfigGetLen(cf, label='PETs:', rc=rc)
+      nModels = ESMF_ConfigGetLen(cf, label='PETs:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (nModels .gt. 0) then
+        if (.not. allocated(models)) allocate(models(nModels))
+      end if
+!
+!-----------------------------------------------------------------------
+!     Set active components (if nPets > 0 active otherwise not) 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigFindLabel(cf, 'PETs:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      do i = 1, nModels
+        call ESMF_ConfigGetAttribute(cf, models(i)%nPets, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
-        if (nModels .gt. 0) then
-          if (.not. allocated(models)) allocate(models(nModels))
+        ! check: river routing model uses single PET      
+        if (i == iriver .and. models(i)%nPets > 0) models(i)%nPets = 1
+!
+        if (i == Iatmos) then
+          models(i)%name = "ATM"
+        else if (i == Iocean) then
+          models(i)%name = "OCN"
+        else if (i == Iriver) then
+          models(i)%name = "RTM"
         end if
 !
-        call ESMF_ConfigFindLabel(cf, 'PETs:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-
-        do i = 1, nModels
-          call ESMF_ConfigGetAttribute(cf, models(i)%nPets, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-              line=__LINE__, file=FILENAME)) return
-
-          if (i .eq. Iatmos) then
-            models(i)%name = "ATM"
-          else if (i .eq. Iocean) then
-            models(i)%name = "OCN"
-          else if (i .eq. Iriver) then
-            models(i)%name = "RTM"
-          end if
-
-          models(i)%modActive = .false.
-          if (models(i)%nPets > 0) models(i)%modActive = .true.
-        end do
-
-        call ESMF_ConfigFindLabel(cf, 'PETLayoutOption:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-
-        call ESMF_ConfigGetAttribute(cf, petLayoutOption, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        if (localPet == 0) then
-          write(*, fmt='(A12,A)') "PET Layout: ", trim(petLayoutOption)
-        end if
+        models(i)%modActive = .false.
+        if (models(i)%nPets > 0) models(i)%modActive = .true.
+      end do
 !
-        call ESMF_ConfigGetAttribute(cf, debugLevel,                    &
-                                     label='DebugLevel:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+!-----------------------------------------------------------------------
+!     Set debug level 
+!-----------------------------------------------------------------------
 !
-        call ESMF_ConfigGetAttribute(cf, str, label='Calendar:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        if (trim(str) == 'gregorian') cflag = ESMF_CALKIND_GREGORIAN
-        if (trim(str) == 'noleap'   ) cflag = ESMF_CALKIND_NOLEAP
-        if (trim(str) == '360_day'  ) cflag = ESMF_CALKIND_360DAY
+      call ESMF_ConfigGetAttribute(cf, debugLevel,                      &
+                                   label='DebugLevel:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
-                                     label='StartTime:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        call ESMF_TimeSet(esmStartTime,                                 &
-                          yy=time(1), mm=time(2), dd=time(3),           &
-                          h=time(4), m=time(5), s=time(6),              &
-                          calkindflag=cflag, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+!-----------------------------------------------------------------------
+!     Set calendar 
+!-----------------------------------------------------------------------
 !
-        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
-                                     label='RestartTime:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        call ESMF_TimeSet(esmRestartTime,                               &
-                          yy=time(1), mm=time(2), dd=time(3),           &
-                          h=time(4), m=time(5), s=time(6),              &
-                          calkindflag=cflag, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+      call ESMF_ConfigGetAttribute(cf, str, label='Calendar:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
-                                     label='StopTime:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        call ESMF_TimeSet(esmStopTime,                                  &
-                          yy=time(1), mm=time(2), dd=time(3),           &
-                          h=time(4), m=time(5), s=time(6),              &
-                          calkindflag=cflag, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+      if (trim(str) == 'gregorian') cflag = ESMF_CALKIND_GREGORIAN
+      if (trim(str) == 'noleap'   ) cflag = ESMF_CALKIND_NOLEAP
+      if (trim(str) == '360_day'  ) cflag = ESMF_CALKIND_360DAY
 !
-        call ESMF_ConfigGetAttribute(cf, time, count=6,                 &
-                                     label='TimeStep:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        esmCal = ESMF_CalendarCreate(cflag, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        call ESMF_TimeIntervalSet(esmTimeStep, calendar=esmCal,         &
-                                  yy=time(1), mm=time(2), d=time(3),    &
-                                  h=time(4), m=time(5), s=time(6),      &
-                                  rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+      esmCal = ESMF_CalendarCreate(cflag, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set application clock 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigGetAttribute(cf, time, count=6,                   &
+                                   label='StartTime:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      call ESMF_TimeSet(esmStartTime,                                   &
+                        yy=time(1), mm=time(2), dd=time(3),             &
+                        h=time(4), m=time(5), s=time(6),                &
+                        calkindflag=cflag, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigGetAttribute(cf, time, count=6,                   &
+                                   label='RestartTime:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      call ESMF_TimeSet(esmRestartTime,                                 &
+                        yy=time(1), mm=time(2), dd=time(3),             &
+                        h=time(4), m=time(5), s=time(6),                &
+                        calkindflag=cflag, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigGetAttribute(cf, time, count=6,                   &
+                                   label='StopTime:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      call ESMF_TimeSet(esmStopTime,                                    &
+                        yy=time(1), mm=time(2), dd=time(3),             &
+                        h=time(4), m=time(5), s=time(6),                &
+                        calkindflag=cflag, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigGetAttribute(cf, time, count=6,                   &
+                                   label='TimeStep:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      call ESMF_TimeIntervalSet(esmTimeStep, calendar=esmCal,           &
+                                yy=time(1), mm=time(2), d=time(3),      &
+                                h=time(4), m=time(5), s=time(6),        &
+                                rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
       end if
 !
 !-----------------------------------------------------------------------
 !     Assign PETs to model components 
+!     River routing model uses latest PET of the ATM component
 !-----------------------------------------------------------------------
 !
-      select case (trim(petLayoutOption))
-      case ('sequential')
+      select case (runMod)
+      case (iseq) ! sequential
         do i = 1, nModels
           if ((i == Iatmos) .or. (i == Iocean)) then
             models(i)%nPets = petCount
@@ -204,7 +239,7 @@
             models(i)%petList = (/ (k, k = petCount-1, petCount-1) /)
           end if
         end do 
-      case ('concurrent')
+      case (ipar) ! concurent
         do i = 1, nModels
           if (.not. allocated(models(i)%petList)) then
             allocate(models(i)%petList(models(i)%nPets))
@@ -214,16 +249,11 @@
             if (i .eq. Iatmos) then
               models(i)%petList(j) = j-1
             else if (i .eq. Iocean) then
-              k = ubound(models(Iocean-1)%petList, dim=1)
-              models(i)%petList(j) = models(Iocean-1)%petList(k)+j
+              k = ubound(models(Iatmos)%petList, dim=1)
+              models(i)%petList(j) = models(Iatmos)%petList(k)+j
             else if (i .eq. Iriver) then
               k = ubound(models(Iriver-1)%petList, dim=1)
-              models(i)%petList(j) = models(Iriver-1)%petList(k)+j
-              !if (models(i)%nPets == 1) then
-              !  models(i)%petList(j) = models(Iriver-1)%petList(k)
-              !else
-              !  models(i)%petList(j) = models(Iriver-1)%petList(k)+j
-              !end if
+              models(i)%petList(j) = models(Iocean)%petList(k)
             end if
           end do
         end do
@@ -233,8 +263,11 @@
              trim(petLayoutOption))
         return
       end select
-
-      ! print model PETs
+!
+!-----------------------------------------------------------------------
+!     Debug: write list of active components 
+!-----------------------------------------------------------------------
+!
       if (localPet == 0) then
         do i = 1, nModels
           if (models(i)%modActive) then
@@ -271,9 +304,17 @@
         end do
       end do
 !
-      ! fix active connectors (no exchange RTM->ATM and OCN->RTM)
+!-----------------------------------------------------------------------
+!     Fix active connectors 
+!     no interaction in RTM-ATM and OCN-RTM direction 
+!-----------------------------------------------------------------------
+!
       connectors(Iriver,Iatmos)%modActive = .false.
       connectors(Iocean,Iriver)%modActive = .false.
+!
+!-----------------------------------------------------------------------
+!     Debug: write list of active connectors
+!-----------------------------------------------------------------------
 !
       if (localPet == 0) then
         do i = 1, nModels
@@ -289,7 +330,26 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Read exchange field table 
+!     Read time step divider for data exchange among models
+!     Coupling interval could be different among components
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigFindLabel(cf, 'DividerForTStep::', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      do i = 1, nModels
+        call ESMF_ConfigNextLine(cf, rc=rc)
+        do j = 1, nModels      
+          call ESMF_ConfigGetAttribute(cf, connectors(i,j)%divDT, rc=rc)
+          if (localPet == 0 .and. connectors(i,j)%modActive) then
+          write(*,20) trim(connectors(i,j)%name), connectors(i,j)%divDT
+          end if
+        end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Read exchange field table (based on active components)
 !-----------------------------------------------------------------------
 !
       if (models(Iatmos)%modActive .and.                                &
@@ -306,6 +366,12 @@
              'following options -> ATM-OCN or ATM-OCN-RTM')
         return        
       end if
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 20   format(A7,1X,'DT DIVIDER: ',I3)
 !
       end subroutine read_config
 !
