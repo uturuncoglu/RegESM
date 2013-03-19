@@ -13,7 +13,7 @@
 #     defined on all available PETs
 #-----------------------------------------------------------------------
 #
-PETLayoutOption: concurent 
+PETLayoutOption: sequential 
 #-----------------------------------------------------------------------
 #     PET distribution of model components (ordered in ATM, OCN, RTM)
 #     when 'concurrent' mode activated. i.e. 36 24 0
@@ -22,7 +22,7 @@ PETLayoutOption: concurent
 #     'sequential' and 'concurrent' mode. 
 #-----------------------------------------------------------------------
 #
-PETs: 36 24 1
+PETs: 60 60 1 
 #
 #-----------------------------------------------------------------------
 #     Debug mode

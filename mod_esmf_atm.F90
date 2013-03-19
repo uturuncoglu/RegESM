@@ -36,6 +36,7 @@
           NUOPC_Type_IS           => type_InternalState,                &
           NUOPC_Label_IS          => label_InternalState,               &
           NUOPC_Label_Advance     => label_Advance,                     &
+          NUOPC_Label_DataInitialize => label_DataInitialize,           &
           NUOPC_Label_SetClock    => label_SetClock,                    &
           NUOPC_Label_SetRunClock => label_SetRunClock,                 &
           NUOPC_Label_CheckImport => label_CheckImport
@@ -108,23 +109,31 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+!                                      methodflag=ESMF_METHOD_INITIALIZE,&
+!                                      userRoutine=ATM_SetInitializeP4,  &
+!                                      phase=4,                          &
+!                                      rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!
 !-----------------------------------------------------------------------
 !     Attach specializing methods for RUN: FAST (phase 2)  
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN,           &
-                                      userRoutine=NUOPC_Routine_Run,    &
-                                      phase=1, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN,           &
+!                                      userRoutine=NUOPC_Routine_Run,    &
+!                                      phase=1, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetRunClock,         &
-                          index=1, userRoutine=ATM_SetRunClockF, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetRunClock,         &
+!                          index=1, userRoutine=ATM_SetRunClockF, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_CheckImport,         &
-!                          index=2, userRoutine=ATM_CheckImportF, rc=rc)
+!                          index=1, userRoutine=ATM_CheckImportF, rc=rc)
 !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
 !                             line=__LINE__, file=FILENAME)) return
 !
@@ -132,19 +141,19 @@
 !     Attach specializing methods for RUN: SLOW (phase 1)  
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN,           &
-                                      userRoutine=NUOPC_Routine_Run,    &
-                                      phase=2, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN,           &
+!                                      userRoutine=NUOPC_Routine_Run,    &
+!                                      phase=2, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetRunClock,         &
-                          index=2, userRoutine=ATM_SetRunClockS, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return  
+!      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetRunClock,         &
+!                          index=2, userRoutine=ATM_SetRunClockS, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return  
 !
 !      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_CheckImport,         &
-!                          index=3, userRoutine=ATM_CheckImportS, rc=rc)
+!                          index=2, userRoutine=ATM_CheckImportS, rc=rc)
 !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
 !                             line=__LINE__, file=FILENAME)) return
 !
@@ -162,6 +171,11 @@
                           userRoutine=ATM_SetClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+!      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
+!                          userRoutine=ATM_SetStates, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Register finalize routine    
@@ -194,8 +208,9 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, stat
-      type(type_InternalState)  :: locIS
+      integer :: i !, stat
+!      type(type_InternalState)  :: locIS
+      type(ESMF_VM) :: vm
 !
       rc = ESMF_SUCCESS
 !
@@ -227,14 +242,14 @@
 !     Allocate memory for the internal state and set it in the component 
 !-----------------------------------------------------------------------
 !
-      allocate(locIS%wrap, stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat,                   &
-          msg="Allocation of internal state memory failed.",            &
-          line=__LINE__, file=FILENAME, rcToReturn=rc)) return
+!      allocate(locIS%wrap, stat=stat)
+!      if (ESMF_LogFoundAllocError(statusToCheck=stat,                   &
+!          msg="Allocation of internal state memory failed.",            &
+!          line=__LINE__, file=FILENAME, rcToReturn=rc)) return
 !
-      call ESMF_GridCompSetInternalState(gcomp, locIS, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
+!      call ESMF_GridCompSetInternalState(gcomp, locIS, rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
 !
       end subroutine ATM_SetInitializeP1
 !
@@ -279,7 +294,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
       call ESMF_VMGet(vm, localPet=localPet, petCount=petCount,         &
-                      mpiCommunicator=comm, rc=rc) 
+                      mpiCommunicator=comm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -314,7 +329,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Put export fields in case of restart run 
+!     Put export fields (initial or restart run)
 !-----------------------------------------------------------------------
 !
       if (restarted .and. currTime == startTime) then
@@ -335,6 +350,86 @@
 !
       end subroutine ATM_SetInitializeP2
 !
+      subroutine ATM_SetInitializeP4(gcomp, importState, exportState,   &
+                                     clock, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_runparams, only : dtsrf
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: localPet, petCount
+      type(ESMF_VM) :: vm
+      type(ESMF_Time) :: startTime, currTime
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      if (localPet == 0) print*, "Init P4"
+!
+!-----------------------------------------------------------------------
+!     Set-up fields and register to import/export states
+!-----------------------------------------------------------------------
+!
+      call ATM_SetStates(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Get start and current time
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, startTime=startTime,                    &
+                         currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put export fields (initial or restart run)
+!-----------------------------------------------------------------------
+!
+      if (restarted .and. currTime == startTime) then
+!
+!-----------------------------------------------------------------------
+!     Run ATM component (run only one time step to fill variables)
+!-----------------------------------------------------------------------
+!
+      call ATM_Run(0.0d0, dtsrf)
+!
+!-----------------------------------------------------------------------
+!     Put export fields
+!-----------------------------------------------------------------------
+!
+      call ATM_Put(gcomp, rc=rc)
+!
+      end if
+!
+      end subroutine ATM_SetInitializeP4
+!
       subroutine ATM_SetRunClockF(gcomp, rc)
       implicit none
 !
@@ -349,10 +444,25 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      integer :: localPet, petCount
+      type(ESMF_VM) :: vm
       type(NUOPC_Type_IS) :: genIS
       type(type_InternalState)  :: locIS
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+!      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!
+!      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc) 
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!      if (localPet == 0) print*, "SetRunClockF"
 !
 !-----------------------------------------------------------------------
 !     Get internal state 
@@ -402,10 +512,25 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      integer :: localPet, petCount
+      type(ESMF_VM) :: vm
       type(NUOPC_Type_IS) :: genIS
       type(type_InternalState)  :: locIS
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+!      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!     
+!      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)  
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!      if (localPet == 0) print*, "SetRunClockS"
 !
 !-----------------------------------------------------------------------
 !     Get internal state 
@@ -472,11 +597,12 @@
       integer :: ref_minute, str_minute, end_minute
       integer :: ref_second, str_second, end_second
 !
-      type(ESMF_Clock) :: clock
+!      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock1, clock2
       type(ESMF_TimeInterval) :: timeStep
       type(ESMF_Time) :: refTime, startTime, stopTime
       type(ESMF_Calendar) :: cal
-      type(type_InternalState) :: locIS
+!      type(type_InternalState) :: locIS
 !
       rc = ESMF_SUCCESS
 !
@@ -484,10 +610,10 @@
 !     Get internal state 
 !-----------------------------------------------------------------------
 !
-      nullify(locIS%wrap)
-      call ESMF_GridCompGetInternalState(gcomp, locIS, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+!      nullify(locIS%wrap)
+!      call ESMF_GridCompGetInternalState(gcomp, locIS, rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Create gridded component clock 
@@ -577,7 +703,7 @@
 !     Create component clock
 !-----------------------------------------------------------------------
 !
-      clock = ESMF_ClockCreate(name='atm_clock',                        &
+      clock1 = ESMF_ClockCreate(name='atm_clock',                        &
                                refTime=refTime,                         &
                                timeStep=esmTimeStep,                    &
                                startTime=startTime,                     &
@@ -585,16 +711,23 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+      call ESMF_GridCompGet(gcomp, clock=clock2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockPrint(clock1, rc=rc)
+      call ESMF_ClockPrint(clock2, rc=rc)
+!
 !-----------------------------------------------------------------------
 !     Set internal component clock
 !     + slowClock is an alias to the current component clock
 !-----------------------------------------------------------------------
 !
-      locIS%wrap%slowClock = clock
+!      locIS%wrap%slowClock = clock
 !
-      call NUOPC_GridCompSetClock(gcomp, clock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call NUOPC_GridCompSetClock(gcomp, clock, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Set internal component clock
@@ -602,9 +735,9 @@
 !     + modify its timeStep by dividing to ratio
 !-----------------------------------------------------------------------
 !
-      locIS%wrap%fastClock = clock
+!      locIS%wrap%fastClock = clock
 !
-      call ESMF_ClockGet(clock, timeStep=timeStep, rc=rc)
+      call ESMF_ClockGet(clock2, timeStep=timeStep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -612,10 +745,10 @@
       fac2 = maxval(connectors(:,Iatmos)%divDT,mask=models(:)%modActive)
       maxdiv = max(fac1, fac2)
 !
-      call ESMF_ClockSet(clock, timeStep=timeStep/maxdiv, rc=rc)
+      call ESMF_ClockSet(clock2, timeStep=timeStep/maxdiv, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-!
+!    
       end subroutine ATM_SetClock
 !
       subroutine ATM_CheckImportF(gcomp, rc)
@@ -1022,6 +1155,7 @@
       call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+      if (localPet == 0) print*, "SetStates"
 !
 !-----------------------------------------------------------------------
 !     Set array descriptor
@@ -1029,6 +1163,16 @@
 !
       call ESMF_ArraySpecSet(arraySpec, typekind=ESMF_TYPEKIND_R8,      &
                              rank=2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid,                            &
+                        localDECount=localDECount,                      &
+                        rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1073,16 +1217,6 @@
                                staggerloc=staggerLoc,                   &
                                name=trim(itemNameList(i)),              &
                                rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Get number of local DEs
-!-----------------------------------------------------------------------
-! 
-      call ESMF_GridGet(models(Iatmos)%grid,                            &
-                        localDECount=localDECount,                      &
-                        rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1186,16 +1320,6 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get number of local DEs
-!-----------------------------------------------------------------------
-! 
-      call ESMF_GridGet(models(Iatmos)%grid,                            &
-                        localDECount=localDECount,                      &
-                        rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Put data into state 
 !-----------------------------------------------------------------------
 ! 
@@ -1214,6 +1338,15 @@
 !-----------------------------------------------------------------------
 !
       ptr = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
 !
       end do
 !
@@ -1454,6 +1587,8 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+      if (localPet == 0) print*, "call atm_get"
+!
 !-----------------------------------------------------------------------
 !     Get current time 
 !-----------------------------------------------------------------------
@@ -1680,6 +1815,8 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+      if (localPet == 0) print*, "call atm_put"
+!
 !-----------------------------------------------------------------------
 !     Get current time 
 !-----------------------------------------------------------------------
@@ -1881,6 +2018,15 @@
       end if
 !
       end do
+!
+!-----------------------------------------------------------------------
+!     Sets the TimeStamp Attribute according to clock
+!     on all the Fields in export state 
+!-----------------------------------------------------------------------
+!
+      call NUOPC_StateSetTimestamp(exportState, clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Debug: write field in netCDF format    

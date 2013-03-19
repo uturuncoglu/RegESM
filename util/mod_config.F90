@@ -360,11 +360,11 @@
                models(Iocean)%modActive .and.                           &
                models(Iriver)%modActive) then
         call read_field_table('util/exfield1.tbl', localPet, rc)
-      else
-        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='Unknown coupling setup: please activate one of the '//&
-             'following options -> ATM-OCN or ATM-OCN-RTM')
-        return        
+!      else
+!        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+!             msg='Unknown coupling setup: please activate one of the '//&
+!             'following options -> ATM-OCN or ATM-OCN-RTM')
+!        return        
       end if
 !
 !-----------------------------------------------------------------------

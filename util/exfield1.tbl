@@ -15,4 +15,4 @@ sit:sea_ice_thickness:bilinear:cross:m:mm:1000.0:0.0
 1 atm2rtm
 roff:surface_runoff:bilinear:cross:kg/m^2s:kg/m^2s:1.0:0.0
 1 rtm2ocn
-rdis:river_discharge:n/a:n/a:m^3:m^3:1.0:0.0
+rdis:river_discharge:bilinear:cross:m^3:m^3:1.0:0.0

@@ -267,14 +267,6 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Create route handle. Currently two option is supported. 
-!     + route handle to perfrom regridding (field2d -> field2d)
-!     + route handle to redistribute field (field1d -> field2d)
-!-----------------------------------------------------------------------
-!
-      if ((itSrc /= Inone) .and. (itDst /= Inone)) then
-!
-!-----------------------------------------------------------------------
 !     Get source and destination field
 !-----------------------------------------------------------------------
 !
@@ -303,22 +295,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
       end if 
-!
-      else
-!
-!-----------------------------------------------------------------------
-!     Get source and destination field
-!-----------------------------------------------------------------------
-!
-      call ESMF_FieldGet(srcField, arrayspec=srcArrSpec, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_FieldGet(dstField, arrayspec=dstArrSpec, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-         line=__LINE__, file=FILENAME)) return
-!
-      end if
 !
 !-----------------------------------------------------------------------
 !     Check: routehandle created or not 
@@ -369,11 +345,6 @@
                                    regridmethod=regridMethod,           &
                                    rc=rc)
         end if
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      else if (itSrc == Inone) then
-        call ESMF_FieldRedistStore(srcField, dstField,                  &
-                                   routehandle=routeHandle, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else
@@ -579,8 +550,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      if ((itSrc /= Inone) .and. (itDst /= Inone)) then
-!
 !-----------------------------------------------------------------------
 !     Perform regrid operation
 !-----------------------------------------------------------------------
@@ -589,17 +558,6 @@
                             zeroregion=ESMF_REGION_SELECT, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-      else
-!
-!-----------------------------------------------------------------------
-!     Redistribute data from source component to destination 
-!-----------------------------------------------------------------------
-!
-      call ESMF_FieldRedist(srcField, dstField,                         &
-                            routehandle=routeHandle, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      end if
 !
 !-----------------------------------------------------------------------
 !     Debug: print out exchange fields    

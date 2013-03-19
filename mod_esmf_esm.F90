@@ -275,6 +275,15 @@
                                  line=__LINE__, file=FILENAME)) return
           if (ESMF_LogFoundError(rcToCheck=urc,msg=ESMF_LOGERR_PASSTHRU,&
                                  line=__LINE__, file=FILENAME)) return
+!
+          if (debugLevel > 0) then
+          call ESMF_AttributeSet(genIS%wrap%modelComp(i),               &
+                                 name="Verbosity", value="high",        &
+                                 convention="NUOPC", purpose="General", &
+                                 rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+          end if
         end if
       end do
 !
@@ -294,6 +303,15 @@
             if (ESMF_LogFoundError(rcToCheck=urc,                       &
                 msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=FILENAME))&
                 return
+!
+          if (debugLevel > 0) then
+          call ESMF_AttributeSet(genIS%wrap%connectorComp(i,j),         &
+                                 name="Verbosity", value="high",        &
+                                 convention="NUOPC", purpose="General", &
+                                 rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+          end if
           end if
         end do
       end do
