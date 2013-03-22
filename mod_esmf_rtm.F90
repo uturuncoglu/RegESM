@@ -40,6 +40,7 @@
           NUOPC_Label_SetRunClock => label_SetRunClock
 !
       use mod_types
+      use mod_utils
 !
       use mod_hd_iface, only :                                          &
           RTM_Initialize => hd_init,                                    &
@@ -398,7 +399,7 @@
       cpus_per_dim = 1
 !
       distGrid = ESMF_DistGridCreate(minIndex=(/ 1, 1 /),               &
-                                     maxIndex=(/ nb, nl /),             &
+                                     maxIndex=(/ nl, nb /),             &
                                      regDecomp=cpus_per_dim,            &
                                      rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -510,12 +511,12 @@
       end do 
 !
       do i = 1, nb
-        ptrX(i,:) = lon1d
+        ptrX(:,i) = lon1d
       end do
       do i = 1, nl
-        ptrY(:,i) = lat1d
+        ptrY(i,:) = lat1d
       end do
-      ptrM = transpose(hd_lsm) 
+      ptrM = hd_lsm
 !
       if (allocated(lon1d)) deallocate(lon1d)
       if (allocated(lat1d)) deallocate(lat1d)
@@ -822,6 +823,13 @@
       end subroutine RTM_SetStates
 !
       subroutine RTM_ModelAdvance(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_hd_param, only : runoff, drain
+!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -835,10 +843,14 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: localPet, petCount, phase
+      real*8  :: dstart, dend 
+      integer :: istart, iend, phase, localPet, petCount
+      character(ESMF_MAXSTR) :: cname, msgString, str1, str2
 !     
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
+      type(ESMF_TimeInterval) :: timeStep, timeFrom, timeTo
+      type(ESMF_Time) :: startTime, stopTime, currTime
       type(ESMF_State) :: importState, exportState
 !
       rc = ESMF_SUCCESS
@@ -847,9 +859,9 @@
 !     Get gridded component 
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompGet(gcomp, clock=clock, importState=importState,&
-                            exportState=exportState, currentPhase=phase,&
-                            vm=vm, rc=rc)
+      call ESMF_GridCompGet(gcomp, name=cname, clock=clock,             &
+                            currentPhase=phase, importState=importState,&
+                            exportState=exportState, vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -857,10 +869,302 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call NUOPC_ClockPrintCurrTime(clock, "--> Advancing RTM from: ", rc=rc)
-      call NUOPC_ClockPrintStopTime(clock, "------------------> to: ", rc=rc)
-      print*, "phase = ", phase
+!-----------------------------------------------------------------------
+!     Get start, stop and current time and time step
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, timeStep=timeStep,                      &
+                         startTime=startTime, stopTime=stopTime,        &
+                         currTime=currTime, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      timeFrom = currTime-startTime
+      call ESMF_TimeIntervalGet(timeFrom, d_r8=dstart, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      timeTo = stopTime-currTime
+      call ESMF_TimeIntervalGet(timeTo, d_r8=dend, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (ceiling(dstart) == floor(dstart)) then
+        istart = int(dstart) 
+      else
+         write(msgString,'(A,I3)') trim(cname)//                        &
+               ': time step of the HD model must be defined '//         &
+               'as day increments!' 
+         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+         return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get import fields 
+!-----------------------------------------------------------------------
+!
+      call RTM_Get(gcomp, rc=rc)
+!
+!-----------------------------------------------------------------------
+!     Run RTM component
+!-----------------------------------------------------------------------
+!
+      iend = istart+int(dend)
+      istart = istart+1
+      call RTM_Run(istart, iend)
+!
+!-----------------------------------------------------------------------
+!     Debug: write time information 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 0 .and. localPet == 0) then
+        call ESMF_TimeGet(currTime,                                     &
+                          timeStringISOFrac=str1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_TimeGet(currTime+timeStep,                            &
+                          timeStringISOFrac=str2, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        if (debugLevel == 1) then
+          write(*,40) trim(str1), trim(str2), phase
+        else
+          write(*,50) trim(str1), trim(str2), phase, istart, iend 
+        end if
+      end if
+!
+!-----------------------------------------------------------------------
+!     Formats 
+!-----------------------------------------------------------------------
+!
+ 40   format(' Running RTM Component: ',A,' --> ',A,' Phase: ',I1)
+ 50   format(' Running RTM Component: ',A,' --> ',A,' Phase: ',I1,      &
+             ' [',I5,'-',I5, ']')
 !
       end subroutine RTM_ModelAdvance
+!
+      subroutine RTM_Get(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_hd_param, only : nl, nb, runoff, drain
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, id, n, m
+      integer :: iyear, iday, imonth, ihour, iunit
+      integer :: localPet, petCount, itemCount, localDECount
+      character(ESMF_MAXSTR) :: cname, msgString, ofile
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      real(ESMF_KIND_R8) :: sfac, addo
+      real(ESMF_KIND_R8), pointer :: ptr(:,:)
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+      type(ESMF_Field) :: field
+      type(ESMF_State) :: importState
+      type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, name=cname, clock=clock,             &
+                            importState=importState, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get current time 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 2) then
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
+                        dd=iday, h=ihour, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iriver)%grid,                            &
+                        localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      if (.not. allocated(itemTypeList)) then
+        allocate(itemTypeList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList,        &
+                         itemTypeList=itemTypeList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over excahange fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+!
+      id = get_varid(models(Iriver)%importField, itemNameList(i))
+!
+!-----------------------------------------------------------------------
+!     Get field
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over decomposition elements (DEs) 
+!-----------------------------------------------------------------------
+!
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Debug: write size of pointers    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+      write(*,60) localPet, j, adjustl("PTR/RTM/IMP/"//itemNameList(i)),&
+                  lbound(ptr, dim=1), ubound(ptr, dim=1),               &
+                  lbound(ptr, dim=2), ubound(ptr, dim=2)
+      write(*,60) localPet, j, adjustl("IND/RTM/IMP/"//itemNameList(i)),&
+                  1, nl, 1, nb
+      end if
+!
+!-----------------------------------------------------------------------
+!     Put data to ATM component variable
+!-----------------------------------------------------------------------
+!
+      sfac = models(Iriver)%importField(id)%scale_factor
+      addo = models(Iriver)%importField(id)%add_offset
+!
+      select case (trim(adjustl(itemNameList(i))))
+      case ('rnof')
+        do m = 1, nb
+          do n = 1, nl
+            if (ptr(n,m) < 0.0d0 .or. ptr(n,m) > 1.0d0) then
+              runoff(n,m) = 0.0d0
+            else
+              runoff(n,m) = (ptr(n,m)*sfac)+addo
+            end if
+          end do
+        end do 
+      case ('snof')
+        do m = 1, nb
+          do n = 1, nl
+            if (ptr(n,m) < 0.0d0 .or. ptr(n,m) > 1.0d0) then
+              drain(n,m) = 0.0d0
+            else
+              drain(n,m) = (ptr(n,m)*sfac)+addo
+            end if
+          end do
+        end do
+      end select
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in ASCII format   
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 4) then
+        write(ofile,70) 'rtm_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet, j
+        iunit = localPet*10
+        open(unit=iunit, file=trim(ofile)//'.txt')
+        call print_matrix_r8(ptr, 1, 1, localPet, iunit, "PTR/RTM/IMP")
+        close(unit=iunit)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in netCDF format    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 3) then
+        write(ofile,80) 'rtm_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (allocated(itemTypeList)) deallocate(itemTypeList)
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
+ 70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+!
+      end subroutine RTM_Get
 !
       end module mod_esmf_rtm

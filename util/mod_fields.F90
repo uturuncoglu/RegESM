@@ -110,7 +110,13 @@
 !
       call NUOPC_FieldDictionaryAddEntry('surface_runoff',              &
            canonicalUnits='kg m-2 s-1', defaultLongName='N/A',          &
-           defaultShortName='roff', rc=rc)
+           defaultShortName='rnof', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_FieldDictionaryAddEntry('subsurface_runoff',           &
+           canonicalUnits='kg m-2 s-1', defaultLongName='N/A',          &
+           defaultShortName='snof', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -119,7 +125,7 @@
            defaultShortName='rdis', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-
+!
       end subroutine set_field_dir 
 !
       end module mod_fields

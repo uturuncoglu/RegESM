@@ -1719,8 +1719,6 @@
         ng = Ngrids
       end if
 !
-      if (localPet == 0) print*, "call ocn_get"
-!
 !-----------------------------------------------------------------------
 !     Get limits of the arrays (based on PET id)
 !-----------------------------------------------------------------------
@@ -2030,8 +2028,6 @@
       else
         ng = Ngrids
       end if
-!
-      if (localPet == 0) print*, "call ocn_put"
 !
 !-----------------------------------------------------------------------
 !     Get current time 
