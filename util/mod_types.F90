@@ -35,6 +35,18 @@
       implicit none
 !
 !-----------------------------------------------------------------------
+!     RTM river point data type 
+!-----------------------------------------------------------------------
+!
+      type RTM_River
+        real*8 :: lat, lon
+        integer :: rootPet
+        integer :: iindex, jindex
+        integer :: npoints
+        real*8 :: monfac(12)
+      end type RTM_River
+!
+!-----------------------------------------------------------------------
 !     ESM generic field data type 
 !-----------------------------------------------------------------------
 !
@@ -136,6 +148,12 @@
       character(len=10) :: RUNNDES(2) = (/'SEQUENTIAL','CONCURENT'/)
       integer, parameter :: Iseq = 1
       integer, parameter :: Ipar = 2
+!
+!-----------------------------------------------------------------------
+!     ESM connector (coupler) holder
+!-----------------------------------------------------------------------
+!
+      type(RTM_River), allocatable, target :: rivers(:)
 !
 !-----------------------------------------------------------------------
 !     ESM model parameters

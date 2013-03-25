@@ -50,7 +50,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: time(6)
-      integer :: i, j, k, localPet, petCount
+      integer :: i, j, k, localPet, petCount, lineCount, columnCount
       logical :: file_exists
       character(100) :: fmt_123, str
 !
@@ -366,6 +366,47 @@
 !             'following options -> ATM-OCN or ATM-OCN-RTM')
 !        return        
       end if
+!
+!-----------------------------------------------------------------------
+!     Read coupled rivers 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigGetDim(cf, lineCount, columnCount,                &
+                             label='RiverList::', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigFindLabel(cf, 'RiverList::', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(rivers)) allocate(rivers(lineCount))
+!
+      do i = 1, lineCount
+        call ESMF_ConfigNextLine(cf, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_ConfigGetAttribute(cf, rivers(i)%lon, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        rivers(i)%iindex = 0
+!
+        call ESMF_ConfigGetAttribute(cf, rivers(i)%lat, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+        rivers(i)%jindex = 0
+!
+        call ESMF_ConfigGetAttribute(cf, rivers(i)%npoints, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        do j = 1, 12
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%monfac(j), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+        end do
+      end do
 !
 !-----------------------------------------------------------------------
 !     Format definition 

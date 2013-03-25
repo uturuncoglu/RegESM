@@ -515,10 +515,16 @@
       fac2 = maxval(connectors(:,Iatmos)%divDT,mask=models(:)%modActive)
       maxdiv = max(fac1, fac2)
 !
-      call ESMF_ClockSet(clock2, timeStep=timeStep/maxdiv, rc=rc)
+!      call ESMF_ClockSet(clock2, timeStep=timeStep/maxdiv, rc=rc)
+      call ESMF_ClockSet(clock2, name='atm_clock',                        &
+                               refTime=refTime,                         &
+                               timeStep=timeStep/maxdiv,                    &
+                               startTime=startTime,                     &
+                               stopTime=stopTime, rc=rc)
+
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-!    
+!
       end subroutine ATM_SetClock
 !
       subroutine ATM_CheckImportF(gcomp, rc)
@@ -1202,14 +1208,14 @@
 !     Calculate run time
 !-----------------------------------------------------------------------
 !
-      if (localPet == 0) then
-        call ESMF_ClockPrint(clock, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-        call ESMF_Finalize(rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-      end if
+!      if (localPet == 0) then
+!        call ESMF_ClockPrint(clock, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!        call ESMF_Finalize(rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!      end if
 !
       timeFrom = currTime-startTime
       call ESMF_TimeIntervalGet(timeFrom, s_r8=tstr, rc=rc)
