@@ -1217,7 +1217,8 @@
 !                               line=__LINE__, file=FILENAME)) return
 !      end if
 !
-      timeFrom = currTime-startTime
+      !timeFrom = currTime-startTime
+      timeFrom = currTime-esmStartTime
       call ESMF_TimeIntervalGet(timeFrom, s_r8=tstr, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
