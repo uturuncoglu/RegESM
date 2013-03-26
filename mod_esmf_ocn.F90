@@ -1161,9 +1161,8 @@
                                  line=__LINE__, file=FILENAME)) return
 !
           if (localPet == 0) then
-            write(*,fmt='(A,I2,A,2F8.2,2I5)') ' RIVER(',i,') = ',       &
-                  rivers(i)%lon, rivers(i)%lat,                         &
-                  rivers(i)%iindex, rivers(i)%jindex
+            write(*,20) i, rivers(i)%lon, rivers(i)%lat,                &
+                        rivers(i)%iindex, rivers(i)%jindex
           end if
         end do
       end if
@@ -1172,7 +1171,8 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(" PET(",I3,") - DE(",I2,") - ", A20, " : ", 4I8)
+ 20   format(" RIVER(",I2.2,") - ",2F6.2," [",I3.3,":",I3.3,"]")
+ 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine OCN_SetGridArrays
 !
@@ -1927,28 +1927,10 @@
           end do
         end do
       case ('rdis')
-        nr = size(rivers, dim=1)
-        do ii = 1, nr
-          tmp = 0.0d0
-          np = rivers(ii)%npoints
-          if (localPet == rivers(ii)%rootPet) then
-            tmp = ptr(rivers(ii)%iindex,rivers(ii)%jindex) 
-            tmp = tmp/dble(np)
-          end if
-          call ESMF_VMBroadcast(vm, bcstData=tmp, count=1,              &
-                                rootPet=rivers(ii)%rootPet, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-                                 line=__LINE__, file=FILENAME)) return
-          print*, localPet, tmp 
-          
-
-        !    print*, localPet, tmp
-        !    call ESMF_Finalize(rc=rc)
-        !  np = rivers(ii)%npoints
-        !  do jj = 1, np
-        !    
-        !  end do
-        end do
+        call put_river(vm, clock, LBi, UBi, LBj, UBj,                   &
+                       ptr, sfac, addo, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       end select
 !
 !-----------------------------------------------------------------------
@@ -2190,7 +2172,7 @@
 !
       if (debugLevel == 4) then
         iunit = localPet
-        write(ofile,80) 'ocn_export', trim(itemNameList(i)),            &
+        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
         call print_matrix_r8(ptr(IstrR:IendR,JstrR:JendR), 1, 1,        &
@@ -2223,7 +2205,7 @@
 !-----------------------------------------------------------------------
 !
       if (debugLevel == 3) then
-        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
+        write(ofile,100) 'ocn_export', trim(itemNameList(i)),           &
                         iyear, imonth, iday, ihour, localPet
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -2243,8 +2225,8 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
- 90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+ 90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
 !
       end subroutine OCN_Put
 !
@@ -2366,5 +2348,107 @@
       if (allocated(minDiff)) deallocate(minDiff)
 !
       end subroutine get_ij
+!
+      subroutine put_river(vm, clock, LBi, UBi, LBj, UBj,               &
+                           ptr, sfac, addo, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use ocean_coupler_mod, only : rdata
+      use mod_param, only : BOUNDS, Ngrids
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_VM), intent(in) :: vm
+      type(ESMF_Clock), intent(in) :: clock
+      integer, intent(in) :: LBi, UBi, LBj, UBj
+      real(ESMF_KIND_R8), intent(in) :: ptr(LBi:UBi,LBj:UBj)
+      real(ESMF_KIND_R8), intent(in) :: sfac, addo
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      real*8 :: rdis(1), thold
+      integer :: i, j, k, mm, ng, np, nr, localPet, petCount
+      character(ESMF_MAXSTR) :: str
+!
+      type(ESMF_Time) :: currTime
+! 
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query VM 
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query clock and time 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, mm=mm, timeStringISOFrac=str, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!     
+!-----------------------------------------------------------------------
+!     Fill intermediate array with river discharge data (from RTM)
+!-----------------------------------------------------------------------
+!
+      thold = 1.0d6
+      do ng = 1, Ngrids
+        k = 0
+        nr = size(rivers, dim=1)
+        do i = 1, nr
+          rdis = 0.0d0
+          ! get data from root PET and 
+          ! distribute equally across the mount points
+          np = rivers(i)%npoints
+          if (localPet == rivers(i)%rootPet) then
+            if (ptr(rivers(i)%iindex,rivers(i)%jindex) < thold) then
+              rdis = ptr(rivers(i)%iindex,rivers(i)%jindex)
+              rdis = rdis/dble(np)
+            end if
+          end if
+          ! broadcast data across the PETs
+          call ESMF_VMBroadcast(vm, bcstData=rdis, count=1,             &
+                                rootPet=rivers(i)%rootPet, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+          ! print debug info
+          if (localPet == 0) then
+            write(*,110) i, trim(str), rdis(1)*dble(np),                &
+                         rdis(1)*dble(np)*rivers(i)%monfac(mm) 
+          end if
+          ! apply monthly correction factor
+          rdis = rdis*rivers(i)%monfac(mm)
+          ! check data
+          do j = 1, np
+            k = k+1
+            rdata(ng)%Rdis(k) = (rdis(1)*sfac)+addo
+          end do 
+        end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Formats 
+!-----------------------------------------------------------------------
+!
+ 110  format(' River (',I2.2,') Discharge [',A,'] : ',2F10.2)
+!
+      end subroutine put_river
 !
       end module mod_esmf_ocn
