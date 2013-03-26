@@ -40,10 +40,11 @@
 !
       type RTM_River
         real*8 :: lat, lon
-        integer :: rootPet
-        integer :: iindex, jindex
+        integer :: dir
         integer :: npoints
         real*8 :: monfac(12)
+        integer :: iindex, jindex
+        integer :: rootPet
       end type RTM_River
 !
 !-----------------------------------------------------------------------

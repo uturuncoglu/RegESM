@@ -397,6 +397,10 @@
             line=__LINE__, file=FILENAME)) return
         rivers(i)%jindex = 0
 !
+        call ESMF_ConfigGetAttribute(cf, rivers(i)%dir, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
         call ESMF_ConfigGetAttribute(cf, rivers(i)%npoints, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return

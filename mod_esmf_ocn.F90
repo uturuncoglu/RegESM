@@ -1161,7 +1161,7 @@
                                  line=__LINE__, file=FILENAME)) return
 !
           if (localPet == 0) then
-            write(*,20) i, rivers(i)%lon, rivers(i)%lat,                &
+            write(*,20) i, rivers(i)%dir, rivers(i)%lon, rivers(i)%lat, &
                         rivers(i)%iindex, rivers(i)%jindex
           end if
         end do
@@ -1171,7 +1171,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 20   format(" RIVER(",I2.2,") - ",2F6.2," [",I3.3,":",I3.3,"]")
+ 20   format(" RIVER(",I2.2,") - ",I3,2F6.2," [",I3.3,":",I3.3,"]")
  30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine OCN_SetGridArrays
@@ -2428,6 +2428,10 @@
                                 rootPet=rivers(i)%rootPet, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
                                  line=__LINE__, file=FILENAME)) return
+          ! set direction
+          if (rivers(i)%dir < 0) then
+            rdis = -rdis
+          end if
           ! print debug info
           if (localPet == 0) then
             write(*,110) i, trim(str), rdis(1)*dble(np),                &
