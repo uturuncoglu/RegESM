@@ -187,6 +187,8 @@
       real*8, parameter :: MISSING_R8 = 1.0d20
       real  , parameter :: MISSING_R4 = 1.0e20
 !
+      real*8, parameter :: ZERO_R8 = 0.0d0
+!
       contains
 !
       integer function get_varid(list, key)

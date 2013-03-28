@@ -1470,7 +1470,13 @@
 !     Initialize pointer 
 !-----------------------------------------------------------------------
 !
-      ptr2d = MISSING_R8
+      if (trim(itemNameList(i)) == 'rdis') then
+        ptr2d = ZERO_R8
+        print*, 'set to zero => ', trim(itemNameList(i))
+      else
+        ptr2d = MISSING_R8
+        print*, 'set to miss => ', trim(itemNameList(i))
+      end if
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
@@ -1770,7 +1776,7 @@
 !     Get current time 
 !-----------------------------------------------------------------------
 !
-      if (debugLevel > 2) then
+!      if (debugLevel > 2) then
       call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1779,7 +1785,7 @@
                         dd=iday, h=ihour, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-      end if
+!      end if
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
@@ -1931,21 +1937,23 @@
                        ptr, sfac, addo, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
+        print*, localPet, ptr(LBi:UBi,LBj:UBj)
       end select
 !
 !-----------------------------------------------------------------------
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-      if (debugLevel == 4) then
-        iunit = localPet
-        write(ofile,70) 'ocn_import', trim(itemNameList(i)),            &
-                        iyear, imonth, iday, ihour, localPet, j
-        open(unit=iunit, file=trim(ofile)//'.txt')
-        call print_matrix_r8(ptr(LBi:UBi,LBj:UBj), 1, 1,                &
-                             localPet, iunit, "PTR/OCN/IMP")
-        close(unit=iunit)
-      end if
+      !if (debugLevel == 4) then
+      !if (trim(adjustl(itemNameList(i))) == 'rdis') then      
+      !  iunit = localPet
+      !  write(ofile,70) 'ocn_import', trim(itemNameList(i)),            &
+      !                  iyear, imonth, iday, ihour, localPet, j
+      !  open(unit=iunit, file=trim(ofile)//'.txt')
+      !  call print_matrix_r8(ptr(LBi:UBi,LBj:UBj), 1, 1,                &
+      !                       localPet, iunit, "PTR/OCN/IMP")
+      !  close(unit=iunit)
+      !end if
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
