@@ -32,7 +32,6 @@
       use NUOPC
       use NUOPC_Model, only :                                           &
           NUOPC_SetServices       => routine_SetServices,               &
-          NUOPC_Routine_Run       => routine_Run,                       &
           NUOPC_Label_Advance     => label_Advance,                     &
           NUOPC_Label_SetClock    => label_SetClock
 !
@@ -433,6 +432,22 @@
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
              msg='ESM and ATM stop times do not match: '//              &
              'please check the config files')
+        return
+      end if
+!
+      if (cal /= esmCal) then
+        call ESMF_CalendarPrint(cal, options="calkindflag", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_CalendarPrint(esmCal, options="calkindflag", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+             msg='ESM and ATM calendars do not match: '//               &
+             'please check the config files')
+        return
       end if
 !
 !-----------------------------------------------------------------------
@@ -688,7 +703,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(" PET(",I3,") - DE(",I2,") - ", A20, " : ", 4I8)
+ 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine ATM_SetGridArrays     
 !
@@ -1053,7 +1068,7 @@
 !
  40   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1)
  50   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1,      &
-             ' [',E12.2, '-', E12.2, ']')
+             ' [',F15.2, '-', F15.2, ']')
 !
       end subroutine ATM_ModelAdvance
 !
