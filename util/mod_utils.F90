@@ -38,39 +38,36 @@
 !
       contains
 !
-      subroutine print_matrix_r8(inp, iskip, jskip, pet, id, header)
+      subroutine print_matrix_r8(inp, imin, imax, jmin, jmax,           &
+                                 iskip, jskip, pet, id, header)
       implicit none
 !
 !-----------------------------------------------------------------------
 !     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8, intent(in) :: inp(:,:)
-      integer, intent(in) ::  iskip, jskip, pet, id
+      integer, intent(in) :: imin, imax, jmin, jmax
+      real*8 , intent(in) :: inp(imin:imax,jmin:jmax)
+      integer, intent(in) :: iskip, jskip, pet, id
       character(len=*), intent(in) :: header
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, imin, imax, jmin, jmax
+      integer :: i, j
       character(100) :: fmt_123
 !
 !-----------------------------------------------------------------------
 !     Write data 
 !-----------------------------------------------------------------------
 !
-      imin = lbound(inp, dim=1)
-      imax = ubound(inp, dim=1)
-      jmin = lbound(inp, dim=2)
-      jmax = ubound(inp, dim=2)
-!
       write(id, fmt="('PET(',I2,') - ',A)") pet, trim(header)
 !
       write(fmt_123, fmt="('(/, 5X, ', I3, 'I10)')") (imax-imin)+1
       write(id, fmt=trim(fmt_123))  (i, i=imin, imax, iskip)
 !   
-      write(fmt_123, fmt="('(I5, ', I3, 'F10.2)')") imax
+      write(fmt_123, fmt="('(I5, ', I3, 'F10.4)')") imax
       do j=jmin, jmax, jskip
         write(id, fmt=trim(fmt_123)) j, (inp(i,j),i=imin, imax, iskip)
       end do

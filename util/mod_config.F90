@@ -212,7 +212,6 @@
                                 rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-!
       end if
 !
 !-----------------------------------------------------------------------
@@ -252,8 +251,8 @@
               k = ubound(models(Iatmos)%petList, dim=1)
               models(i)%petList(j) = models(Iatmos)%petList(k)+j
             else if (i .eq. Iriver) then
-              k = ubound(models(Iriver-1)%petList, dim=1)
-              models(i)%petList(j) = models(Iocean)%petList(k)
+              k = ubound(models(Iatmos)%petList, dim=1)
+              models(i)%petList(j) = models(Iatmos)%petList(k)
             end if
           end do
         end do
@@ -609,8 +608,12 @@
       field(n)%long_name = trim(str(2))
       if (trim(str(3)) == 'bilinear') then
         field(n)%itype = Ibilin
-      else if (trim(str(3)) == 'conservative') then
+      else if (trim(str(3)) == 'conserv') then
         field(n)%itype = Iconsv
+      else if (trim(str(3)) == 'nearstod') then
+        field(n)%itype = Instod
+      else if (trim(str(3)) == 'neardtos') then
+        field(n)%itype = Indtos
       else
         field(n)%itype = Inone
       end if

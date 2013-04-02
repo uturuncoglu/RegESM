@@ -173,7 +173,7 @@
 !
       integer :: comm, localPet, petCount
       type(ESMF_VM) :: vm
-      type(ESMF_TimeInterval) :: ts
+      type(ESMF_Time) :: startTime
 !
       rc = ESMF_SUCCESS
 !
@@ -209,6 +209,22 @@
 !-----------------------------------------------------------------------
 !
       call RTM_SetStates(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Get start and current time
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, startTime=startTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put export fields in case of restart run 
+!-----------------------------------------------------------------------
+!
+      if (restarted .and. startTime == esmStartTime) then
+        call RTM_Put(gcomp, rc=rc)
+      end if
 !
       end subroutine RTM_SetInitializeP2
 !
@@ -736,18 +752,18 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Get import fields 
-!-----------------------------------------------------------------------
-!
-      call RTM_Get(gcomp, rc=rc)
-!
-!-----------------------------------------------------------------------
 !     Run RTM component
 !-----------------------------------------------------------------------
 !
       iend = istart+int(dend)
       istart = istart+1
       call RTM_Run(istart, iend)
+!
+!-----------------------------------------------------------------------
+!     Get import fields (runs on last PET of ATM component)
+!-----------------------------------------------------------------------
+!
+      call RTM_Get(gcomp, rc=rc)
 !
 !-----------------------------------------------------------------------
 !     Put export fields
@@ -963,7 +979,8 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call print_matrix_r8(ptr, 1, 1, localPet, iunit, "PTR/RTM/IMP")
+        call print_matrix_r8(ptr, 1, nl, 1, nb, 1, 1,                   &
+                             localPet, iunit, "PTR/RTM/IMP")
         close(unit=iunit)
       end if
 !
@@ -1063,7 +1080,7 @@
 !     Get current time 
 !-----------------------------------------------------------------------
 !
-      if (debugLevel > 2) then
+!      if (debugLevel > 2) then
       call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1072,7 +1089,7 @@
                         dd=iday, h=ihour, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-      end if
+!      end if
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
@@ -1135,7 +1152,7 @@
 !     Set initial value to missing 
 !-----------------------------------------------------------------------
 !
-      ptr = MISSING_R8
+      ptr = ZERO_R8
 !
 !-----------------------------------------------------------------------
 !     Put data to export field 
@@ -1159,7 +1176,8 @@
         write(ofile,80) 'rtm_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix_r8(ptr, 1, 1, localPet, iunit, "PTR/RTM/EXP")
+        call print_matrix_r8(ptr, 1, nl, 1, nb, 1, 1,                   &
+                             localPet, iunit, "PTR/RTM/EXP")
         close(unit=iunit)
       end if
 !

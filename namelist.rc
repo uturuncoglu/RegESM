@@ -18,6 +18,8 @@ PETLayoutOption: sequential
 #     PET distribution of model components (ordered in ATM, OCN, RTM)
 #     when 'concurrent' mode activated. i.e. 36 24 0
 #
+#     RTM component runs on last PET of the ATM component
+#
 #     Put zero to deactivate the model component. It works on both
 #     'sequential' and 'concurrent' mode. 
 #-----------------------------------------------------------------------
@@ -78,8 +80,8 @@ DividerForTStep::
 #-----------------------------------------------------------------------
 #
 RiverList::
-48.00 46.50 -1 7 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Volga
-51.50 48.00 -1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ural
-49.25 38.75  1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Kura
-47.25 44.75  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Terek
+48.26 46.25 -1 7 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Volga
+51.80 47.12 -1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ural
+49.26 38.74  1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Kura
+47.36 44.31  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Terek
 ::

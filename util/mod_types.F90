@@ -61,6 +61,7 @@
         character(len=100) :: export_units
         real*8 :: scale_factor
         real*8 :: add_offset
+        type(ESMF_RouteHandle) :: rhandle
       end type ESM_Field
 !
 !-----------------------------------------------------------------------
@@ -137,10 +138,12 @@
 !     Interpolation type        
 !-----------------------------------------------------------------------
 !
-      character(len=4) :: INTPDES(0:2) = (/'NONE','BLIN','CONS'/)
+      character(len=4) :: INTPDES(0:4) = (/'NONE','BLIN','CONS','NS2D', 'ND2S'/)
       integer, parameter :: Inone  = 0 
       integer, parameter :: Ibilin = 1 
       integer, parameter :: Iconsv = 2
+      integer, parameter :: Instod = 3
+      integer, parameter :: Indtos = 4
 !
 !-----------------------------------------------------------------------
 !     Running mode        

@@ -946,7 +946,8 @@
 !
           if (localPet == 0) then
             write(*,20) i, rivers(i)%dir, rivers(i)%lon, rivers(i)%lat, &
-                        rivers(i)%iindex, rivers(i)%jindex
+                        rivers(i)%iindex, rivers(i)%jindex,             &
+                        rivers(i)%rootPet
           end if
         end do
       end if
@@ -955,7 +956,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 20   format(" RIVER(",I2.2,") - ",I3,2F6.2," [",I3.3,":",I3.3,"]")
+ 20   format(" RIVER(",I2.2,") - ",I3,2F6.2," [",I3.3,":",I3.3,"] - ",I2)
  30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine OCN_SetGridArrays
@@ -1226,6 +1227,17 @@
                                rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Store routehandle to exchage halo region data 
+!-----------------------------------------------------------------------
+!
+      if (models(Iriver)%modActive) then
+      call ESMF_FieldHaloStore(field,                                   &
+              routehandle=models(Iocean)%importField(k)%rhandle, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Put data into state 
@@ -1603,6 +1615,18 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Perform halo region update 
+!-----------------------------------------------------------------------
+!
+      if (models(Iriver)%modActive) then
+      call ESMF_FieldHalo(field,                                        &
+                routehandle=models(Iocean)%importField(id)%rhandle,     &
+                checkflag=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
 !     Loop over decomposition elements (DEs) 
 !-----------------------------------------------------------------------
 !
@@ -1716,9 +1740,9 @@
       if (debugLevel == 4) then
         write(ofile,70) 'ocn_import', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
-        iunit = localPet
+        iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call print_matrix_r8(ptr(LBi:UBi,LBj:UBj), 1, 1,                &
+        call print_matrix_r8(ptr, LBi, UBi, LBj, UBj, 1, 1,             &
                              localPet, iunit, "PTR/OCN/IMP")
         close(unit=iunit)
       end if
@@ -1951,7 +1975,7 @@
         write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix_r8(ptr(IstrR:IendR,JstrR:JendR), 1, 1,        &
+        call print_matrix_r8(ptr, IstrR, IendR, JstrR, JendR, 1, 1,     &
                              localPet, iunit, "PTR/OCN/EXP")
         close(unit=iunit)
       end if         
@@ -2023,6 +2047,7 @@
       integer :: sendData(2)
       integer :: k, ii, jj, ng, localPet, petCount
       integer :: IstrR, IendR, JstrR, JendR
+      integer :: LBi, UBi, LBj, UBj
       real*8, allocatable :: diff(:,:)
       real*8, allocatable :: minDiff(:)
       real*8 :: tmp
@@ -2042,7 +2067,7 @@
 !-----------------------------------------------------------------------
 !
       if (.not. allocated(minDiff)) allocate(minDiff(0:petCount-1))
-      minDiff = 0.0d0
+      minDiff = 1.0d20
       i = 0
       j = 0
 !
@@ -2051,16 +2076,22 @@
         IendR = BOUNDS(ng)%IendR(localPet)
         JstrR = BOUNDS(ng)%JstrR(localPet)
         JendR = BOUNDS(ng)%JendR(localPet)
+!
+        LBi = BOUNDS(ng)%LBi(localPet)
+        UBi = BOUNDS(ng)%UBi(localPet)
+        LBj = BOUNDS(ng)%LBj(localPet)
+        UBj = BOUNDS(ng)%UBj(localPet)
+!
         if (.not. allocated(diff)) then
-          allocate(diff(IstrR:IendR,JstrR:JendR))
+          allocate(diff(LBi:UBi,LBj:UBj))
         end if
 !
-        diff = (GRID(ng)%lonr(IstrR:IendR,JstrR:JendR)-lon)**2+         &
-               (GRID(ng)%latr(IstrR:IendR,JstrR:JendR)-lat)**2
+        diff = (GRID(ng)%lonr(LBi:UBi,LBj:UBj)-lon)**2+                 &
+               (GRID(ng)%latr(LBi:UBi,LBj:UBj)-lat)**2
         tmp = minval(diff) 
 !        
-        do jj = JstrR, JendR
-          do ii = IstrR, IendR
+        do jj = LBj, UBj
+          do ii = LBi, UBi
             if (diff(ii,jj) == tmp) then
               i = ii
               j = jj
@@ -2088,7 +2119,6 @@
 !     Find PET that has global minimum distance 
 !-----------------------------------------------------------------------
 !
-      sendData = 0
       do k = 0, petCount-1
         if (minDiff(k) == minval(minDiff)) then
           rootPet = k
@@ -2099,6 +2129,7 @@
 !     Broadcast position of the location across the PETs 
 !-----------------------------------------------------------------------
 !
+      sendData = 0
       sendData(1) = i
       sendData(2) = j
       call ESMF_VMBroadcast(vm, bcstData=sendData, count=2,             &
@@ -2143,7 +2174,8 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8 :: rdis(1), thold
+      real*8 :: thold
+      real*8 :: rdis(1)
       integer :: i, j, k, mm, ng, np, nr, localPet, petCount
       character(ESMF_MAXSTR) :: str
 !
@@ -2218,7 +2250,7 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 110  format(' River (',I2.2,') Discharge [',A,'] : ',2F10.2)
+ 110  format(' River (',I2.2,') Discharge [',A,'] : ',2F15.6)
 !
       end subroutine put_river
 !

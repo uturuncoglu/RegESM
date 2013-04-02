@@ -21,8 +21,8 @@ vpath %.o util:.
 SUBDIRS = util
 
 UTILLIBPTH = util
-LIBS = -L$(UTILLIBPTH) -lesmutil #-L/home/uturunco/progs/parallel-netcdf-1.3.1/lib -lpnetcdf
-CPPFLAGS += -I$(UTILLIBPTH)
+LIBS = -L$(UTILLIBPTH) -lesmutil -L/home/uturunco/progs/parallel-netcdf-1.3.1/lib -lpnetcdf
+CPPFLAGS += -I$(UTILLIBPTH) -I/home/uturunco/progs/parallel-netcdf-1.3.1/include
 
 if DO_COMPILE_LIBESMF
 LIBS += $(ESMFLIBPTH)

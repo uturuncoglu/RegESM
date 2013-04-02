@@ -347,6 +347,22 @@
         end if
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
+      else if (itSrc == Instod) then
+        regridMethod = ESMF_REGRIDMETHOD_NEAREST_STOD
+        call ESMF_FieldRegridStore(srcField=srcField,                   &
+                                   dstField=dstField,                   &
+                                   unmappedaction=unmap,                &
+                                   routeHandle=routeHandle,             &
+                                   regridmethod=regridMethod,           &
+                                   rc=rc)
+      else if (itSrc == Indtos) then
+        regridMethod = ESMF_REGRIDMETHOD_NEAREST_DTOS
+        call ESMF_FieldRegridStore(srcField=srcField,                   &
+                                   dstField=dstField,                   &
+                                   unmappedaction=unmap,                &
+                                   routeHandle=routeHandle,             &
+                                   regridmethod=regridMethod,           &
+                                   rc=rc)
       else
         write(msgString,'(a)') trim(cname)//': selected '//             &
               'interpolation type is not supported! '//INTPDES(itSrc)
