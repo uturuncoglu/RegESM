@@ -34,6 +34,8 @@
           NUOPC_SetServices          => routine_SetServices,            &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
+          NUOPC_Model_Type_IS        => type_InternalState,             &
+          NUOPC_Model_Label_IS       => label_InternalState,            &
           NUOPC_Label_SetClock       => label_SetClock,                 &
           NUOPC_Label_CheckImport    => label_CheckImport
 !
@@ -269,6 +271,53 @@
 !
       end subroutine OCN_SetInitializeP2
 !
+      subroutine OCN_DataInit(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: localPet, petCount
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+!
+!-----------------------------------------------------------------------
+!     Get gridded component clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, clock=clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put export fields (only for initial and restart run)
+!-----------------------------------------------------------------------
+!
+      if (restarted .and. currTime == esmRestartTime) then
+        call OCN_Put(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end subroutine OCN_DataInit
 !
       subroutine OCN_SetClock(gcomp, rc)
 !
@@ -527,6 +576,7 @@
 !
       logical :: atCorrectTime
 !
+      type(NUOPC_Model_Type_IS) :: is
       type(ESMF_Time) :: startTime, currTime
       type(ESMF_Clock) :: clock
       type(ESMF_Field) :: field
@@ -535,20 +585,26 @@
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Get component clock and importState 
+!     Get component for its internal state 
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompGet(gcomp, clock=clock,                         &
-                            importState=importState, rc=rc)
+      nullify(is%wrap)
+!
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Model_Label_IS,   &
+                                         is, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Query time and time step from clock 
+!     Get the start time and current time out of the clock
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(clock, startTime=startTime,                    &
+      call ESMF_ClockGet(is%wrap%driverClock, startTime=startTime,      &
                          currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+       call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -1382,6 +1438,8 @@
 !
       if ((currTime /= refTime) .or. restarted) then
         call OCN_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       end if
 !
 !-----------------------------------------------------------------------
@@ -1407,6 +1465,8 @@
 !-----------------------------------------------------------------------
 !
       call OCN_Put(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Formats 

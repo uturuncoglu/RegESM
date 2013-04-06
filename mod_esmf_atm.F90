@@ -268,18 +268,21 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: localPet, petCount
+      integer :: localPet, petCount, phase
       real(ESMF_KIND_R8) :: tstr
+      character(ESMF_MAXSTR) :: str1, str2
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
       type(ESMF_Time) :: currTime
+      type(ESMF_TimeInterval) :: timeStep
 !
 !-----------------------------------------------------------------------
 !     Get gridded component clock
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompGet(gcomp, vm=vm, clock=clock, rc=rc)
+      call ESMF_GridCompGet(gcomp, vm=vm, clock=clock,                  &
+                            currentPhase=phase, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -287,7 +290,8 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      call ESMF_ClockGet(clock, currTime=currTime,                      &
+                         timeStep=timeStep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -295,7 +299,8 @@
 !     Put export fields (only for initial and restart run)
 !-----------------------------------------------------------------------
 !
-      if (restarted .and. currTime == esmStartTime) then
+      print*, "call data_init", (restarted .and. currTime == esmRestartTime)
+      if (restarted .and. currTime == esmRestartTime) then
 !
 !-----------------------------------------------------------------------
 !     Debug: write time information 
@@ -313,9 +318,9 @@
                                line=__LINE__, file=FILENAME)) return
 !
         if (debugLevel == 0) then
-          write(*,40) trim(str1), trim(str2), phase
+          write(*,10) trim(str1), trim(str2), phase
         else
-          write(*,50) trim(str1), trim(str2), phase, tstr, tend
+          write(*,20) trim(str1), trim(str2), phase, 0.0d0, dtsrf
         end if
       end if
 !
@@ -323,19 +328,26 @@
 !     Run ATM component (run only one time step to fill variables)
 !-----------------------------------------------------------------------
 !
-      call ESMF_TimeIntervalGet(currTime-esmStartTime, s_r8=tstr, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ATM_Run(tstr, tstr+dtsrf)
+      print*, "call atm_run 1", localPet
+      call ATM_Run(0.0d0, dtsrf)
+      print*, "call atm_run 2"
 !
 !-----------------------------------------------------------------------
 !     Put export fields
 !-----------------------------------------------------------------------
 !
       call ATM_Put(gcomp, rc=rc)
+      print*, "call atm_put"
 !
       end if
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 10   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1,' +')
+ 20   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1,      &
+             ' [',F15.2, '-', F15.2, '] +')
 !
       end subroutine ATM_DataInit
 !
@@ -383,7 +395,6 @@
 !     Create gridded component clock 
 !-----------------------------------------------------------------------
 !
-      print*, 'call set_clock'
       if (calendar == 'gregorian') then
         cal = ESMF_CalendarCreate(ESMF_CALKIND_GREGORIAN,               &
                                   name=trim(calendar),                  &
@@ -1088,7 +1099,12 @@
 !     Calculate run time
 !-----------------------------------------------------------------------
 !
-      timeFrom = currTime-esmStartTime
+      if (restarted) then
+        timeFrom = currTime-esmRestartTime
+      else
+        timeFrom = currTime-esmStartTime
+      end if
+!
       call ESMF_TimeIntervalGet(timeFrom, s_r8=tstr, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1670,7 +1686,7 @@
 !
       if (debugLevel == 4) then
         iunit = localPet
-        write(ofile,80) 'atm_export', trim(itemNameList(i)),            &
+        write(ofile,90) 'atm_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
         imin = global_cross_istart+ici1-1
@@ -1698,7 +1714,7 @@
 !-----------------------------------------------------------------------
 !
       if (debugLevel == 3) then
-        write(ofile,90) 'atm_export', trim(itemNameList(i)),            &
+        write(ofile,100) 'atm_export', trim(itemNameList(i)),           &
                         iyear, imonth, iday, ihour, localPet
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -1718,8 +1734,8 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
- 90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+ 90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
 !
       end subroutine ATM_Put
 !
