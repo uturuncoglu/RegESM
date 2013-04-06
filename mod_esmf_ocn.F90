@@ -265,18 +265,18 @@
 !     Get start and current time
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(clock, startTime=startTime,                    &
-                         currTime=currTime, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call ESMF_ClockGet(clock, startTime=startTime,                    &
+!                         currTime=currTime, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Put export fields in case of restart run 
 !-----------------------------------------------------------------------
 !
-      if (restarted .and. currTime == startTime) then
-        call OCN_Put(gcomp, rc=rc)
-      end if
+!      if (restarted .and. currTime == startTime) then
+!        call OCN_Put(gcomp, rc=rc)
+!      end if
 !
       end subroutine OCN_SetInitializeP2
 !
@@ -315,6 +315,7 @@
       type(ESMF_Clock) :: cmpClock
       type(ESMF_TimeInterval) :: timeStep
       type(ESMF_Time) :: cmpRefTime, cmpStartTime, cmpStopTime
+      type(ESMF_Time) :: startTime, currTime
       type(ESMF_Calendar) :: cal   
 !
       rc = ESMF_SUCCESS
@@ -443,7 +444,8 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_ClockGet(cmpClock, timeStep=timeStep, rc=rc)
+      call ESMF_ClockGet(cmpClock, timeStep=timeStep,                   &
+                         currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -451,12 +453,18 @@
 !     Compare driver time vs. component time
 !-----------------------------------------------------------------------
 !
-      if (cmpStartTime /= esmStartTime) then
+      if (restarted) then
+        startTime = esmRestartTime
+      else
+        startTime = esmStartTime
+      end if
+!
+      if (cmpStartTime /= startTime) then
         call ESMF_TimePrint(cmpStartTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_TimePrint(esmStartTime, options="string", rc=rc)
+        call ESMF_TimePrint(startTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
@@ -466,20 +474,20 @@
         return
       end if
 !
-      if (cmpStopTime /= esmStopTime) then
-        call ESMF_TimePrint(cmpStopTime, options="string", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
+!      if (cmpStopTime /= esmStopTime) then
+!        call ESMF_TimePrint(cmpStopTime, options="string", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_TimePrint(esmStopTime, options="string", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
+!        call ESMF_TimePrint(esmStopTime, options="string", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and OCN stop times do not match: '//              &
-             'please check the config files')
-        return
-      end if
+!        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+!             msg='ESM and OCN stop times do not match: '//              &
+!             'please check the config files')
+!        return
+!      end if
 !
       if (cal /= esmCal) then
         call ESMF_CalendarPrint(cal, options="calkindflag", rc=rc)

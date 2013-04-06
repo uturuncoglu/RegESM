@@ -31,9 +31,10 @@
       use ESMF
       use NUOPC
       use NUOPC_Model, only :                                           &
-          NUOPC_SetServices       => routine_SetServices,               &
-          NUOPC_Label_Advance     => label_Advance,                     &
-          NUOPC_Label_SetClock    => label_SetClock
+          NUOPC_SetServices          => routine_SetServices,            &
+          NUOPC_Label_Advance        => label_Advance,                  &
+          NUOPC_Label_DataInitialize => label_DataInitialize,           &
+          NUOPC_Label_SetClock       => label_SetClock
 !
       use mod_types
       use mod_utils
@@ -99,13 +100,18 @@
 !     Setting the slow and fast model clocks  
 !-----------------------------------------------------------------------
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
-                          userRoutine=ATM_ModelAdvance, rc=rc)
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
+                          userRoutine=ATM_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
       call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetClock,            &
                           userRoutine=ATM_SetClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
+                          userRoutine=ATM_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -196,6 +202,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      real*8 :: tstr
       integer :: comm, localPet, petCount
       type(ESMF_VM) :: vm
       type(ESMF_Time) :: startTime, currTime
@@ -235,35 +242,8 @@
 !-----------------------------------------------------------------------
 !
       call ATM_SetStates(gcomp, rc)
-!
-!-----------------------------------------------------------------------
-!     Get start and current time
-!-----------------------------------------------------------------------
-!
-      call ESMF_ClockGet(clock, startTime=startTime,                    &
-                         currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Put export fields (only for initial and restart run)
-!-----------------------------------------------------------------------
-!
-      if (restarted .and. currTime == startTime) then
-!
-!-----------------------------------------------------------------------
-!     Run ATM component (run only one time step to fill variables)
-!-----------------------------------------------------------------------
-!
-      call ATM_Run(0.0d0, dtsrf)
-!
-!-----------------------------------------------------------------------
-!     Put export fields
-!-----------------------------------------------------------------------
-!
-      call ATM_Put(gcomp, rc=rc)
-!
-      end if
 !
       end subroutine ATM_SetInitializeP2
 !
@@ -297,9 +277,11 @@
       integer :: ref_hour,   str_hour,   end_hour
       integer :: ref_minute, str_minute, end_minute
       integer :: ref_second, str_second, end_second
+      real*8 :: tstr
 !
       type(ESMF_Clock) :: cmpClock 
       type(ESMF_TimeInterval) :: timeStep
+      type(ESMF_Time) :: currTime, startTime
       type(ESMF_Time) :: cmpRefTime, cmpStartTime, cmpStopTime
       type(ESMF_Calendar) :: cal
 !
@@ -309,6 +291,7 @@
 !     Create gridded component clock 
 !-----------------------------------------------------------------------
 !
+      print*, 'call set_clock'
       if (calendar == 'gregorian') then
         cal = ESMF_CalendarCreate(ESMF_CALKIND_GREGORIAN,               &
                                   name=trim(calendar),                  &
@@ -397,7 +380,8 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_ClockGet(cmpClock, timeStep=timeStep, rc=rc)
+      call ESMF_ClockGet(cmpClock, timeStep=timeStep,                   &
+                         currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -405,12 +389,18 @@
 !     Compare driver time vs. component time
 !-----------------------------------------------------------------------
 !
-      if (cmpStartTime /= esmStartTime) then
+      if (restarted) then
+        startTime = esmRestartTime
+      else
+        startTime = esmStartTime
+      end if
+!
+      if (cmpStartTime /= startTime) then
         call ESMF_TimePrint(cmpStartTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_TimePrint(esmStartTime, options="string", rc=rc)
+        call ESMF_TimePrint(startTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
@@ -459,9 +449,7 @@
       maxdiv = max(fac1, fac2)
 !
       call ESMF_ClockSet(cmpClock, name='atm_clock',                    &
-                         refTime=cmpRefTime, timeStep=timeStep/maxdiv,  &
-                         startTime=cmpStartTime, stopTime=cmpStopTime,  &
-                         rc=rc)
+                         timeStep=timeStep/maxdiv, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
