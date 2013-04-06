@@ -33,6 +33,7 @@
       use NUOPC_Model, only :                                           &
           NUOPC_SetServices          => routine_SetServices,            &
           NUOPC_Label_Advance        => label_Advance,                  &
+          NUOPC_Label_DataInitialize => label_DataInitialize,           &
           NUOPC_Label_SetClock       => label_SetClock,                 &
           NUOPC_Label_CheckImport    => label_CheckImport
 !
@@ -100,8 +101,8 @@
 !     Setting the slow and fast model clocks 
 !-----------------------------------------------------------------------
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
-                          userRoutine=OCN_ModelAdvance, rc=rc)
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
+                          userRoutine=OCN_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -112,6 +113,11 @@
 !
       call ESMF_MethodAdd(gcomp, label=NUOPC_Label_CheckImport,         &
                           userRoutine=OCN_CheckImport, index=1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
+                          userRoutine=OCN_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -261,24 +267,8 @@
 !
       call OCN_SetStates(gcomp, rc)
 !
-!-----------------------------------------------------------------------
-!     Get start and current time
-!-----------------------------------------------------------------------
-!
-!      call ESMF_ClockGet(clock, startTime=startTime,                    &
-!                         currTime=currTime, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Put export fields in case of restart run 
-!-----------------------------------------------------------------------
-!
-!      if (restarted .and. currTime == startTime) then
-!        call OCN_Put(gcomp, rc=rc)
-!      end if
-!
       end subroutine OCN_SetInitializeP2
+!
 !
       subroutine OCN_SetClock(gcomp, rc)
 !

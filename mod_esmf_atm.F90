@@ -247,6 +247,96 @@
 !
       end subroutine ATM_SetInitializeP2
 !
+      subroutine ATM_DataInit(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_runparams, only : dtsrf
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: localPet, petCount
+      real(ESMF_KIND_R8) :: tstr
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+!
+!-----------------------------------------------------------------------
+!     Get gridded component clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, clock=clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put export fields (only for initial and restart run)
+!-----------------------------------------------------------------------
+!
+      if (restarted .and. currTime == esmStartTime) then
+!
+!-----------------------------------------------------------------------
+!     Debug: write time information 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel >= 0 .and. localPet == 0) then
+        call ESMF_TimeGet(currTime,                                     &
+                          timeStringISOFrac=str1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_TimeGet(currTime+timeStep,                            &
+                          timeStringISOFrac=str2, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        if (debugLevel == 0) then
+          write(*,40) trim(str1), trim(str2), phase
+        else
+          write(*,50) trim(str1), trim(str2), phase, tstr, tend
+        end if
+      end if
+!
+!-----------------------------------------------------------------------
+!     Run ATM component (run only one time step to fill variables)
+!-----------------------------------------------------------------------
+!
+      call ESMF_TimeIntervalGet(currTime-esmStartTime, s_r8=tstr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ATM_Run(tstr, tstr+dtsrf)
+!
+!-----------------------------------------------------------------------
+!     Put export fields
+!-----------------------------------------------------------------------
+!
+      call ATM_Put(gcomp, rc=rc)
+!
+      end if
+!
       subroutine ATM_SetClock(gcomp, rc)
 !
 !-----------------------------------------------------------------------
