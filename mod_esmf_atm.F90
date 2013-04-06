@@ -337,6 +337,8 @@
 !
       end if
 !
+      end subroutine ATM_DataInit
+!
       subroutine ATM_SetClock(gcomp, rc)
 !
 !-----------------------------------------------------------------------
