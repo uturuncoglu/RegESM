@@ -299,7 +299,6 @@
 !     Put export fields (only for initial and restart run)
 !-----------------------------------------------------------------------
 !
-      print*, "call data_init", (restarted .and. currTime == esmRestartTime)
       if (restarted .and. currTime == esmRestartTime) then
 !
 !-----------------------------------------------------------------------
@@ -328,16 +327,13 @@
 !     Run ATM component (run only one time step to fill variables)
 !-----------------------------------------------------------------------
 !
-      print*, "call atm_run 1", localPet
       call ATM_Run(0.0d0, dtsrf)
-      print*, "call atm_run 2"
 !
 !-----------------------------------------------------------------------
 !     Put export fields
 !-----------------------------------------------------------------------
 !
       call ATM_Put(gcomp, rc=rc)
-      print*, "call atm_put"
 !
       end if
 !

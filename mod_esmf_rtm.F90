@@ -31,8 +31,9 @@
       use ESMF
       use NUOPC
       use NUOPC_Model, only :                                           &
-          NUOPC_SetServices       => routine_SetServices,               &
-          NUOPC_Label_Advance     => label_Advance
+          NUOPC_SetServices          => routine_SetServices,            &
+          NUOPC_Label_Advance        => label_Advance,                  &
+          NUOPC_Label_DataInitialize => label_DataInitialize
 !
       use mod_types
       use mod_utils
@@ -98,6 +99,11 @@
 !     Setting the slow and fast model clocks  
 !-----------------------------------------------------------------------
 ! 
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
+                          userRoutine=RTM_DataInit, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
       call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
                           userRoutine=RTM_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -210,11 +216,36 @@
 !
       call RTM_SetStates(gcomp, rc)
 !
+      end subroutine RTM_SetInitializeP2
+!
+      subroutine RTM_DataInit(gcomp, rc)
+      implicit none
+!
 !-----------------------------------------------------------------------
-!     Get start and current time
+!     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(clock, startTime=startTime, rc=rc)
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -222,11 +253,13 @@
 !     Put export fields in case of restart run 
 !-----------------------------------------------------------------------
 !
-      if (restarted .and. startTime == esmStartTime) then
+      if (restarted .and. currTime == esmRestartTime) then
         call RTM_Put(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       end if
 !
-      end subroutine RTM_SetInitializeP2
+      end subroutine RTM_DataInit
 !
       subroutine RTM_SetGridArrays(gcomp, localPet, rc)
 !
@@ -702,7 +735,7 @@
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
       type(ESMF_TimeInterval) :: timeStep, timeFrom, timeTo
-      type(ESMF_Time) :: startTime, stopTime, currTime
+      type(ESMF_Time) :: startTime, stopTime, currTime, refTime
       type(ESMF_State) :: importState, exportState
 !
       rc = ESMF_SUCCESS
@@ -727,49 +760,44 @@
 !
       call ESMF_ClockGet(clock, timeStep=timeStep,                      &
                          startTime=startTime, stopTime=stopTime,        &
-                         currTime=currTime, rc=rc) 
+                         currTime=currTime, refTime=refTime, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      timeFrom = currTime-startTime
+!-----------------------------------------------------------------------
+!     Calculate run time
+!-----------------------------------------------------------------------
+!
+      timeFrom = currTime-esmStartTime
+!
       call ESMF_TimeIntervalGet(timeFrom, d_r8=dstart, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      timeTo = stopTime-currTime
+      timeTo = timeFrom+timeStep
       call ESMF_TimeIntervalGet(timeTo, d_r8=dend, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
       if (ceiling(dstart) == floor(dstart)) then
-        istart = int(dstart) 
+        istart = int(dstart)+1 
       else
-         write(msgString,'(A,I3)') trim(cname)//                        &
-               ': time step of the HD model must be defined '//         &
-               'as day increments!' 
-         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-         return
+        write(msgString,'(A,I3)') trim(cname)//                         &
+              ': time step of the HD model must be defined '//          &
+              'as day increments. check istart!' 
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return
       end if
 !
-!-----------------------------------------------------------------------
-!     Run RTM component
-!-----------------------------------------------------------------------
-!
-      iend = istart+int(dend)
-      istart = istart+1
-      call RTM_Run(istart, iend)
-!
-!-----------------------------------------------------------------------
-!     Get import fields (runs on last PET of ATM component)
-!-----------------------------------------------------------------------
-!
-      call RTM_Get(gcomp, rc=rc)
-!
-!-----------------------------------------------------------------------
-!     Put export fields
-!-----------------------------------------------------------------------
-!
-      call RTM_Put(gcomp, rc=rc)
+      if (ceiling(dend) == floor(dend)) then
+        iend = int(dend)
+      else
+        write(msgString,'(A,I3)') trim(cname)//                         &
+              ': time step of the HD model must be defined '//          &
+              'as day increments. check iend!'
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Debug: write time information 
@@ -792,6 +820,30 @@
           write(*,50) trim(str1), trim(str2), phase, istart, iend 
         end if
       end if
+!
+!-----------------------------------------------------------------------
+!     Get import fields 
+!-----------------------------------------------------------------------
+!
+      if ((currTime /= refTime) .or. restarted) then
+        call RTM_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Run RTM component
+!-----------------------------------------------------------------------
+!
+      call RTM_Run(istart, iend)
+!
+!-----------------------------------------------------------------------
+!     Put export fields
+!-----------------------------------------------------------------------
+!
+      call RTM_Put(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Formats 

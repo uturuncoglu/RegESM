@@ -287,7 +287,6 @@
 !
       integer :: localPet, petCount
 !
-      type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
       type(ESMF_Time) :: currTime
 !
@@ -295,11 +294,7 @@
 !     Get gridded component clock
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompGet(gcomp, vm=vm, clock=clock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
