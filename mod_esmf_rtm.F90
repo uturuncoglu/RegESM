@@ -232,32 +232,117 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      real*8  :: dstart, dend
+      integer :: istart, iend, phase, localPet, petCount
+      character(ESMF_MAXSTR) :: cname, msgString, str1, str2
+!
+      type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
       type(ESMF_Time) :: currTime
+      type(ESMF_TimeInterval) :: timeStep, timeFrom, timeTo
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Get gridded component clock
+!     Get gridded component
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
+      call ESMF_GridCompGet(gcomp, vm=vm, currentPhase=phase,           &
+                            clock=clock, name=cname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get current time and time step
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, currTime=currTime,                      &
+                         timeStep=timeStep, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Calculate run time
+!-----------------------------------------------------------------------
+!
+      if (restarted .and. currTime == esmRestartTime) then
+!
+      currTime = currTime-timeStep
+!
+      timeFrom = currTime-esmStartTime
+      call ESMF_TimeIntervalGet(timeFrom, d_r8=dstart, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      timeTo = timeFrom+timeStep
+      call ESMF_TimeIntervalGet(timeTo, d_r8=dend, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (ceiling(dstart) == floor(dstart)) then
+        istart = int(dstart)+1
+      else
+        write(msgString,'(A,I3)') trim(cname)//                         &
+              ': time step of the HD model must be defined '//          &
+              'as day increments. check istart!' 
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return
+      end if
+!
+      if (ceiling(dend) == floor(dend)) then
+        iend = int(dend)
+      else
+        write(msgString,'(A,I3)') trim(cname)//                         &
+              ': time step of the HD model must be defined '//          &
+              'as day increments. check iend!'
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Debug: write time information 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel >= 0 .and. localPet == 0) then
+        call ESMF_TimeGet(currTime,                                     &
+                          timeStringISOFrac=str1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_TimeGet(currTime+timeStep,                            &
+                          timeStringISOFrac=str2, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        if (debugLevel == 0) then
+          write(*,10) trim(str1), trim(str2), phase
+        else
+          write(*,20) trim(str1), trim(str2), phase, istart, iend 
+        end if
+      end if
 !
 !-----------------------------------------------------------------------
 !     Put export fields in case of restart run 
 !-----------------------------------------------------------------------
 !
-      if (restarted .and. currTime == esmRestartTime) then
+        call RTM_Run(istart, iend)
+!
         call RTM_Put(gcomp, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end if
+!
+!-----------------------------------------------------------------------
+!     Formats 
+!-----------------------------------------------------------------------
+!
+ 10   format(' Running RTM Component: ',A,' --> ',A,' Phase: ',I1,' +')
+ 20   format(' Running RTM Component: ',A,' --> ',A,' Phase: ',I1,      &
+             ' [',I5,'-',I5, '] +')
 !
       end subroutine RTM_DataInit
 !
@@ -819,16 +904,6 @@
         else
           write(*,50) trim(str1), trim(str2), phase, istart, iend 
         end if
-      end if
-!
-!-----------------------------------------------------------------------
-!     Get import fields 
-!-----------------------------------------------------------------------
-!
-      if ((currTime /= refTime) .or. restarted) then
-        call RTM_Get(gcomp, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
       end if
 !
 !-----------------------------------------------------------------------
