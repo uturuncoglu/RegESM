@@ -1373,6 +1373,15 @@
           end do
         end do
 #endif
+      case ('msk')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            !importFields%msk(n,m) = (ptr(ii,jj)*sfac)+addo
+            importFields%msk(n,m) = ptr(ii,jj)
+          end do
+        end do
       end select
 !
 !-----------------------------------------------------------------------

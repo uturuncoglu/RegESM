@@ -9,9 +9,10 @@ shfx:sensible_heat_flux:bilinear:cross:W/m^2:Cm/s:cf2:0.0
 prec:total_precipitation:bilinear:cross:kg/m^2s:kg/m^2s:1.0:0.0
 wndu:eastward_10m_wind:bilinear:cross:m/s:m/s:1.0:0.0
 wndv:northward_10m_wind:bilinear:cross:m/s:m/s:1.0:0.0
-2 ocn2atm
+3 ocn2atm
 sst:sea_surface_temperature:bilinear:cross:C:K:1.0:273.16
 sit:sea_ice_thickness:bilinear:cross:m:mm:1000.0:0.0
+msk:dynamic_masking:nearstod:cross:unitless:unitless:1.0:0.0
 2 atm2rtm
 rnof:surface_runoff:bilinear:cross:mm/s:m/s:0.001:0.0
 snof:subsurface_runoff:bilinear:cross:mm/s:m/s:0.001:0.0

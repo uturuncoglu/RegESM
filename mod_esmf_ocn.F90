@@ -55,6 +55,7 @@
 !-----------------------------------------------------------------------
 !
       public :: OCN_SetServices
+      integer :: countx(10) = 0
 !
       contains
 !
@@ -1850,6 +1851,7 @@
 !
       use mod_param, only : BOUNDS, N, Ngrids
       use mod_ocean, only : OCEAN
+      use mod_grid , only : GRID
       use mod_scalars, only : itemp
       use mod_stepping, only : nstp
 #ifdef OCNICE
@@ -2017,6 +2019,20 @@
           end do
         end do
 #endif
+      case ('msk')
+        do jj = JstrR, JendR
+          do ii = IstrR, IendR
+            ! update only sea grids
+            if (GRID(ng)%rmask(ii,jj) > 0.0d0) then
+              ! if wet-dry mask differs from static mask
+              if (GRID(ng)%rmask(ii,jj) /= GRID(ng)%rmask_wet(ii,jj)) then
+                ptr(ii,jj) = GRID(ng)%rmask_wet(ii,jj)
+              else
+                ptr(ii,jj) = GRID(ng)%rmask(ii,jj)
+              end if
+            end if
+          end do
+        end do
       end select
 !
 !-----------------------------------------------------------------------
@@ -2208,6 +2224,7 @@
 !-----------------------------------------------------------------------
 !
       use ocean_coupler_mod, only : rdata
+      use mod_forces, only : FORCES
       use mod_param, only : BOUNDS, Ngrids
 !
       implicit none
@@ -2228,8 +2245,9 @@
 !-----------------------------------------------------------------------
 !
       real*8 :: thold
-      real*8 :: rdis(1)
+      real*8 :: rdis(1), tdis(1), ta
       integer :: i, j, k, mm, ng, np, nr, localPet, petCount
+      integer :: IstrR, IendR, JstrR, JendR
       character(ESMF_MAXSTR) :: str
 !
       type(ESMF_Time) :: currTime
@@ -2258,6 +2276,17 @@
 !     
 !-----------------------------------------------------------------------
 !     Fill intermediate array with river discharge data (from RTM)
+!     
+!     Estimate stream temperature from air temperature using very 
+!     simplified relationship. Two different linear equation can be
+!     used.
+!
+!     (1) Ts = 5.32+0.65*Ta (Albek et al., 2009) 
+!     (2) Ts = 4.40+0.80*Ta (Pilgrim, M.J., 1998)
+!
+!     Method 1 and 2 gives similar result in winter and fall season 
+!     but method 2 estimates warmer stream temperature than method 1 
+!     in spring and summer
 !-----------------------------------------------------------------------
 !
       thold = 1.0d6
@@ -2266,6 +2295,7 @@
         nr = size(rivers, dim=1)
         do i = 1, nr
           rdis = 0.0d0
+          tdis = 0.0d0
           ! get data from root PET and 
           ! distribute equally across the mount points
           np = rivers(i)%npoints
@@ -2273,10 +2303,22 @@
             if (ptr(rivers(i)%iindex,rivers(i)%jindex) < thold) then
               rdis = ptr(rivers(i)%iindex,rivers(i)%jindex)
               rdis = rdis/dble(np)
+!
+              ta = rdata(ng)%Tair(rivers(i)%iindex,rivers(i)%jindex)
+              if (ta > 50.0d0) then
+                ta = FORCES(ng)%Tair(rivers(i)%iindex,rivers(i)%jindex) 
+              end if
+              tdis = 5.32d0+0.65d0*ta
+              if (tdis(1) < -2.0d0) tdis = -2.0d0
+              print*, "tdis = ", tdis
             end if
           end if
           ! broadcast data across the PETs
           call ESMF_VMBroadcast(vm, bcstData=rdis, count=1,             &
+                                rootPet=rivers(i)%rootPet, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+          call ESMF_VMBroadcast(vm, bcstData=tdis, count=1,             &
                                 rootPet=rivers(i)%rootPet, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
                                  line=__LINE__, file=FILENAME)) return
@@ -2287,7 +2329,7 @@
           ! print debug info
           if (localPet == 0) then
             write(*,110) i, trim(str), rdis(1)*dble(np),                &
-                         rdis(1)*dble(np)*rivers(i)%monfac(mm) 
+                         rdis(1)*dble(np)*rivers(i)%monfac(mm), tdis(1) 
           end if
           ! apply monthly correction factor
           rdis = rdis*rivers(i)%monfac(mm)
@@ -2295,6 +2337,7 @@
           do j = 1, np
             k = k+1
             rdata(ng)%Rdis(k) = (rdis(1)*sfac)+addo
+            rdata(ng)%Tdis(k) = tdis(1)
           end do 
         end do
       end do
@@ -2303,7 +2346,7 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 110  format(' River (',I2.2,') Discharge [',A,'] : ',2F15.6)
+ 110  format(' River (',I2.2,') Discharge [',A,'] : ',2F15.6, F10.3)
 !
       end subroutine put_river
 !

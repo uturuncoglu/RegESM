@@ -313,7 +313,7 @@
 !     Create routehandle based on selected grid and interpolation type 
 !-----------------------------------------------------------------------
 !
-      if (flag) then
+     if (flag) then
       unmap = ESMF_UNMAPPEDACTION_IGNORE
       if (itSrc == Iconsv) then
         regridMethod = ESMF_REGRIDMETHOD_CONSERVE
@@ -355,6 +355,8 @@
                                    routeHandle=routeHandle,             &
                                    regridmethod=regridMethod,           &
                                    rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
       else if (itSrc == Indtos) then
         regridMethod = ESMF_REGRIDMETHOD_NEAREST_DTOS
         call ESMF_FieldRegridStore(srcField=srcField,                   &
@@ -363,6 +365,8 @@
                                    routeHandle=routeHandle,             &
                                    regridmethod=regridMethod,           &
                                    rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
       else
         write(msgString,'(a)') trim(cname)//': selected '//             &
               'interpolation type is not supported! '//INTPDES(itSrc)

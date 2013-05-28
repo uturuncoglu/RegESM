@@ -126,6 +126,12 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
+      call NUOPC_FieldDictionaryAddEntry('dynamic_masking',             &
+           canonicalUnits='unitless', defaultLongName='N/A',            &
+           defaultShortName='msk', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
       end subroutine set_field_dir 
 !
       end module mod_fields
