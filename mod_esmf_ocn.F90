@@ -2310,7 +2310,6 @@
               end if
               tdis = 5.32d0+0.65d0*ta
               if (tdis(1) < -2.0d0) tdis = -2.0d0
-              print*, "tdis = ", tdis
             end if
           end if
           ! broadcast data across the PETs
