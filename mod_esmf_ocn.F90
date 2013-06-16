@@ -344,9 +344,11 @@
       integer :: ref_hour,   str_hour,   end_hour
       integer :: ref_minute, str_minute, end_minute
       integer :: ref_second, str_second, end_second
+      integer :: localPet, petCount
       real*8 :: stime, etime, hour, minute, yday
       character (len=80) :: calendar
 !
+      type(ESMF_VM) :: vm
       type(ESMF_Clock) :: cmpClock
       type(ESMF_TimeInterval) :: timeStep
       type(ESMF_Time) :: cmpRefTime, cmpStartTime, cmpStopTime
@@ -354,6 +356,18 @@
       type(ESMF_Calendar) :: cal   
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Create gridded component clock 
@@ -451,13 +465,14 @@
       do ng = 1, Ngrids
         etime = max(etime, (real(ntimes(ng),r8)*dt(ng))*sec2day)
       end do
-      etime = etime+stime
+      !etime = etime+stime
       call caldate(r_date, etime, end_year, yday, end_month,            &
                    end_day, hour)
       minute = (hour-aint(hour))*60.0_r8
       end_hour = int(hour)
       end_minute = int(minute)
       end_second = int((minute-aint(minute))*60.0_r8)
+      print*, end_year, yday, end_month
 !
       call ESMF_TimeSet(cmpStopTime,                                    &
                         yy=end_year,                                    &
