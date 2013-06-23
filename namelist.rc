@@ -49,7 +49,7 @@ DebugLevel: 1
 #
 Calendar:    gregorian
 StartTime:   1979 01 01 00 00 00
-RestartTime: 1979 01 01 00 00 00 
+RestartTime: 2005 02 01 00 00 00 
 StopTime:    2012 01 01 00 00 00
 TimeStep:    0000 00 01 00 00 00
 #
