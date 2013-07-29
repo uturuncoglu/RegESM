@@ -43,28 +43,59 @@ libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/Main/*.o)     \
                   $(wildcard $(ATM_PREFIX)/Share/*.o)
 endif
 
+SFILES = ""
 if DO_COMPILE_LIBOCN
 LIBS += -L${PWD} -locn
-CPPFLAGS += -I$(OCN_PREFIX)/Build
+CPPFLAGS += -I$(OCN_PREFIX)
 noinst_LIBRARIES += libocn.a
 libocn_a_SOURCES =
-skip_files  = $(OCN_PREFIX)/Build/master.o
-libocn_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(OCN_PREFIX)/Build/*.o))
+
+if DO_COMPILE_ROMS
+  SFILES += $(OCN_PREFIX)/master.o
+endif
+if DO_COMPILE_MIT 
+  SFILES += $(OCN_PREFIX)/main.o
+endif
+
+OFILES = $(filter-out $(SFILES), $(wildcard $(OCN_PREFIX)/*.o))
+libocn_a_LIBADD = $(OFILES)
 endif
 
 if DO_COMPILE_LIBRTM
 LIBS += -L${PWD} -lrtm
-CPPFLAGS += -I$(RTM_PREFIX)/src
+CPPFLAGS += -I$(RTM_PREFIX)
 noinst_LIBRARIES += librtm.a
 librtm_a_SOURCES =
-skip_files  = $(RTM_PREFIX)/src/hdmain.o
-librtm_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(RTM_PREFIX)/src/*.o))
+skip_files = $(RTM_PREFIX)/hdmain.o
+librtm_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(RTM_PREFIX)/*.o))
 endif
 
 bin_PROGRAMS = regesm.x
 
-regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_atm.F90 \
-                   mod_esmf_ocn.F90 mod_esmf_rtm.F90 mod_esmf_cpl.F90
+regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_cpl.F90
+
+if DO_COMPILE_LIBATM
+regesm_x_SOURCES += mod_esmf_atm.F90
+else
+regesm_x_SOURCES += mod_esmf_atm_void.F90
+endif
+
+if DO_COMPILE_LIBOCN
+if DO_COMPILE_ROMS
+regesm_x_SOURCES += mod_esmf_ocn_roms.F90
+endif
+if DO_COMPILE_MIT
+regesm_x_SOURCES += mod_esmf_ocn_mit.F90
+endif
+else
+regesm_x_SOURCES += mod_esmf_ocn_void.F90
+endif
+
+if DO_COMPILE_LIBRTM
+regesm_x_SOURCES += mod_esmf_rtm.F90
+else
+regesm_x_SOURCES += mod_esmf_rtm_void.F90
+endif
 
 FCLD = $(MPIFC)
 
@@ -86,12 +117,40 @@ clean-local:
 #
 # RegESM Main Program
 #
+OBJ=
+if DO_COMPILE_LIBATM
 mod_esmf_atm.o: mod_esmf_atm.F90 mod_types.o
-mod_esmf_ocn.o: mod_esmf_ocn.F90 mod_types.o
+OBJ+=mod_esmf_atm.o
+else
+mod_esmf_atm_void.o: mod_esmf_atm_void.F90 mod_types.o
+OBJ+=mod_esmf_atm_void.o
+endif
+
+if DO_COMPILE_LIBOCN
+if DO_COMPILE_ROMS
+mod_esmf_ocn_roms.o: mod_esmf_ocn_roms.F90 mod_types.o
+OBJ+=mod_esmf_ocn_roms.o
+endif
+if DO_COMPILE_MIT
+mod_esmf_ocn_mit.o: mod_esmf_ocn_mit.F90 mod_types.o
+OBJ+=mod_esmf_ocn_mit.o
+endif
+else
+mod_esmf_ocn_void.o: mod_esmf_ocn_void.F90 mod_types.o
+OBJ+=mod_esmf_ocn_void.o
+endif
+
+if DO_COMPILE_LIBRTM
 mod_esmf_rtm.o: mod_esmf_rtm.F90 mod_types.o
+OBJ+=mod_esmf_rtm.o
+else
+mod_esmf_rtm_void.o: mod_esmf_rtm_void.F90 mod_types.o
+OBJ+=mod_esmf_rtm_void.o
+endif
+
 mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o
-mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o mod_esmf_atm.o \
-                mod_esmf_ocn.o mod_esmf_rtm.o mod_esmf_cpl.o
-regesm.o: regesm.F90 mod_esmf_esm.o mod_esmf_atm.o mod_esmf_ocn.o \
-          mod_esmf_rtm.o mod_esmf_cpl.o 
+
+mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o $(OBJ) mod_esmf_cpl.o
+
+regesm.o: regesm.F90 $(OBJ) mod_esmf_esm.o mod_esmf_cpl.o 
 	$(MPIFC) $(CPPFLAGS) $(FCFLAGS) -c $<

@@ -38,7 +38,7 @@ AC_ARG_WITH([esmf],
             [Path to ESMF installation (default: ESMF_LIB environment)]),
   [ESMF_PREFIX="$withval"], [ESMF_PREFIX="${ESMF_LIB}"]
 )
-AM_CONDITIONAL(DO_COMPILE_LIBESMF, [test -n "$ESMF_PREFIX"])
+AM_CONDITIONAL(DO_COMPILE_LIBESMF, [test -d "$ESMF_PREFIX"])
 
 # check ATM
 AC_ARG_WITH([atm],
@@ -46,20 +46,34 @@ AC_ARG_WITH([atm],
             [Path to ATM model (RegCM) installation (default: yes)]),
   [ATM_PREFIX="$withval"], [ATM_PREFIX="${PWD}/src/atm"]
 )
-AM_CONDITIONAL(DO_COMPILE_LIBATM, [test -n "$ATM_PREFIX"])
+AM_CONDITIONAL(DO_COMPILE_LIBATM, [test -d "$ATM_PREFIX"])
 AC_SUBST(ATM_PREFIX)
 
 # check OCN
 AC_ARG_WITH([ocn],
   AC_HELP_STRING([--with-ocn],
-            [Path to OCN model (ROMS) installation (default: yes)]),
+            [Path to OCN model (ROMS or MITgcm) installation (default: yes)]),
   [OCN_PREFIX="$withval"], [OCN_PREFIX="${PWD}/src/ocn"]
 )
-AM_CONDITIONAL(DO_COMPILE_LIBOCN, [test -n "$OCN_PREFIX"])
+AM_CONDITIONAL(DO_COMPILE_LIBOCN, [test -d "$OCN_PREFIX"])
 AC_SUBST(OCN_PREFIX)
-AC_CHECK_FILE([$OCN_PREFIX/Build/seaice.o],
-              [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_WARN([Compiling with support of ROMS-ICE model])],
-               AC_MSG_WARN([Compiling with ROMS model]))
+
+# check OCN model type
+OCN_ROMS=0
+OCN_MIT=0
+AC_CHECK_FILE([$OCN_PREFIX/roms_export.f90],
+              [OCN_ROMS=1; AC_MSG_NOTICE([Compiling with support of ROMS ocean model])],
+              AC_MSG_WARN([Required source file is not found! Do not activate ROMS ocean model ...]))
+if eval "test x$OCN_ROMS = x1"; then
+  AC_CHECK_FILE([$OCN_PREFIX/seaice.o],
+                [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_NOTICE([Compiling with support of ICE model])],
+                 AC_MSG_WARN([Compiling without support of ICE model]))
+fi
+AC_CHECK_FILE([$OCN_PREFIX/MOM_COMMON_OPTIONS.h],
+              [OCN_MIT=1; AC_MSG_NOTICE([Compiling with support of MITgcm ocean model])],
+              AC_MSG_WARN([Required source file is not found! Do not activate MITgcm ocean model ...]))
+AM_CONDITIONAL(DO_COMPILE_ROMS, [test x"$OCN_ROMS" = x1])
+AM_CONDITIONAL(DO_COMPILE_MIT, [test x"$OCN_MIT" = x1])
 
 # check RTM
 AC_ARG_WITH([rtm],
@@ -67,7 +81,7 @@ AC_ARG_WITH([rtm],
             [Path to RTM model (HD) installation (default: yes)]),
   [RTM_PREFIX="$withval"], [RTM_PREFIX="${PWD}/src/rtm"]
 )
-AM_CONDITIONAL(DO_COMPILE_LIBRTM, [test -n "$RTM_PREFIX"])
+AM_CONDITIONAL(DO_COMPILE_LIBRTM, [test -d "$RTM_PREFIX"])
 AC_SUBST(RTM_PREFIX)
 
 # check DEBUG
