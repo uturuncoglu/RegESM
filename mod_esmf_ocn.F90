@@ -695,7 +695,7 @@
       integer :: staggerEdgeLWidth(2)
       integer :: staggerEdgeUWidth(2)
       integer, allocatable :: deBlockList(:,:,:)
-      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:)
+      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
       integer, pointer :: ptrM(:,:)
       character(ESMF_MAXSTR) :: cname, name, msgString
 !
@@ -842,6 +842,15 @@
       if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
+!     Allocate items for grid area 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddItem(models(Iocean)%grid,                        &
+                            staggerLoc=staggerLoc,                      &
+                            itemflag=ESMF_GRIDITEM_AREA,                &
+                            rc=rc)
+!
+!-----------------------------------------------------------------------
 !     Get number of local DEs
 !-----------------------------------------------------------------------
 ! 
@@ -883,6 +892,15 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+      call ESMF_GridGetItem (models(Iocean)%grid,                       &
+                             localDE=j,                                 &
+                             staggerLoc=staggerLoc,                     &
+                             itemflag=ESMF_GRIDITEM_AREA,               &
+                             farrayPtr=ptrA,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
 !-----------------------------------------------------------------------
 !     Debug: write size of pointers    
 !-----------------------------------------------------------------------
@@ -911,6 +929,7 @@
             ptrX(ii,jj) = GRID(ng)%lonp(ii,jj)
             ptrY(ii,jj) = GRID(ng)%latp(ii,jj)
             ptrM(ii,jj) = int(GRID(ng)%pmask(ii,jj))
+            ptrA(ii,jj) = GRID(ng)%om_p(ii,jj)*GRID(ng)%on_p(ii,jj)
           end do
         end do
       else if (models(Iocean)%mesh(i)%gtype == Icross) then
@@ -925,6 +944,7 @@
             ptrX(ii,jj) = GRID(ng)%lonr(ii,jj)
             ptrY(ii,jj) = GRID(ng)%latr(ii,jj)
             ptrM(ii,jj) = int(GRID(ng)%rmask(ii,jj))
+            ptrA(ii,jj) = GRID(ng)%om_r(ii,jj)*GRID(ng)%on_r(ii,jj)
           end do
         end do
       else if (models(Iocean)%mesh(i)%gtype == Iupoint) then
@@ -939,6 +959,7 @@
             ptrX(ii,jj) = GRID(ng)%lonu(ii,jj)
             ptrY(ii,jj) = GRID(ng)%latu(ii,jj)
             ptrM(ii,jj) = int(GRID(ng)%umask(ii,jj))
+            ptrA(ii,jj) = GRID(ng)%om_u(ii,jj)*GRID(ng)%on_u(ii,jj)
           end do
         end do
       else if (models(Iocean)%mesh(i)%gtype == Ivpoint) then
@@ -953,6 +974,7 @@
             ptrX(ii,jj) = GRID(ng)%lonv(ii,jj)
             ptrY(ii,jj) = GRID(ng)%latv(ii,jj)
             ptrM(ii,jj) = int(GRID(ng)%vmask(ii,jj))
+            ptrA(ii,jj) = GRID(ng)%om_v(ii,jj)*GRID(ng)%on_v(ii,jj)
           end do
         end do
       end if
