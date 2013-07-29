@@ -2,7 +2,6 @@ RegESM
 ======
 
 Regional Earth System Model
-Try ciao
 
 
 Components
