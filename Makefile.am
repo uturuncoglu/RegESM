@@ -132,7 +132,25 @@ mod_esmf_ocn_roms.o: mod_esmf_ocn_roms.F90 mod_types.o
 OBJ+=mod_esmf_ocn_roms.o
 endif
 if DO_COMPILE_MIT
-mod_esmf_ocn_mit.o: mod_esmf_ocn_mit.F90 mod_types.o
+#SIZE_F90.h: $(OCN_PREFIX)/SIZE.h
+#	cat $< | awk -f util/awk.prog > $@
+#CPP_EEMACROS_F90.h: $(OCN_PREFIX)/CPP_EEMACROS.h
+#	cat $< | awk -f util/awk.prog > $@
+#EEPARAMS_F90.h: $(OCN_PREFIX)/EEPARAMS.h CPP_EEMACROS_F90.h
+#	cat $< | awk -f util/awk.prog > $@
+#GRID_F90.h: $(OCN_PREFIX)/GRID.h GRID_MACROS_F90.h
+#	cat $< | awk -f util/awk.prog > $@
+#GRID_MACROS_F90.h: $(OCN_PREFIX)/GRID_MACROS.h
+#	cat $< | awk -f util/awk.prog > $@
+#mit_code.FXX: SIZE_F90.h EEPARAMS_F90.h GRID_F90.h
+#	touch $@
+#mit_code.F90: mit_code.FXX
+#	cpp $< > mit_code.FX1
+#	cat mit_code.FX1 | sed -e 's/\([0-9]\) d \([0-9]\)/\1d\2/g' > $@	
+#	rm -f mit_code.FX1
+#mod_esmf_ocn_mit.o: mod_esmf_ocn_mit.F90 mit_code.F90 mod_types.o
+mod_esmf_ocn_mit.o: mod_esmf_ocn_mit.F90 mod_types.o mod_mit_gcm.o
+mod_mit_gcm.o: mod_mit_gcm.F90
 OBJ+=mod_esmf_ocn_mit.o
 endif
 else
