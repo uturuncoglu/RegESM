@@ -125,8 +125,9 @@
         call ESMF_ConfigGetAttribute(cf, models(i)%nPets, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
-        ! check: river routing model uses single PET      
-        if (i == iriver .and. models(i)%nPets > 0) models(i)%nPets = 1
+!
+        ! check: force river routing model will use single PET      
+        if (i == Iriver .and. models(i)%nPets > 0) models(i)%nPets = 1
 !
         if (i == Iatmos) then
           models(i)%name = "ATM"
@@ -304,8 +305,8 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Fix active connectors 
-!     no interaction in RTM-ATM and OCN-RTM direction 
+!     Fix active connectors (put exceptions in here)
+!     - no interaction between RTM-ATM and OCN-RTM components
 !-----------------------------------------------------------------------
 !
       connectors(Iriver,Iatmos)%modActive = .false.
@@ -349,67 +350,57 @@
 !
 !-----------------------------------------------------------------------
 !     Read exchange field table (based on active components)
+!     - must be in same directory with executable
 !-----------------------------------------------------------------------
 !
-      if (models(Iatmos)%modActive .and.                                &
-          models(Iocean)%modActive .and. .not.                          &
-          models(Iriver)%modActive) then
-        call read_field_table('util/exfield0.tbl', localPet, rc)
-      else if (models(Iatmos)%modActive .and.                           &
-               models(Iocean)%modActive .and.                           &
-               models(Iriver)%modActive) then
-        call read_field_table('util/exfield1.tbl', localPet, rc)
-!      else
-!        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-!             msg='Unknown coupling setup: please activate one of the '//&
-!             'following options -> ATM-OCN or ATM-OCN-RTM')
-!        return        
-      end if
+      call read_field_table('exfield.tbl', localPet, rc)
 !
 !-----------------------------------------------------------------------
-!     Read coupled rivers 
+!     Read river list for coupling (only active when RTM is activated) 
 !-----------------------------------------------------------------------
 !
-      call ESMF_ConfigGetDim(cf, lineCount, columnCount,                &
-                             label='RiverList::', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_ConfigFindLabel(cf, 'RiverList::', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (.not. allocated(rivers)) allocate(rivers(lineCount))
-!
-      do i = 1, lineCount
-        call ESMF_ConfigNextLine(cf, rc=rc)
+      if (models(Iriver)%modActive) then  
+        call ESMF_ConfigGetDim(cf, lineCount, columnCount,              &
+                               label='RiverList::', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_ConfigGetAttribute(cf, rivers(i)%lon, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        rivers(i)%iindex = 0
-!
-        call ESMF_ConfigGetAttribute(cf, rivers(i)%lat, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-        rivers(i)%jindex = 0
-!
-        call ESMF_ConfigGetAttribute(cf, rivers(i)%dir, rc=rc)
+        call ESMF_ConfigFindLabel(cf, 'RiverList::', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_ConfigGetAttribute(cf, rivers(i)%npoints, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+        if (.not. allocated(rivers)) allocate(rivers(lineCount))
 !
-        do j = 1, 12
+        do i = 1, lineCount
+          call ESMF_ConfigNextLine(cf, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+!
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%lon, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          rivers(i)%iindex = 0
+!
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%lat, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          rivers(i)%jindex = 0
+!
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%dir, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+!
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%npoints, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+!
+          do j = 1, 12
           call ESMF_ConfigGetAttribute(cf, rivers(i)%monfac(j), rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
+          end do
         end do
-      end do
+      end if
 !
 !-----------------------------------------------------------------------
 !     Format definition 
