@@ -562,6 +562,7 @@
 !
       use mod_atm_interface, only : mddom
       use mod_dynparam, only : iy, jx, nproc
+      use mod_runparams, only : dxsq
 !
       implicit none
 !
@@ -582,7 +583,7 @@
       type(ESMF_Decomp_Flag) :: decompflag(2)
       type(ESMF_DistGrid) :: distGrid
       type(ESMF_StaggerLoc) :: staggerLoc
-      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:)
+      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
       character (len=40) :: name
 !
       rc = ESMF_SUCCESS
@@ -680,6 +681,15 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Allocate items for grid area 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddItem(models(Iatmos)%grid,                        &
+                            staggerLoc=staggerLoc,                      &
+                            itemflag=ESMF_GRIDITEM_AREA,                &
+                            rc=rc)
+!
+!-----------------------------------------------------------------------
 !     Get number of local DEs
 !-----------------------------------------------------------------------
 ! 
@@ -712,6 +722,15 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+      call ESMF_GridGetItem (models(Iatmos)%grid,                       &
+                             localDE=j,                                 &
+                             staggerLoc=staggerLoc,                     &
+                             itemflag=ESMF_GRIDITEM_AREA,               &
+                             farrayPtr=ptrA,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
 !-----------------------------------------------------------------------
 !     Debug: write size of pointers    
 !-----------------------------------------------------------------------
@@ -737,6 +756,7 @@
 !
         ptrX = transpose(mddom%dlon)
         ptrY = transpose(mddom%dlat)
+        ptrA = dxsq
       else if (models(Iatmos)%mesh(i)%gtype == Icross) then
         if (debugLevel > 0) then
           write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
@@ -746,6 +766,7 @@
 !
         ptrX = transpose(mddom%xlon)
         ptrY = transpose(mddom%xlat)
+        ptrA = dxsq
       end if
 !
 !-----------------------------------------------------------------------
@@ -758,6 +779,9 @@
       end if
       if (associated(ptrX)) then
         nullify(ptrX)
+      end if
+      if (associated(ptrA)) then
+        nullify(ptrA)
       end if
 !
       end do
