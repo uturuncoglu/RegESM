@@ -1,0 +1,30 @@
+BEGIN{
+  curline=""
+  prvline=""
+}
+{
+  sub(/^c/, "!", prvline)
+  curline=tolower($0)
+  len=length(curline)
+  len1=length(prvline)
+  firstchar=substr(curline,1,1)
+  iscont=substr(curline,6,1)
+  islast=substr(prvline,len1,1)
+  if ( len > 7 && NR > 2 )
+  {
+    if ( firstchar != "c" && firstchar != "#" || 
+         (firstchar == "c" && iscont == "&" && (islast == "," || islast == "/") ) )
+    {
+      if ( iscont != " " ) {
+        curline=substr(curline,1,5)substr(curline,7,len)
+        prvline=prvline" &"
+      }
+    }
+  }
+  if ( NR > 1 ) print prvline
+  prvline=curline
+}
+END{
+  sub(/^c/, "!", prvline)
+  print prvline
+}
