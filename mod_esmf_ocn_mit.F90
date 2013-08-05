@@ -229,6 +229,7 @@
       myThid = 1
 !
       call MIT_INIT(comm, iLoop, myTime, myIter, myThid) 
+      if (localPet == 0) print*, comm, iLoop, myTime, myIter, myThid
 !
 !-----------------------------------------------------------------------
 !     Set-up grid and load coordinate data 
@@ -1202,7 +1203,7 @@
 !     Debug: write time information 
 !-----------------------------------------------------------------------
 !
-      iter = trun/deltaT
+      iter = int(trun/deltaT)
 !
       if (debugLevel >= 0 .and. localPet == 0) then
         call ESMF_TimeGet(currTime,                                     &
@@ -1218,7 +1219,7 @@
         if (debugLevel == 0) then
           write(*,40) trim(str1), trim(str2), phase
         else
-          write(*,50) trim(str1), trim(str2), phase, iter 
+          write(*,50) trim(str1), trim(str2), phase, dble(iter)
         end if
       end if
 !
@@ -1237,7 +1238,7 @@
 !-----------------------------------------------------------------------
 !
       iLoop = 0
-      myTime = 21000.
+      myTime = 0.
       myIter = 0
       myThid = 1
 !
