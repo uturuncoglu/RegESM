@@ -157,5 +157,5 @@ mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o
 
 mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o $(OBJ) mod_esmf_cpl.o
 
-regesm.o: regesm.F90 $(OBJ) mod_esmf_esm.o mod_esmf_cpl.o 
+regesm.o: regesm.F90 $(OBJ) mod_esmf_esm.o mod_esmf_cpl.o $(UTILLIBPTH)/libesmutil.a 
 	$(MPIFC) $(CPPFLAGS) $(FCFLAGS) -c $<

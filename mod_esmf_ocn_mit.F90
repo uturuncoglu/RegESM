@@ -229,7 +229,6 @@
       myThid = 1
 !
       call MIT_INIT(comm, iLoop, myTime, myIter, myThid) 
-      if (localPet == 0) print*, comm, iLoop, myTime, myIter, myThid
 !
 !-----------------------------------------------------------------------
 !     Set-up grid and load coordinate data 
@@ -524,7 +523,9 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      integer :: itemCount
       logical :: atCorrectTime
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
       type(NUOPC_Model_Type_IS) :: is
       type(ESMF_Time) :: startTime, currTime
@@ -554,15 +555,31 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-       call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
+      call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Check fields in the importState (fast time step) 
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateGet(importState, itemName="psfc",                  &
+      if (itemCount > 0) then
+      call ESMF_StateGet(importState, itemName=trim(itemNameList(1)),   &
                          field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -580,27 +597,7 @@
         return
       end if
 !
-!-----------------------------------------------------------------------
-!     Check fields in the importState (slow time step) 
-!-----------------------------------------------------------------------
-!
-!      call ESMF_StateGet(importState, itemName="rdis",                  &
-!                         field=field, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return
-!
-!      atCorrectTime = NUOPC_FieldIsAtTime(field, startTime, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!          line=__LINE__, file=FILENAME)) return
-!
-!      if (.not. atCorrectTime) then
-!        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
-!                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
-!                              "Import Fields not at correct time",      &
-!                              line=__LINE__, file=FILENAME,             &
-!                              rcToReturn=rc)
-!        return
-!      end if
+      end if
 !
       end subroutine OCN_CheckImport
 !
@@ -1227,11 +1224,11 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-!      if ((currTime /= refTime) .or. restarted) then
-!        call OCN_Get(gcomp, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=FILENAME)) return
-!      end if
+      if ((currTime /= refTime) .or. restarted) then
+        call OCN_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Run OCN component
@@ -1281,6 +1278,10 @@
 !-----------------------------------------------------------------------
 !
       use mod_mit_gcm, only : sNx, sNy
+      use mod_mit_gcm, only : ustress, vstress, hflux, sflux, swflux,   &
+                              uwind, vwind, atemp, aqh, lwflux, evap,   &
+                              precip, runoff, swdown, lwdown, apressure,&
+                              wspeed, snowprecip 
 !
       implicit none
 !
@@ -1296,13 +1297,9 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, j, ii, jj
-      integer :: id, iyear, iday, imonth, ihour
-!      integer :: LBi, UBi, LBj, UBj, iunit
-!      integer :: IstrR, IendR, JstrR, JendR
-!      integer :: IstrU, IendU, JstrU, JendU     
-!      integer :: IstrV, IendV, JstrV, JendV
+      integer :: id, iyear, iday, imonth, ihour, iunit
       integer :: localPet, petCount, itemCount, localDECount
-      character(ESMF_MAXSTR) :: cname
+      character(ESMF_MAXSTR) :: cname, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8) :: sfac, addo
       real(ESMF_KIND_R8), pointer :: ptr(:,:)
@@ -1422,28 +1419,58 @@
       sfac = models(Iocean)%importField(id)%scale_factor
       addo = models(Iocean)%importField(id)%add_offset
 !
-!      select case (trim(adjustl(itemNameList(i))))
-!      case ('psfc')
-!        do jj = LBj, UBj
-!          do ii = LBi, UBi
-!            rdata(ng)%Pair(ii,jj) = (ptr(ii,jj)*sfac)+addo
-!          end do
-!        end do
-!      end select
+      select case (trim(adjustl(itemNameList(i))))
+      case ('taux')
+        ustress(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('tauy')
+        vstress(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('nflx')
+        hflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('sflx')
+        sflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('swrd')
+        swflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('wndu')
+        uwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
+      case ('wndv')
+        vwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
+      case ('wspd')
+        wspeed(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('tsfc')
+        atemp(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('qsfc')
+        aqh(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('lwrd')
+        lwflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('evap')
+        evap(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('prec')
+        precip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('snow')
+        snowprecip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('rnof')
+        print*, "runoff not implemented yet !!!"
+      case ('dswr')
+        swdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('dlwr')
+        lwdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      case ('psfc')
+        apressure(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+      end select
 !
 !-----------------------------------------------------------------------
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-!      if (debugLevel == 4) then
-!        write(ofile,70) 'ocn_import', trim(itemNameList(i)),            &
-!                        iyear, imonth, iday, ihour, localPet, j
-!        iunit = localPet*10
-!        open(unit=iunit, file=trim(ofile)//'.txt')
-!        call print_matrix_r8(ptr, LBi, UBi, LBj, UBj, 1, 1,             &
-!                             localPet, iunit, "PTR/OCN/IMP")
-!        close(unit=iunit)
-!      end if
+      if (debugLevel == 4) then
+        write(ofile,70) 'ocn_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet, j
+        iunit = localPet*10
+        open(unit=iunit, file=trim(ofile)//'.txt')
+        call print_matrix_r8(ptr, 1, sNx, 1, sNy, 1, 1,                 &
+                             localPet, iunit, "PTR/OCN/IMP")
+        close(unit=iunit)
+      end if
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
@@ -1460,13 +1487,13 @@
 !     Debug: write field in netCDF format    
 !-----------------------------------------------------------------------
 !
-!      if (debugLevel == 3) then
-!        write(ofile,80) 'ocn_import', trim(itemNameList(i)),            &
-!                        iyear, imonth, iday, ihour, localPet
-!        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=FILENAME)) return
-!      end if
+      if (debugLevel == 3) then
+        write(ofile,80) 'ocn_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
 !
       end do
 !

@@ -31,7 +31,6 @@
       use ESMF
 !
       use mod_config
-      use mod_fields
       use mod_esmf_esm, only : ESM_SetServices 
 !
       implicit none
@@ -55,12 +54,6 @@
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
-!     Add additional fields to NUOPC field dictionary 
-!-----------------------------------------------------------------------
-!
-      call set_field_dir()
-!
-!-----------------------------------------------------------------------
 !     Create component 
 !-----------------------------------------------------------------------
 !
@@ -74,6 +67,15 @@
 !-----------------------------------------------------------------------
 !
       call read_config(vm, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__))                                &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+!
+!-----------------------------------------------------------------------
+!     Add additional fields to NUOPC field dictionary 
+!-----------------------------------------------------------------------
+!
+      call set_field_dir(vm, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=__FILE__))                                &
           call ESMF_Finalize(endflag=ESMF_END_ABORT)

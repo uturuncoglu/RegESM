@@ -29,6 +29,7 @@
 !-----------------------------------------------------------------------
 !
       use ESMF
+      use NUOPC
 !
       use mod_types
 !
@@ -635,5 +636,91 @@
       read(str(8),*) field(n)%add_offset
 !
       end subroutine add_field
+!
+      subroutine set_field_dir(vm, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_VM), intent(in) :: vm
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, nf, localPet, petCount
+      logical :: isExist
+      character(ESMF_MAXSTR) :: lname, sname, units
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query gridded component
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add required fields to NUOPC field dictionary 
+!-----------------------------------------------------------------------
+!
+      do i = 1, nModels
+        nf = size(models(i)%exportField)
+        do j = 1, nf
+          lname = trim(models(i)%exportField(j)%long_name)
+          sname = trim(models(i)%exportField(j)%short_name)
+          units = trim(models(i)%exportField(j)%units)
+!
+          isExist = NUOPC_FieldDictionaryHasEntry(trim(lname), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                             line=__LINE__, file=FILENAME)) return
+!
+          if (.not. isExist) then
+          call NUOPC_FieldDictionaryAddEntry(trim(lname),               &
+               canonicalUnits=trim(units), defaultLongName='N/A',       &
+               defaultShortName=trim(sname), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          if (localPet == 0) then
+          write(*,40) "ADD TO FIELD DICTIONARY -> ", i, trim(lname)
+          end if
+          end if
+        end do
+!
+        nf = size(models(i)%importField)
+        do j = 1, nf
+          lname = trim(models(i)%importField(j)%long_name)
+          sname = trim(models(i)%importField(j)%short_name)
+          units = trim(models(i)%importField(j)%units)
+!
+          isExist = NUOPC_FieldDictionaryHasEntry(trim(lname), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                             line=__LINE__, file=FILENAME)) return
+!
+          if (.not. isExist) then
+          call NUOPC_FieldDictionaryAddEntry(trim(lname),               &
+               canonicalUnits=trim(units), defaultLongName='N/A',       &
+               defaultShortName=trim(sname), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          if (localPet == 0) then
+          write(*,40) "ADD TO FIELD DICTIONARY -> ", i, trim(lname)
+          end if
+          end if
+        end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 40   format(A27, I5, A)
+!
+      end subroutine set_field_dir
 !
       end module mod_config

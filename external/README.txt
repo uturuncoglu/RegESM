@@ -39,3 +39,9 @@
   - The order of the rivers in the namelist.rc must be same with the 
     river forcing input file
 
+!-----------------------------------------------------------------------
+! Field Table
+!-----------------------------------------------------------------------
+
+  ustr - zonal surface wind stress
+  vstr - meridional surface wind stress
