@@ -1497,6 +1497,7 @@
       character(ESMF_MAXSTR) :: cname, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8), pointer :: ptr(:,:)
+      integer(ESMF_KIND_I8) :: tstep
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
@@ -1525,7 +1526,8 @@
 !-----------------------------------------------------------------------
 !
       if (debugLevel > 2) then
-      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      call ESMF_ClockGet(clock, currTime=currTime,                      &
+                         advanceCount=tstep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1691,6 +1693,14 @@
             ptr(ii,jj) = exportFields%swrd(n,m)
           end do
         end do
+      case ('dswr')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%dswr(n,m)
+          end do
+        end do
       case ('rnof')
         do m = ici1, ici2
           do n = jci1, jci2
@@ -1705,6 +1715,54 @@
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
             ptr(ii,jj) = exportFields%snof(n,m)
+          end do
+        end do
+      case ('taux')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%taux(n,m)
+          end do
+        end do
+      case ('tauy')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%tauy(n,m)
+          end do
+        end do
+      case ('wspd')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%wspd(n,m)
+          end do
+        end do
+      case ('nflx')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%nflx(n,m)
+          end do
+        end do
+      case ('sflx')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%sflx(n,m)
+          end do
+        end do
+      case ('snow')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%snow(n,m)
           end do
         end do
       end select
@@ -1746,6 +1804,13 @@
         write(ofile,100) 'atm_export', trim(itemNameList(i)),           &
                         iyear, imonth, iday, ihour, localPet
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+!        write(ofile,100) 'atm_export', trim(itemNameList(i))
+!        if (localPet == 0) print*, tstep
+!        call ESMF_FieldWrite(field, trim(ofile)//'.nc',                 &
+!                             variableName=trim(itemNameList(i)),        &
+!                             timeslice=int(tstep),                      &
+!                             iofmt=ESMF_IOFMT_NETCDF,                   &
+!                             rc=rc) 
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end if
@@ -1765,6 +1830,7 @@
 !
  90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
  100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+! 100  format(A10,'_',A)
 !
       end subroutine ATM_Put
 !

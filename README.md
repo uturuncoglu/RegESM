@@ -3,15 +3,17 @@ RegESM
 
 Regional Earth System Model
 
-
 Supported Components
 ====================
 
-* ATM: RegCM       (4.3.5.6) - http://gforge.ictp.it/gf/project/regcm/
-* OCN: ROMS            (3.5) - http://www.myroms.org or for ice branch https://github.com/kshedstrom/roms
-       MIT-gcm (MITgcm_c63s) - http://mitgcm.org/download/
-* RTM: HD            (1.0.2) - http://www.mpimet.mpg.de/en/science/the-land-in-the-earth-system/terrestrial-hydrology/hd-model.html
-                               for license: http://www.mpimet.mpg.de/en/science/models/model-distribution.html
+* ATM
+    * RegCM (core) - http://gforge.ictp.it/gf/project/regcm/
+* OCN: 
+    * ROMS (3.5) - http://www.myroms.org or for ice branch https://github.com/kshedstrom/roms
+    * MIT-gcm (MITgcm_c63s) - http://mitgcm.org/download/
+* RTM: 
+    * HD (1.0.2) - http://www.mpimet.mpg.de/en/science/the-land-in-the-earth-system/terrestrial-hydrology/hd-model.html and for license: http://www.mpimet.mpg.de/en/science/models/model-distribution.html
+
 Prerequisites
 =============
 

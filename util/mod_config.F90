@@ -427,8 +427,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: iunit = 10
-      integer :: i, j, k, l, s, p, ios1, ios2, pos1, pos2, nf
-      integer :: m, mstr, mend, n, nstr, nend
+      integer :: i, j, k, l, m, n, s, ios1, ios2, pos1, pos2, nf
       logical :: file_exists
       character(len=400) :: str
       character(len=200) :: dum(8)
@@ -719,7 +718,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 40   format(A27, I5, A)
+ 40   format(A27, I3, " ", A)
 !
       end subroutine set_field_dir
 !

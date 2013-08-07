@@ -189,6 +189,8 @@
 !
       real*8, parameter :: MISSING_R8 = 1.0d20
       real  , parameter :: MISSING_R4 = 1.0e20
+      real*8, parameter :: TOL_R8 = MISSING_R8/2.0d0
+      real  , parameter :: TOL_R4 = MISSING_R4/2.0
 !
       real*8, parameter :: ZERO_R8 = 0.0d0
 !
