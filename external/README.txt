@@ -40,8 +40,50 @@
     river forcing input file
 
 !-----------------------------------------------------------------------
+! exfield_002.tbl
+!-----------------------------------------------------------------------
+
+  - Th exchange field table for MIT-gcm
+
+!-----------------------------------------------------------------------
 ! Field Table
 !-----------------------------------------------------------------------
 
-  ustr - zonal surface wind stress
-  vstr - meridional surface wind stress
+  - Following short names can be used to define the field table.
+
+  - Atmospheric component (ATM) 
+
+    * The units between the parentheses indicates the unit in the RegCM. So,
+      the user must provide the correct unit conversion parameters using
+      scale_factor and add_offset in the exchange field table.
+ 
+    taux - zonal surface wind stress (N/m^2 or Pa)
+    tauy - meridional surface wind stress (N/m^2 or Pa)
+    wndu - zonal wind component (m/s)
+    wndv - meridional wind component (m/s)
+    wspd - wind speed (m/s)
+    psfc - surface pressure (hPa or mb)
+    tsfc - 2 meter surface temperature (K)
+    qsfc - 2 meter specific humidity (kg/kg)
+    lwrd - net longwave radiation (W/m^2)
+    swrd - net shortwave radiation (W/m^2)
+    dlwr - downward longwave radiation (W/m^2)
+    dswr - downward shortwave radiation (W/m^2)
+    lhfx - latent heat flux (W/m^2)
+    shfx - sensible heat flux (W/m^2)
+    nflx - net heat flux, latent+sensible+longwave+shortwave (W/m^2)
+    prec - total precipitation, P (m/s)
+    evap - evaporation, E (m/s)
+    sflx - net freshwater flux, E-P (m/s)
+    rnof - surface runoff (m/s, just over land)
+    snof - sub-surface runoff (m/s, just over land)
+
+  - Ocean component (OCN)
+
+    sst  - sea surface temperature (degC in ROMS and MIT-gcm)    
+    sit  - sea ice thickness (m in ROMS)
+    msk  - dynamic masking, wet-dry algorithm (unitless in ROMS)
+
+  - River routing component (RTM)
+
+    rdis - river discharge (m^3/s)
