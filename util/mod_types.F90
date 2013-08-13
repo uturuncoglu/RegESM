@@ -127,7 +127,8 @@
 !     RegCM           ROMS (c = rho, d = psi)
 !-----------------------------------------------------------------------
 !
-      character(len=6) :: GRIDDES(0:4) = (/'N/A','CROSS','DOT','U','V'/)
+      character(len=6) :: GRIDDES(0:4) = &
+        (/'N/A   ','CROSS ','DOT   ','U     ','V     '/)
       integer, parameter :: Inan    = 0
       integer, parameter :: Icross  = 1
       integer, parameter :: Idot    = 2
@@ -149,7 +150,7 @@
 !     Running mode        
 !-----------------------------------------------------------------------
 !
-      character(len=10) :: RUNNDES(2) = (/'SEQUENTIAL','CONCURENT'/)
+      character(len=10) :: RUNNDES(2) = (/'SEQUENTIAL','CONCURENT '/)
       integer, parameter :: Iseq = 1
       integer, parameter :: Ipar = 2
 !
