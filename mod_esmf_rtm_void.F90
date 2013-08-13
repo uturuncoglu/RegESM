@@ -58,7 +58,7 @@
 !-----------------------------------------------------------------------
 !
       type(ESMF_GridComp) :: gcomp
-      integer, intent(inout) :: rc
+      integer, intent(out) :: rc
 !
       rc = ESMF_SUCCESS
       end subroutine RTM_SetServices

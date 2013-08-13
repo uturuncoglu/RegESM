@@ -32,7 +32,7 @@ endif
 noinst_LIBRARIES =
 
 if DO_COMPILE_LIBATM
-LIBS += -L${PWD} -latm
+LIBS += ${PWD}/libatm.a
 CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib \
             -I$(ATM_PREFIX)/Main/batslib -I$(ATM_PREFIX)/Share
 noinst_LIBRARIES += libatm.a
@@ -45,7 +45,7 @@ endif
 
 SFILES = ""
 if DO_COMPILE_LIBOCN
-LIBS += -L${PWD} -locn
+LIBS += ${PWD}/libocn.a
 CPPFLAGS += -I$(OCN_PREFIX)
 noinst_LIBRARIES += libocn.a
 libocn_a_SOURCES =
@@ -62,7 +62,7 @@ libocn_a_LIBADD = $(OFILES)
 endif
 
 if DO_COMPILE_LIBRTM
-LIBS += -L${PWD} -lrtm
+LIBS += ${PWD}/librtm.a
 CPPFLAGS += -I$(RTM_PREFIX)
 noinst_LIBRARIES += librtm.a
 librtm_a_SOURCES =
