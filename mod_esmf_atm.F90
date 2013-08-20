@@ -584,6 +584,7 @@
       type(ESMF_DistGrid) :: distGrid
       type(ESMF_StaggerLoc) :: staggerLoc
       real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
+      integer, pointer :: ptrM(:,:)
       character (len=40) :: name
 !
       rc = ESMF_SUCCESS
@@ -681,6 +682,22 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Allocate items for masking
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddItem(models(Iatmos)%grid,                        &
+                            staggerLoc=staggerLoc,                      &
+                            itemflag=ESMF_GRIDITEM_MASK,                &
+                            rc=rc)
+      if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+!
+!-----------------------------------------------------------------------
+!     Set mask value for land points 
+!-----------------------------------------------------------------------
+!
+      models(Iatmos)%isLand = 2
+!
+!-----------------------------------------------------------------------
 !     Allocate items for grid area 
 !-----------------------------------------------------------------------
 !
@@ -721,6 +738,14 @@
                              rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+      call ESMF_GridGetItem (models(Iatmos)%grid,                       &
+                             localDE=j,                                 &
+                             staggerLoc=staggerLoc,                     &
+                             itemflag=ESMF_GRIDITEM_MASK,               &
+                             farrayPtr=ptrM,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
       call ESMF_GridGetItem (models(Iatmos)%grid,                       &
                              localDE=j,                                 &
@@ -756,6 +781,8 @@
 !
         ptrX = transpose(mddom%dlon)
         ptrY = transpose(mddom%dlat)
+        ! turuncu: need to define real mask for cell corner
+        ptrM = int(transpose(mddom%mask))
         ptrA = dxsq
       else if (models(Iatmos)%mesh(i)%gtype == Icross) then
         if (debugLevel > 0) then
@@ -766,6 +793,7 @@
 !
         ptrX = transpose(mddom%xlon)
         ptrY = transpose(mddom%xlat)
+        ptrM = int(transpose(mddom%mask))
         ptrA = dxsq
       end if
 !
