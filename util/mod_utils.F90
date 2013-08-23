@@ -30,6 +30,8 @@
 !
       use ESMF
 !
+      use mod_types, only : debugLevel
+!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -37,6 +39,141 @@
 !-----------------------------------------------------------------------
 !
       contains
+!
+      real*8 function calc_integral(vm, field, frac, area, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_VM), intent(in) :: vm
+      type(ESMF_Field), intent(in) :: field
+      type(ESMF_Field), intent(in) :: frac
+      type(ESMF_Field), intent(in) :: area
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: cLbnd(2), cUbnd(2)
+      integer :: i, j, k, localDECount, localPet, petCount
+      real(ESMF_KIND_R8), pointer :: ptrField(:,:) 
+      real(ESMF_KIND_R8), pointer :: ptrFrac(:,:)
+      real(ESMF_KIND_R8), pointer :: ptrArea(:,:)      
+      real*8 :: total_de(1), total_global(1)
+      character(ESMF_MAXSTR) :: fname
+!
+      type(ESMF_Grid) :: grid
+!
+      calc_integral = 0.0d0
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query VM 
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, grid=grid, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGet(grid, localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      do k = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get field pointers 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDe=k, farrayPtr=ptrField,          &
+                         computationalLBound=cLbnd,                     &
+                         computationalUBound=cUbnd, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldGet(frac, localDe=k, farrayPtr=ptrFrac, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldGet(area, localDe=k, farrayPtr=ptrArea, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Calculate integral for each local DE and PET 
+!-----------------------------------------------------------------------
+!
+      total_de(1) = 0.0d0
+      do i = clbnd(1), cubnd(1)
+      do j = clbnd(2), cubnd(2)      
+        total_de(1) = total_de(1)+                                      &
+                      ptrField(i,j)*ptrArea(i,j)*ptrFrac(i,j)
+      end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write sum of each PETs    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+        call ESMF_FieldGet(field, name=fname, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+        write(*,20) localPet, k, total_de(1), trim(fname)
+        call ESMF_VMBarrier(vm, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Collect integral from PETs and calculate global one 
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMAllReduce(vm, total_de, total_global, 1,              &
+                            ESMF_REDUCE_SUM, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      calc_integral = total_global(1)
+!
+!-----------------------------------------------------------------------
+!     Debug: write global sum    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+        if (localPet == 0) then
+          write(*,30) localPet, total_global(1), trim(fname) 
+        end if
+        call ESMF_VMBarrier(vm, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 20   format(" PET(",I3.3,") - DE(",I2.2,                               &
+             ") - INTEGRAL = ",E12.5," (",A,")")
+ 30   format(" PET(",I3.3,") - GLOBAL INTEGRAL   = ",E12.5," (",A,")")
+!
+      end function calc_integral
+!
+      subroutine adjust_field()
+      end subroutine adjust_field
 !
       subroutine print_matrix_r8(inp, imin, imax, jmin, jmax,           &
                                  iskip, jskip, pet, id, header)
