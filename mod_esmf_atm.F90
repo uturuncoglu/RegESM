@@ -560,9 +560,12 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_atm_interface, only : mddom
-      use mod_dynparam, only : iy, jx, nproc
+      use mod_mppparam, only : ma
       use mod_runparams, only : dxsq
+      use mod_atm_interface, only : mddom
+      use mod_dynparam, only : iy, jx, nproc, ide1, ide2, jde1, jde2,   &
+                               idi1, idi2, jdi1, jdi2, &
+                               global_dot_istart, global_dot_jstart
 !
       implicit none
 !
@@ -578,7 +581,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, localDECount
+      integer :: i, j, ii, jj, i0, j0, localDECount
       integer :: cpus_per_dim(2)
       type(ESMF_Decomp_Flag) :: decompflag(2)
       type(ESMF_DistGrid) :: distGrid
@@ -663,8 +666,8 @@
 !
       if (i == 1) then
       models(Iatmos)%grid = ESMF_GridCreate(distgrid=distGrid,          &
-                                            gridEdgeLWidth=(/0,0/),     &
-                                            gridEdgeUWidth=(/0,0/),     &
+!                                            gridEdgeLWidth=(/0,0/),     &
+!                                            gridEdgeUWidth=(/0,0/),     &
                                             indexflag=ESMF_INDEX_GLOBAL,&
                                             name="atm_grid",            &
                                             rc=rc)
@@ -765,7 +768,9 @@
       if (debugLevel > 0) then
         write(*,30) localPet, j, adjustl("PTR/ATM/GRD/"//name),         &
                     lbound(ptrX, dim=1), ubound(ptrX, dim=1),           &
-                    lbound(ptrX, dim=2), ubound(ptrX, dim=2)
+                    lbound(ptrX, dim=2), ubound(ptrX, dim=2),           &
+                    ma%has_bdybottom, ma%has_bdyright,                  &
+                    ma%has_bdytop, ma%has_bdyleft
       end if
 !
 !-----------------------------------------------------------------------
@@ -775,20 +780,43 @@
       if (models(Iatmos)%mesh(i)%gtype == Idot) then
         if (debugLevel > 0) then
           write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
-                   lbound(mddom%dlon, dim=1), ubound(mddom%dlon, dim=1),&
-                   lbound(mddom%dlon, dim=2), ubound(mddom%dlon, dim=2)
+                    global_dot_istart+ide1-1, global_dot_istart+ide2-1, &
+                    global_dot_jstart+jde1-1, global_dot_jstart+jde2-1, &
+!                   lbound(mddom%dlon, dim=1), ubound(mddom%dlon, dim=1),&
+!                   lbound(mddom%dlon, dim=2), ubound(mddom%dlon, dim=2),&
+                   ma%has_bdybottom, ma%has_bdyright,                   &
+                   ma%has_bdytop, ma%has_bdyleft
         end if
 !
-        ptrX = transpose(mddom%dlon)
-        ptrY = transpose(mddom%dlat)
-        ! turuncu: need to define real mask for cell corner
-        ptrM = int(transpose(mddom%mask))
+        do i0 = ide1, ide2
+        do j0 = jde1, jde2
+          ii = global_dot_istart+i0-1
+          jj = global_dot_jstart+j0-1
+          ptrX(ii,jj) = mddom%dlon(j0,i0)
+          ptrY(ii,jj) = mddom%dlat(j0,i0)
+        end do
+        end do
+!
+        if (ma%has_bdyright) then
+          jj = global_dot_jstart+jde2-1
+          ptrX(:,jj+1) = ptrX(:,jj)+(ptrX(:,jj)-ptrX(:,jj-1))
+          ptrY(:,jj+1) = ptrY(:,jj)+(ptrY(:,jj)-ptrY(:,jj-1))
+        end if
+!
+        if (ma%has_bdytop) then
+          ii = global_dot_istart+ide2-1
+          ptrX(ii+1,:) = ptrX(ii,:)+(ptrX(ii,:)-ptrX(ii-1,:))
+          ptrY(ii+1,:) = ptrY(ii,:)+(ptrY(ii,:)-ptrY(ii-1,:))
+        end if
+!
         ptrA = dxsq
       else if (models(Iatmos)%mesh(i)%gtype == Icross) then
         if (debugLevel > 0) then
           write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
                    lbound(mddom%xlon, dim=1), ubound(mddom%xlon, dim=1),&
-                   lbound(mddom%xlon, dim=2), ubound(mddom%xlon, dim=2)
+                   lbound(mddom%xlon, dim=2), ubound(mddom%xlon, dim=2),&
+                   ma%has_bdybottom, ma%has_bdyright,                   &
+                   ma%has_bdytop, ma%has_bdyleft
         end if
 !
         ptrX = transpose(mddom%xlon)
@@ -807,6 +835,9 @@
       end if
       if (associated(ptrX)) then
         nullify(ptrX)
+      end if
+      if (associated(ptrA)) then
+        nullify(ptrM)
       end if
       if (associated(ptrA)) then
         nullify(ptrA)
@@ -842,7 +873,8 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
+ 30   format(" PET(",I3.3,") - DE(",I2.2,") - ",A20," : ",              &
+             4I8," ",L," ",L," ",L," ",L)
 !
       end subroutine ATM_SetGridArrays     
 !
@@ -1449,8 +1481,8 @@
         imax = global_cross_istart+ici2-1
         jmin = global_cross_jstart+jci1-1
         jmax = global_cross_jstart+jci2-1
-        call print_matrix_r8(ptr, imin, imax, jmin, jmax, 1, 1,         &
-                             localPet, iunit, "PTR/ATM/IMP")
+        call UTIL_PrintMatrix(ptr, imin, imax, jmin, jmax, 1, 1,        &
+                              localPet, iunit, "PTR/ATM/IMP")
         close(unit=iunit)
       end if
 !
@@ -1808,8 +1840,8 @@
         imax = global_cross_istart+ici2-1
         jmin = global_cross_jstart+jci1-1
         jmax = global_cross_jstart+jci2-1
-        call print_matrix_r8(ptr, imin, imax, jmin, jmax , 1, 1,        &
-                             localPet, iunit, "PTR/ATM/EXP")
+        call UTIL_PrintMatrix(ptr, imin, imax, jmin, jmax , 1, 1,       &
+                              localPet, iunit, "PTR/ATM/EXP")
         close(unit=iunit)
       end if 
 !

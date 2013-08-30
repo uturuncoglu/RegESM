@@ -1838,8 +1838,8 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call print_matrix_r8(ptr, LBi, UBi, LBj, UBj, 1, 1,             &
-                             localPet, iunit, "PTR/OCN/IMP")
+        call UTIL_PrintMatrix(ptr, LBi, UBi, LBj, UBj, 1, 1,            &
+                              localPet, iunit, "PTR/OCN/IMP")
         close(unit=iunit)
       end if
 !
@@ -2086,8 +2086,8 @@
         write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix_r8(ptr, IstrR, IendR, JstrR, JendR, 1, 1,     &
-                             localPet, iunit, "PTR/OCN/EXP")
+        call UTIL_PrintMatrix(ptr, IstrR, IendR, JstrR, JendR, 1, 1,    &
+                              localPet, iunit, "PTR/OCN/EXP")
         close(unit=iunit)
       end if         
 !

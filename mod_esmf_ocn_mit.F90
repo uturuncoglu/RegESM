@@ -678,8 +678,8 @@
 !
       if (p == 1) then
       models(Iocean)%grid = ESMF_GridCreate(distgrid=distGrid,          &
-                                            gridEdgeLWidth=(/0,0/),     &
-                                            gridEdgeUWidth=(/0,0/),     &
+!                                            gridEdgeLWidth=(/0,0/),     &
+!                                            gridEdgeUWidth=(/0,0/),     &
                                             indexflag=ESMF_INDEX_DELOCAL,&
                                             name="ocn_grid",            &
                                             rc=rc)
@@ -1474,8 +1474,8 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call print_matrix_r8(ptr, 1, sNx, 1, sNy, 1, 1,                 &
-                             localPet, iunit, "PTR/OCN/IMP")
+        call UTIL_PrintMatrix(ptr, 1, sNx, 1, sNy, 1, 1,                &
+                              localPet, iunit, "PTR/OCN/IMP")
         close(unit=iunit)
       end if
 !
@@ -1663,8 +1663,8 @@
         write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix_r8(ptr, 1, sNx, 1, sNy, 1, 1,     &
-                             localPet, iunit, "PTR/OCN/EXP")
+        call UTIL_PrintMatrix(ptr, 1, sNx, 1, sNy, 1, 1,                &
+                              localPet, iunit, "PTR/OCN/EXP")
         close(unit=iunit)
       end if         
 !

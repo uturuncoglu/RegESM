@@ -153,7 +153,7 @@ mod_esmf_rtm_void.o: mod_esmf_rtm_void.F90 mod_types.o
 OBJ+=mod_esmf_rtm_void.o
 endif
 
-mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o
+mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o mod_utils.o
 
 mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o $(OBJ) mod_esmf_cpl.o
 

@@ -61,6 +61,7 @@
         character(len=100) :: export_units
         real*8 :: scale_factor
         real*8 :: add_offset
+        logical :: enable_integral_adj
         type(ESMF_RouteHandle) :: rhandle
       end type ESM_Field
 !
@@ -74,20 +75,32 @@
       end type ESM_Mesh
 !
 !-----------------------------------------------------------------------
-!     ESM high-level generic data type 
+!     ESM high-level generic model data type 
 !-----------------------------------------------------------------------
 !
       type ESM_Model
         character(len=7) :: name
-        integer :: divDT 
         integer :: nPets
         logical :: modActive
         integer, allocatable :: petList(:) 
+        integer :: isLand
         type(ESM_Mesh), allocatable :: mesh(:) 
         type(ESM_Field), allocatable :: importField(:)
         type(ESM_Field), allocatable :: exportField(:)
         type(ESMF_Grid) :: grid
       end type ESM_Model
+!
+!-----------------------------------------------------------------------
+!     ESM high-level generic connector data type 
+!-----------------------------------------------------------------------
+!
+      type ESM_Conn
+        character(len=7) :: name
+        integer :: divDT
+        integer :: nPets
+        logical :: modActive
+        integer, allocatable :: petList(:)
+      end type ESM_Conn
 !
 !-----------------------------------------------------------------------
 !     ESM grided component (models) holder
@@ -99,7 +112,7 @@
 !     ESM connector (coupler) holder
 !-----------------------------------------------------------------------
 !
-      type(ESM_Model), allocatable, target :: connectors(:,:)
+      type(ESM_Conn), allocatable, target :: connectors(:,:)
 !
 !-----------------------------------------------------------------------
 !     Number of gridded component or model
@@ -193,7 +206,11 @@
       real*8, parameter :: TOL_R8 = MISSING_R8/2.0d0
       real  , parameter :: TOL_R4 = MISSING_R4/2.0
 !
-      real*8, parameter :: ZERO_R8 = 0.0d0
+      real(ESMF_KIND_R8), parameter :: ZERO_R8 = 0.0d0
+      real(ESMF_KIND_R8), parameter :: ONE_R8 = 1.0d0
+!
+      integer(ESMF_KIND_I4), parameter :: MAPPED_MASK = 99
+      integer(ESMF_KIND_I4), parameter :: UNMAPPED_MASK = 98
 !
       contains
 !

@@ -430,7 +430,7 @@
       integer :: i, j, k, l, m, n, s, ios1, ios2, pos1, pos2, nf
       logical :: file_exists
       character(len=400) :: str
-      character(len=200) :: dum(8)
+      character(len=200) :: dum(9)
       logical :: flag
 !
       rc = ESMF_SUCCESS
@@ -482,7 +482,7 @@
             do
               pos2 = index(str(pos1:), ':')
               if (pos2 == 0) then
-                dum(8) = trim(str(pos1:))
+                dum(9) = trim(str(pos1:))
                 exit
               else
                 dum(s) = trim(str(pos1:pos1+pos2-2))
@@ -512,7 +512,9 @@
                  adjustl(trim(GRIDDES(models(i)%exportField(m)%gtype))),&
                  adjustl(trim(INTPDES(models(i)%exportField(m)%itype))),&
                  models(i)%exportField(m)%scale_factor,                 &
-                 models(i)%exportField(m)%add_offset, COMPDES(i)//'-EXP'
+                 models(i)%exportField(m)%add_offset,                   &
+                 models(i)%exportField(m)%enable_integral_adj,          &
+                 COMPDES(i)//'-EXP'
               end if
             end if
             ! check field is already added to the list or not?
@@ -537,7 +539,9 @@
                  adjustl(trim(GRIDDES(models(j)%importField(n)%gtype))),&
                  adjustl(trim(INTPDES(models(j)%importField(n)%itype))),&
                  models(j)%importField(n)%scale_factor,                 &
-                 models(j)%importField(n)%add_offset, COMPDES(j)//'-IMP'
+                 models(j)%importField(n)%add_offset,                   &
+                 models(j)%importField(n)%enable_integral_adj,          &
+                 COMPDES(j)//'-IMP'
               end if
             end if
           end do
@@ -552,7 +556,8 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(2I3,1X,A6,1X,A32,1X,A10,1X,A10,1X,A10,1X,A10,1X,2E15.4,1X,A7)
+ 30   format(2I3,1X,A6,1X,A32,1X,A10,1X,A10,1X,A10,                     &
+             1X,A10,1X,2E15.4,1X,L,1X,A7)
 !
       end subroutine read_field_table
 !
@@ -633,6 +638,11 @@
         read(str(7),*) field(n)%scale_factor
       end if
       read(str(8),*) field(n)%add_offset
+      if (trim(str(9)) == 'T' .or. trim(str(9)) == 't') then     
+        field(n)%enable_integral_adj = .true.
+      else
+        field(n)%enable_integral_adj = .false.
+      end if
 !
       end subroutine add_field
 !

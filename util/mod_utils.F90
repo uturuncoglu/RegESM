@@ -30,7 +30,7 @@
 !
       use ESMF
 !
-      use mod_types, only : debugLevel
+      use mod_types
 !
       implicit none
 !
@@ -40,18 +40,257 @@
 !
       contains
 !
-      real*8 function calc_integral(vm, field, frac, area, rc)
+      subroutine UTIL_FindUnmapped(srcField, dstField,                  &
+                                   srcLandMask, dstLandMask, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
 !     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
+      type(ESMF_Field), intent(in) :: srcField 
+      type(ESMF_Field), intent(in) :: dstField
+      integer, intent(in) :: srcLandMask 
+      integer, intent(in) :: dstLandMask
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: cLbnd(2), cUbnd(2)
+      integer :: i, j, k, localDECount
+      character(ESMF_MAXSTR) :: fname
+      real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d
+      integer(ESMF_KIND_I4), dimension(:,:), pointer :: msk2d
+!
+      type(ESMF_Grid) :: grid
+      type(ESMF_Field) :: aField, bField
+      type(ESMF_UnmappedAction_Flag) :: unmap
+      type(ESMF_RegridMethod_Flag) :: regridMethod
+      type(ESMF_RouteHandle) :: routeHandle
+      type(ESMF_StaggerLoc) :: sLoc
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Create dummy fields 
+!-----------------------------------------------------------------------
+!
+      fname = 'const_1'
+      aField = UTIL_FieldCreate(srcField, fname, ONE_R8, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      fname = 'const_2'
+      bField = UTIL_FieldCreate(dstField, fname, ZERO_R8, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create routehandle 
+!-----------------------------------------------------------------------
+!
+      unmap = ESMF_UNMAPPEDACTION_IGNORE
+      regridMethod = ESMF_REGRIDMETHOD_BILINEAR
+!
+      call ESMF_FieldRegridStore(srcField=aField,                       &
+                                 dstField=bField,                       &
+                                 srcMaskValues=(/srcLandMask/),         &
+                                 dstMaskValues=(/dstLandMask/),         &
+                                 unmappedaction=unmap,                  &
+                                 routeHandle=routeHandle,               &
+                                 regridmethod=regridMethod,             &
+                                 rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Perform regrid 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldRegrid(aField, bField, routeHandle,                &
+                            zeroregion=ESMF_REGION_SELECT, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query result field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(bField, grid=grid, staggerloc=sLoc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs in the grid
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridGet(grid, localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      do k = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(bField, localDe=k, farrayPtr=ptr2d,            &
+                         computationalLBound=cLbnd,                     &
+                         computationalUBound=cUbnd, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get pointer from grid (mask item) 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridGetItem(grid, ESMF_GRIDITEM_MASK, staggerloc=sLoc,  &
+                            localDe=k, farrayPtr=msk2d, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Modify masking to split mapped and unmapped grid cells    
+!-----------------------------------------------------------------------
+!
+      do i = cLbnd(1), cUbnd(1)
+      do j = cLbnd(2), cUbnd(2)
+        if (msk2d(i,j) .ne. dstLandMask) then
+          if (ptr2d(i,j) < ONE_R8) then
+            msk2d(i,j) = UNMAPPED_MASK 
+          else 
+            msk2d(i,j) = MAPPED_MASK
+          end if
+        end if
+      end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr2d)) then
+        nullify(ptr2d)
+      end if
+      if (associated(msk2d)) then
+        nullify(msk2d)
+      end if
+!
+      end do      
+! 
+      end subroutine UTIL_FindUnmapped
+!
+      function UTIL_FieldCreate(field, fname, initVal, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_Field) :: UTIL_FieldCreate 
+! 
+      type(ESMF_Field), intent(in) :: field
+      character(*), intent(in) :: fname
+      real(ESMF_KIND_R8), intent(in) :: initVal
+      integer, intent(out) :: rc 
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: k, localDECount
+      real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d
+!
+      type(ESMF_Grid) :: grid
+      type(ESMF_DistGrid) :: distGrid
+      type(ESMF_ArraySpec) :: arraySpec
+      type(ESMF_StaggerLoc) :: staggerLoc      
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, arrayspec=arraySpec,                    &
+                         grid=grid, staggerloc=staggerLoc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query grid
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridGet(grid, distgrid=distGrid,                        &
+                        localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create field from base field attributes 
+!-----------------------------------------------------------------------
+!
+      UTIL_FieldCreate = ESMF_FieldCreate(grid, arraySpec,              &
+                                          staggerloc=staggerLoc,        &
+                                          name=trim(fname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      do k = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(UTIL_FieldCreate, localDe=k,                   &
+                         farrayPtr=ptr2d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize pointer 
+!-----------------------------------------------------------------------
+!
+      ptr2d = initVal 
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr2d)) then
+        nullify(ptr2d)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Check consistency of the created field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldValidate(UTIL_FieldCreate, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!      
+      end function UTIL_FieldCreate
+!
+      function UTIL_CalcIntegral(vm, field, frac, area, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      real(ESMF_KIND_R8) :: UTIL_CalcIntegral
+!
       type(ESMF_VM), intent(in) :: vm
       type(ESMF_Field), intent(in) :: field
       type(ESMF_Field), intent(in) :: frac
       type(ESMF_Field), intent(in) :: area
-      integer, intent(inout) :: rc
+      integer, intent(out) :: rc
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
@@ -67,7 +306,7 @@
 !
       type(ESMF_Grid) :: grid
 !
-      calc_integral = 0.0d0
+      UTIL_CalcIntegral = ZERO_R8 
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
@@ -114,9 +353,9 @@
 !     Calculate integral for each local DE and PET 
 !-----------------------------------------------------------------------
 !
-      total_de(1) = 0.0d0
-      do i = clbnd(1), cubnd(1)
-      do j = clbnd(2), cubnd(2)      
+      total_de(1) = ZERO_R8
+      do i = cLbnd(1), cUbnd(1)
+      do j = cLbnd(2), cUbnd(2)      
         total_de(1) = total_de(1)+                                      &
                       ptrField(i,j)*ptrArea(i,j)*ptrFrac(i,j)
       end do
@@ -147,7 +386,7 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      calc_integral = total_global(1)
+      UTIL_CalcIntegral = total_global(1)
 !
 !-----------------------------------------------------------------------
 !     Debug: write global sum    
@@ -170,13 +409,10 @@
              ") - INTEGRAL = ",E12.5," (",A,")")
  30   format(" PET(",I3.3,") - GLOBAL INTEGRAL   = ",E12.5," (",A,")")
 !
-      end function calc_integral
+      end function UTIL_CalcIntegral
 !
-      subroutine adjust_field()
-      end subroutine adjust_field
-!
-      subroutine print_matrix_r8(inp, imin, imax, jmin, jmax,           &
-                                 iskip, jskip, pet, id, header)
+      subroutine UTIL_PrintMatrix(inp, imin, imax, jmin, jmax,          &
+                                  iskip, jskip, pet, id, header)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -210,32 +446,6 @@
       end do
 !
       return
-      end subroutine print_matrix_r8      
-!
-      subroutine print_size_r8 (field, localPet, header)
-      implicit none
-!
-!-----------------------------------------------------------------------
-!     Imported variable declarations 
-!-----------------------------------------------------------------------
-!
-      real*8, intent(in) :: field(:,:) 
-      integer, intent(in) :: localPet
-      character(len=*), intent(in) :: header
-!
-!-----------------------------------------------------------------------
-!     Local variable declarations 
-!-----------------------------------------------------------------------
-!
-      write(*,40) localPet, trim(adjustl(header)),                      &
-                  lbound(field, dim=1), ubound(field, dim=1),           &
-                  lbound(field, dim=2), ubound(field, dim=2)
-!
-!-----------------------------------------------------------------------
-!     Formats 
-!-----------------------------------------------------------------------
-!
- 40   format(" PET(",I3,") - ", A20, " : ", 4I8)
-      end subroutine print_size_r8
+      end subroutine UTIL_PrintMatrix      
 !
       end module mod_utils

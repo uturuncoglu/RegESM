@@ -39,6 +39,7 @@
           NUOPC_Label_ReleaseRH => label_ReleaseRouteHandle
 !
       use mod_types
+      use mod_utils
 !
       implicit none
       private
@@ -48,6 +49,12 @@
 !-----------------------------------------------------------------------
 !
       public :: CPL_SetServices
+!
+!-----------------------------------------------------------------------
+!     Private module variables 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_FieldBundle) :: savFields
 !
       contains
 !
@@ -106,7 +113,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      logical :: flag
+      logical :: flag1, flag2
       integer :: i, j, localPet, petCount
       integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
       integer :: cplCount, srcCount, dstCount, itemCount
@@ -122,7 +129,7 @@
       type(ESMF_UnmappedAction_Flag) :: unmap
       type(ESMF_RegridMethod_Flag) :: regridMethod
       type(ESMF_RouteHandle) :: routeHandle
-      type(ESMF_Field) :: srcField, dstField
+      type(ESMF_Field) :: srcField, dstField, tmpField
 !
       type(NUOPC_Type_IS) :: genIS
 !
@@ -158,6 +165,17 @@
                                          genIS, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create empty field bundle to store frac and area fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldBundleGet(savFields, rc=rc)
+      if (rc /= ESMF_SUCCESS) then
+        savFields = ESMF_FieldBundleCreate(name='saved_fields', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Get size of source and destination field list
@@ -281,101 +299,53 @@
          line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Create frac fields for conservative type regridding 
+!     Create temporary field in destination grid
 !-----------------------------------------------------------------------
 !
-      if (itSrc == Iconsv) then
-      srcFrac = ESMF_FieldCreate(srcGrid, srcArrSpec,                   &
-                                 staggerloc=srcSLoc, rc=rc)
+      tmpField = ESMF_FieldCreate(dstGrid, dstArrSpec,                  &
+                                  staggerloc=dstSLoc, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      dstFrac = ESMF_FieldCreate(dstGrid, dstArrSpec,                   &
-                                 staggerloc=dstSLoc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      end if 
+         line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Check: routehandle created or not 
+!     Create routehandles for two step interpolation 
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!     Check 1st routehandle (i.e. rh_CROSS_DOT_BLIN_ATM-OCN)
 !-----------------------------------------------------------------------
 !
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
-              trim(INTPDES(itSrc))
+              trim(INTPDES(itSrc))//'_'//trim(cname)
 !
       call ESMF_StateGet(genIS%wrap%state,itemSearch='rh_'//trim(rname),&
                          itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
 !
-      flag = .false.
-      if (itemCount <= 0) flag = .true.
+      flag1 = .false.
+      if (itemCount <= 0) flag1 = .true.
 !
 !-----------------------------------------------------------------------
-!     Create routehandle based on selected grid and interpolation type 
+!     Create 1st routehandle
 !-----------------------------------------------------------------------
 !
-     if (flag) then
+      if (flag1) then
       unmap = ESMF_UNMAPPEDACTION_IGNORE
-      if (itSrc == Iconsv) then
-        regridMethod = ESMF_REGRIDMETHOD_CONSERVE
-        call ESMF_FieldRegridStore(srcField=srcField,                   &
-                                   dstField=dstField,                   &
-                                   srcFracField=srcFrac,                &
-                                   dstFracField=dstfrac,                &
-                                   unmappedaction=unmap,                &
-                                   routeHandle=routeHandle,             &
-                                   regridmethod=regridMethod,           &
-                                   rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      else if (itSrc == Ibilin) then
-        regridMethod = ESMF_REGRIDMETHOD_BILINEAR
-        if (iSrc == Iocean) then
-        call ESMF_FieldRegridStore(srcField=srcField,                   &
-                                   dstField=dstField,                   &
-                                   srcMaskValues=(/0/),                 &
-                                   unmappedaction=unmap,                &
-                                   routeHandle=routeHandle,             &
-                                   regridmethod=regridMethod,           &
-                                   rc=rc)
-        else
-        call ESMF_FieldRegridStore(srcField=srcField,                   &
-                                   dstField=dstField,                   &
-                                   unmappedaction=unmap,                &
-                                   routeHandle=routeHandle,             &
-                                   regridmethod=regridMethod,           &
-                                   rc=rc)
-        end if
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      else if (itSrc == Instod) then
-        regridMethod = ESMF_REGRIDMETHOD_NEAREST_STOD
-        call ESMF_FieldRegridStore(srcField=srcField,                   &
-                                   dstField=dstField,                   &
-                                   unmappedaction=unmap,                &
-                                   routeHandle=routeHandle,             &
-                                   regridmethod=regridMethod,           &
-                                   rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      else if (itSrc == Indtos) then
-        regridMethod = ESMF_REGRIDMETHOD_NEAREST_DTOS
-        call ESMF_FieldRegridStore(srcField=srcField,                   &
-                                   dstField=dstField,                   &
-                                   unmappedaction=unmap,                &
-                                   routeHandle=routeHandle,             &
-                                   regridmethod=regridMethod,           &
-                                   rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      else
-        write(msgString,'(a)') trim(cname)//': selected '//             &
-              'interpolation type is not supported! '//INTPDES(itSrc)
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        call ESMF_Finalize(endflag=ESMF_END_ABORT)
-      end if
+      regridMethod = ESMF_REGRIDMETHOD_BILINEAR
+!
+      call ESMF_FieldRegridStore(srcField=srcField,                     &
+                                 dstField=dstField,                     &
+                                 srcMaskValues=(/models(iSrc)%isLand/), &
+                                 dstMaskValues=(/models(iDst)%isLand/), &
+                                 unmappedaction=unmap,                  &
+                                 routeHandle=routeHandle,               &
+                                 regridmethod=regridMethod,             &
+                                 rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Add name to routehandle    
+!     Add name to 1st routehandle    
 !-----------------------------------------------------------------------
 !
       call ESMF_RouteHandleSet(routeHandle,                             &
@@ -384,13 +354,156 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Add routehandle to the state    
+!     Add 1st routehandle to the state    
 !-----------------------------------------------------------------------
 !
       call ESMF_StateAdd(genIS%wrap%state, (/ routeHandle /), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+      end if
 !
+!-----------------------------------------------------------------------
+!     Check 2nd routehandle (i.e. rh_CROSS_DOT_NS2D_ATM-OCN)
+!-----------------------------------------------------------------------
+!
+      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              'NS2D_'//trim(cname)
+!
+      call ESMF_StateGet(genIS%wrap%state,itemSearch='rh_'//trim(rname),&
+                         itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+      flag1 = .false.
+      if (itemCount <= 0) flag1 = .true.
+!
+!-----------------------------------------------------------------------
+!     Create 2nd routehandle
+!-----------------------------------------------------------------------
+!
+      if (flag1) then
+!
+!-----------------------------------------------------------------------
+!     Modify grid mask to split masked and unmasked grid cells    
+!-----------------------------------------------------------------------
+!
+      call UTIL_FindUnmapped(srcField, dstField, models(iSrc)%isLand,   &
+                             models(iDst)%isLand, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      unmap = ESMF_UNMAPPEDACTION_IGNORE
+      regridMethod = ESMF_REGRIDMETHOD_NEAREST_STOD
+!
+      call ESMF_FieldRegridStore(srcField=dstField,                     &
+                                 dstField=tmpField,                     &
+                                 srcMaskValues=(/models(iDst)%isLand, UNMAPPED_MASK /), &
+                                 dstMaskValues=(/models(iDst)%isLand, MAPPED_MASK /), &
+                                 unmappedaction=unmap,                  &
+                                 routeHandle=routeHandle,               &
+                                 regridmethod=regridMethod,             &
+                                 rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add name to 2nd routehandle    
+!-----------------------------------------------------------------------
+!
+      call ESMF_RouteHandleSet(routeHandle,                             &
+                               name='rh_'//trim(rname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add 2nd routehandle to the state    
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateAdd(genIS%wrap%state, (/ routeHandle /), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Check fraction fields (i.e. ff_CROSS_DOT_ATM-OCN_SRC) 
+!     The fraction fields are used in the calculation of the integrals
+!-----------------------------------------------------------------------
+!
+      flag2 = .false.
+!
+      if (models(iSrc)%exportField(idSrc)%enable_integral_adj) then
+      fname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(cname)
+!
+      call ESMF_FieldBundleGet(savFields,                               &
+                               fieldName='ff_'//trim(fname)//'_SRC',    &
+                               isPresent=flag2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get frac fields to calculate integrals 
+!-----------------------------------------------------------------------
+!
+      if (.not. flag2) then
+!
+!-----------------------------------------------------------------------
+!     Get source and destination field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(srcField, arrayspec=srcArrSpec,                &
+                         grid=srcGrid, staggerloc=srcSLoc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldGet(dstField, arrayspec=dstArrSpec,                &
+                         grid=dstGrid, staggerloc=dstSLoc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create frac fields 
+!-----------------------------------------------------------------------
+!
+      srcFrac = ESMF_FieldCreate(srcGrid, srcArrSpec,                   &
+                                 staggerloc=srcSLoc,                    &
+                                 name='ff_'//trim(fname)//'_SRC', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      dstFrac = ESMF_FieldCreate(dstGrid, dstArrSpec,                   &
+                                 staggerloc=dstSLoc,                    &
+                                 name='ff_'//trim(fname)//'_DST', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Calculate frac fields 
+!-----------------------------------------------------------------------
+!  
+      regridMethod = ESMF_REGRIDMETHOD_CONSERVE
+      call ESMF_FieldRegridStore(srcField=srcField,                     &
+                                 dstField=dstField,                     &
+                                 srcMaskValues=(/models(iSrc)%isLand/), &
+                                 dstMaskValues=(/models(iDst)%isLand/), &
+                                 srcFracField=srcFrac,                  &
+                                 dstFracField=dstFrac,                  &
+                                 unmappedaction=unmap,                  &
+                                 routeHandle=routeHandle,               &
+                                 regridmethod=regridMethod,             &
+                                 rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add fields to fieldbundle  
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldBundleAdd(savFields, (/ srcFrac, dstFrac /), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end if
       end if
 !
 !-----------------------------------------------------------------------
@@ -404,7 +517,7 @@
                   trim(models(iDst)%importField(idDst)%short_name),     &
                   trim(GRIDDES(models(iDst)%importField(idDst)%gtype)), &
                   trim(INTPDES(models(iSrc)%exportField(idSrc)%itype)), &
-                  flag
+                  flag1, (.not. flag2)
       end if
 !
       end do
@@ -415,7 +528,7 @@
 !-----------------------------------------------------------------------
 !
  40   format(A8,': routehandle ',A4,'[',A,'] to ',A4,'[',A,']',         &
-             ' >> ',A, ' - ',L1)
+             ' >> ',A, ' - ',L1,' - ',L1)
 !
       end subroutine CPL_ComputeRH
 !
@@ -433,6 +546,8 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      logical :: flag
+      real*8 :: src_total, dst_total
       integer :: srcValueList(9), dstValueList(9)
       integer :: localPet, petCount
       integer :: i, j, srcCount, dstCount
@@ -442,8 +557,13 @@
 !
       type(NUOPC_Type_IS) :: genIS
       type(ESMF_VM) :: vm
+      type(ESMF_Grid) :: srcGrid, dstGrid
       type(ESMF_RouteHandle) :: routeHandle
-      type(ESMF_Field) :: srcField, dstField
+      type(ESMF_ArraySpec) :: srcArrSpec, dstArrSpec
+      type(ESMF_StaggerLoc) :: srcSLoc, dstSLoc
+      type(ESMF_Field) :: srcArea, dstArea
+      type(ESMF_Field) :: srcField, dstField, tmpField
+      type(ESMF_Field) :: srcFrac, dstFrac
 !
       rc = ESMF_SUCCESS
 !
@@ -559,11 +679,32 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get routehandle from state 
+!     Create temporary field in destination grid
+!-----------------------------------------------------------------------
+!
+!      call ESMF_FieldGet(dstField, arrayspec=dstArrSpec,                &
+!                         grid=dstGrid, staggerloc=dstSLoc, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!         line=__LINE__, file=FILENAME)) return
+!
+!      tmpField = ESMF_FieldCreate(dstGrid, dstArrSpec,                  &
+!                                  staggerloc=dstSLoc, name='tmp', rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!         line=__LINE__, file=FILENAME)) return
+!
+!      call ESMF_FieldEmptyComplete(tmpField, dstArrSpec, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!         line=__LINE__, file=FILENAME)) return
+      tmpField = UTIL_FieldCreate(dstField, fname, ONE_R8, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get 1st routehandle from state 
 !-----------------------------------------------------------------------
 !
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
-              trim(INTPDES(itSrc))
+              trim(INTPDES(itSrc))//'_'//trim(cname)
 !
       call ESMF_StateGet(genIS%wrap%state, 'rh_'//trim(rname),          &
                          routeHandle, rc=rc)
@@ -574,10 +715,240 @@
 !     Perform regrid operation
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldRegrid(srcField, dstField, routeHandle,            &
+      call ESMF_FieldRegrid(srcField, tmpField, routeHandle,            &
                             zeroregion=ESMF_REGION_SELECT, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldWrite(dstField, 'dst_ones.nc', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get 2nd routehandle from state 
+!-----------------------------------------------------------------------
+!
+      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              'NS2D_'//trim(cname)
+!
+      call ESMF_StateGet(genIS%wrap%state, 'rh_'//trim(rname),          &
+                         routeHandle, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Perform regrid operation
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldRegrid(tmpField, dstField, routeHandle,            &
+                            zeroregion=ESMF_REGION_SELECT, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldWrite(dstField, 'dst_ones_v2.nc', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Check: integral adjustment is activated for the field 
+!-----------------------------------------------------------------------
+!
+      flag = .false.
+!
+      if (models(iSrc)%exportField(idSrc)%enable_integral_adj) then
+!
+!-----------------------------------------------------------------------
+!     Check: area fields are created before or not 
+!     Example area field name, aa_CROSS_DOT_ATM-OCN_SRC        
+!-----------------------------------------------------------------------
+!
+      fname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(cname)
+!
+      call ESMF_FieldBundleGet(savFields,                               &
+                               fieldName='aa_'//trim(fname)//'_SRC',    &
+                               isPresent=flag, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get area fields
+!-----------------------------------------------------------------------
+!
+      if (.not. flag) then
+!
+!-----------------------------------------------------------------------
+!     Get routehandle from state 
+!-----------------------------------------------------------------------
+!
+!      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+!              trim(INTPDES(Iconsv))//'_'//trim(cname)
+!
+!      call ESMF_StateGet(genIS%wrap%state, 'rh_'//trim(rname),          &
+!                         routeHandle, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Perform regrid operation (conservative)
+!-----------------------------------------------------------------------
+!
+!      call ESMF_FieldRegrid(srcField, dstField, routeHandle,            &
+!                            zeroregion=ESMF_REGION_SELECT, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query source and destination field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(srcField, arrayspec=srcArrSpec,                &
+                         grid=srcGrid, staggerloc=srcSLoc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldGet(dstField, arrayspec=dstArrSpec,                &
+                         grid=dstGrid, staggerloc=dstSLoc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create fields to store grid areas 
+!-----------------------------------------------------------------------
+!
+      srcArea = ESMF_FieldCreate(srcGrid, srcArrSpec,                   &
+                                 staggerloc=srcSLoc,                    &
+                                 name='aa_'//trim(fname)//'_SRC', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      dstArea = ESMF_FieldCreate(dstGrid, dstArrSpec,                   &
+                                 staggerloc=dstSLoc,                    & 
+                                 name='aa_'//trim(fname)//'_DST', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get grid areas 
+!-----------------------------------------------------------------------
+!        
+      call ESMF_FieldRegridGetArea(srcArea, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldRegridGetArea(dstArea, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put grid areas to the field bundle
+!-----------------------------------------------------------------------
+! 
+      call ESMF_FieldBundleAdd(savFields, (/ srcArea, dstArea /), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      else
+!
+!-----------------------------------------------------------------------
+!     Get source and destination area from field bundle 
+!-----------------------------------------------------------------------
+! 
+      call ESMF_FieldBundleGet(savFields,                               &
+                               fieldName='aa_'//trim(fname)//'_SRC',    &
+                               field=srcArea, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldBundleGet(savFields,                               &
+                               fieldName='aa_'//trim(fname)//'_DST',    &
+                               field=dstArea, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get source and destination frac fields
+!-----------------------------------------------------------------------
+!
+      flag = .false.
+      call ESMF_FieldBundleGet(savFields,                               &
+                               fieldName='ff_'//trim(fname)//'_SRC',    &
+                               isPresent=flag, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (flag) then
+      call ESMF_FieldBundleGet(savFields,                               &
+                               fieldName='ff_'//trim(fname)//'_SRC',    &
+                               field=srcFrac, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldBundleGet(savFields,                               &
+                               fieldName='ff_'//trim(fname)//'_DST',    &
+                               field=dstFrac, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+!-----------------------------------------------------------------------
+!     Calculate integral 
+!-----------------------------------------------------------------------
+!
+      src_total = ZERO_R8
+      src_total = UTIL_CalcIntegral(vm, srcField, srcFrac, srcArea, rc) 
+      if (localPet == 0) print*, "src_integral = ", src_total
+!
+      dst_total = ZERO_R8
+      dst_total = UTIL_CalcIntegral(vm, dstField, dstFrac, dstArea, rc) 
+      if (localPet == 0) print*, "dst_integral = ", dst_total
+!
+!-----------------------------------------------------------------------
+!     Debug: write data to disk (in binary)    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 2) then
+      call ESMF_FieldWrite(srcField, 'src_data_'//trim(cname)//'.nc',   &
+                           variableName='src_data', overwrite=.true.,   &
+                           rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldWrite(dstField, 'dst_data_'//trim(cname)//'.nc',   &
+                           variableName='dst_data', overwrite=.true.,   &
+                           rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldWrite(srcFrac, 'src_frac_'//trim(cname)//'.nc',    &
+                           variableName='src_frac', overwrite=.true.,   &
+                           rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+! 
+      call ESMF_FieldWrite(dstFrac, 'dst_frac_'//trim(cname)//'.nc',    &
+                           variableName='dst_frac', overwrite=.true.,   &
+                           rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldWrite(srcArea, 'src_area_'//trim(cname)//'.nc',    &
+                           variableName='src_area', overwrite=.true.,   &
+                           rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldWrite(dstArea, 'dst_area_'//trim(cname)//'.nc',    &
+                           variableName='dst_area', overwrite=.true.,   &
+                           rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end if
 !
 !-----------------------------------------------------------------------
 !     Debug: print out exchange fields    

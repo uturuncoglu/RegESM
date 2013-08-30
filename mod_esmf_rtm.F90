@@ -1116,8 +1116,8 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call print_matrix_r8(ptr, 1, nl, 1, nb, 1, 1,                   &
-                             localPet, iunit, "PTR/RTM/IMP")
+        call UTIL_PrintMatrix(ptr, 1, nl, 1, nb, 1, 1,                  &
+                              localPet, iunit, "PTR/RTM/IMP")
         close(unit=iunit)
       end if
 !
@@ -1313,8 +1313,8 @@
         write(ofile,80) 'rtm_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix_r8(ptr, 1, nl, 1, nb, 1, 1,                   &
-                             localPet, iunit, "PTR/RTM/EXP")
+        call UTIL_PrintMatrix(ptr, 1, nl, 1, nb, 1, 1,                  &
+                              localPet, iunit, "PTR/RTM/EXP")
         close(unit=iunit)
       end if
 !
