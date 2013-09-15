@@ -1626,6 +1626,12 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Rotate wind on a rectangular north-south east-west oriented grid 
+!-----------------------------------------------------------------------
+!
+!      call uvrot(exportFields%wndu, exportFields%wndv)
+!
+!-----------------------------------------------------------------------
 !     Loop over export fields 
 !-----------------------------------------------------------------------
 !
@@ -1893,5 +1899,81 @@
 ! 100  format(A10,'_',A)
 !
       end subroutine ATM_Put
+!
+      subroutine uvrot(u, v)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_constants, only : degrad
+      use mod_atm_interface, only : mddom
+      use mod_dynparam, only : clon, clat, xcone, ici1, ici2, jci1, jci2
+      use mod_dynparam, only : global_cross_istart, global_cross_jstart
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      real*8, intent(inout) :: u(global_cross_jstart+jci1-1:            &
+                                 global_cross_jstart+jci2-1,            &
+                                 global_cross_istart+ici1-1:            &
+                                 global_cross_istart+ici2-1)
+      real*8, intent(inout) :: v(global_cross_jstart+jci1-1:            &
+                                 global_cross_jstart+jci2-1,            &
+                                 global_cross_istart+ici1-1:            &
+                                 global_cross_istart+ici2-1)
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer*4 :: i, j, ii, jj
+      real*8 :: x, xs, xc, d
+!
+      do i = ici1, ici2
+        do j = jci1, jci2
+          ii = global_cross_istart+i-1
+          jj = global_cross_jstart+j-1
+!
+          if ((clon >= 0.0d0 .and. mddom%xlon(j,i) >= 0.0d0) .or.       &
+              (clon < 0.0d0 .and. mddom%xlon(j,i) < 0.0d0)) then
+            x = (clon-mddom%xlon(j,i))*degrad*xcone
+          else
+            if (clon >= 0.0d0) then
+              if (abs(clon-(mddom%xlon(j,i)+360.0d0)) <                 &
+                  abs(clon-mddom%xlon(j,i))) then
+                x = (clon-(mddom%xlon(j,i)+360.0d0))*degrad*xcone
+              else
+                x = (clon-mddom%xlon(j,i))*degrad*xcone
+              end if
+            else
+              if (abs(clon-(mddom%xlon(j,i)-360.0d0)) <                 &
+                  abs(clon-mddom%xlon(j,i))) then
+                x = (clon-(mddom%xlon(j,i)-360.0d0))*degrad*xcone
+              else
+                x = (clon-mddom%xlon(j,i))*degrad*xcone
+              end if              
+            end if
+          end if 
+!
+          xs = sin(x)
+          xc = cos(x)
+!
+          if (clat >= 0.0d0) then
+            d = u(j,i)*xc-v(j,i)*xs
+            v(j,i) = u(j,i)*xs+v(j,i)*xc
+            u(j,i) = d
+          else
+            d = u(j,i)*xc+v(j,i)*xs
+            v(j,i) = v(j,i)*xc-u(j,i)*xs
+            u(j,i) = d
+          end if
+        end do
+      end do
+!
+      end subroutine uvrot
 !
       end module mod_esmf_atm
