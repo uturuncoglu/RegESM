@@ -1629,7 +1629,8 @@
 !     Rotate wind on a rectangular north-south east-west oriented grid 
 !-----------------------------------------------------------------------
 !
-!      call uvrot(exportFields%wndu, exportFields%wndv)
+      call uvrot(exportFields%wndu, exportFields%wndv)
+      call uvrot(exportFields%taux, exportFields%tauy)
 !
 !-----------------------------------------------------------------------
 !     Loop over export fields 
@@ -1963,13 +1964,13 @@
           xc = cos(x)
 !
           if (clat >= 0.0d0) then
-            d = u(j,i)*xc-v(j,i)*xs
-            v(j,i) = u(j,i)*xs+v(j,i)*xc
-            u(j,i) = d
+            d = u(jj,ii)*xc-v(jj,ii)*xs
+            v(jj,ii) = u(jj,ii)*xs+v(jj,ii)*xc
+            u(jj,ii) = d
           else
-            d = u(j,i)*xc+v(j,i)*xs
-            v(j,i) = v(j,i)*xc-u(j,i)*xs
-            u(j,i) = d
+            d = u(jj,ii)*xc+v(jj,ii)*xs
+            v(jj,ii) = v(jj,i)*xc-u(jj,ii)*xs
+            u(jj,ii) = d
           end if
         end do
       end do
