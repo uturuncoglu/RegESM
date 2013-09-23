@@ -507,6 +507,13 @@
       end if
 !
 !-----------------------------------------------------------------------
+!     Create routehandle for extrapolation  
+!-----------------------------------------------------------------------
+!
+      if (unmapMod) then
+      if (localPet == 0) print*, "create rh for extrapolation ..."
+!
+!-----------------------------------------------------------------------
 !     Check 2nd routehandle (i.e. rh_CROSS_DOT_NS2D_ATM-OCN)
 !-----------------------------------------------------------------------
 !
@@ -585,6 +592,7 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
+      end if
       end if
 !
 !-----------------------------------------------------------------------
@@ -761,16 +769,6 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Create temporary field in destination grid
-!-----------------------------------------------------------------------
-!
-      if (i == 1) then
-        tmpField = UTIL_FieldCreate(dstField, fname, MISSING_R8, -1, rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-      end if
-!
-!-----------------------------------------------------------------------
 !     Get 1st routehandle from state 
 !-----------------------------------------------------------------------
 !
@@ -783,6 +781,22 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Perform regrid with extrapolation support
+!-----------------------------------------------------------------------
+!
+      if (unmapMod) then
+!
+!-----------------------------------------------------------------------
+!     Create temporary field in destination grid
+!-----------------------------------------------------------------------
+!
+      if (i == 1) then
+        tmpField = UTIL_FieldCreate(dstField, fname, MISSING_R8, -1, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
 !     Perform 1st regrid operation
 !-----------------------------------------------------------------------
 !
@@ -790,18 +804,6 @@
                             zeroregion=ESMF_REGION_SELECT, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-!
-      if (models(iSrc)%exportField(idSrc)%enable_integral_adj) then
-      call ESMF_FieldWrite(tmpField, 'dst_01.nc',  overwrite=.true., rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      end if 
-!
-      if (trim(fname) == 'sst') then
-      call ESMF_FieldWrite(tmpField, 'dst_03.nc',  overwrite=.true., rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      end if
 !
 !-----------------------------------------------------------------------
 !     Copy content from temporary field to destination field 
@@ -832,20 +834,25 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      if (models(iSrc)%exportField(idSrc)%enable_integral_adj) then
-      call ESMF_FieldWrite(dstField, 'dst_02.nc',  overwrite=.true., rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      end if
+!-----------------------------------------------------------------------
+!     Perform regrid without extrapolation support
+!-----------------------------------------------------------------------
 !
-      if (trim(fname) == 'sst') then
-      call ESMF_FieldWrite(dstField, 'dst_04.nc',  overwrite=.true., rc=rc)
+      else
+!
+!-----------------------------------------------------------------------
+!     Perform 1st regrid operation
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldRegrid(srcField, dstField, routeHandle,            &
+                            zeroregion=ESMF_REGION_SELECT, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       end if
 !
 !-----------------------------------------------------------------------
-!     Check: integral adjustment is activated for the field 
+!     Check: integral adjustment is activated or not for the field 
 !-----------------------------------------------------------------------
 !
       flag = .false.
@@ -1043,9 +1050,11 @@
 !     Deallocate temporary fields 
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldDestroy(tmpField, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+      if (unmapMod) then
+        call ESMF_FieldDestroy(tmpField, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Deallocate temporary arrays

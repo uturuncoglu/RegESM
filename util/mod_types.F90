@@ -189,6 +189,7 @@
       integer :: runMod
       integer :: debugLevel
       logical :: restarted
+      logical :: unmapMod
 !
 !-----------------------------------------------------------------------
 !     Constants 

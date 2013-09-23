@@ -471,7 +471,6 @@
       end_hour = int(hour)
       end_minute = int(minute)
       end_second = int((minute-aint(minute))*60.0_r8)
-      print*, end_year, yday, end_month
 !
       call ESMF_TimeSet(cmpStopTime,                                    &
                         yy=end_year,                                    &
@@ -644,6 +643,8 @@
 !     Check fields in the importState (slow time step) 
 !-----------------------------------------------------------------------
 !
+      if (models(Iriver)%modActive) then
+!
       call ESMF_StateGet(importState, itemName="rdis",                  &
                          field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -660,6 +661,7 @@
                               line=__LINE__, file=FILENAME,             &
                               rcToReturn=rc)
         return
+      end if
       end if
 !
       end subroutine OCN_CheckImport

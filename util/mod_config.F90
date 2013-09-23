@@ -51,7 +51,8 @@
 !-----------------------------------------------------------------------
 !
       integer :: time(6)
-      integer :: i, j, k, localPet, petCount, lineCount, columnCount
+      integer :: i, j, k, dumm
+      integer :: localPet, petCount, lineCount, columnCount
       logical :: file_exists
       character(100) :: fmt_123, str
 !
@@ -141,6 +142,26 @@
         models(i)%modActive = .false.
         if (models(i)%nPets > 0) models(i)%modActive = .true.
       end do
+!
+!-----------------------------------------------------------------------
+!     Set mode for extrapolation of unmmapped grid cell 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigGetAttribute(cf, dumm,                            &
+                                   label='UnmappedFill:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      unmapMod = .false.
+      if (dumm > 0) unmapMod = .true.
+!
+      if (localPet == 0) then
+        if (unmapMod) then
+          write(*,*) "Extrapolation for unmapped grid cells: ON"
+        else
+          write(*,*) "Extrapolation for unmapped grid cells: OFF"
+        end if
+      end if       
 !
 !-----------------------------------------------------------------------
 !     Set debug level 
@@ -548,7 +569,7 @@
         end do
       else
         write(*,*) '[error] -- Exchange field table ['//trim(ifile)//   &
-                   'not available'
+                   '] not available'
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
 !
