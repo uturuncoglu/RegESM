@@ -33,11 +33,6 @@
       use mod_types
 !
       implicit none
-!
-!-----------------------------------------------------------------------
-!     Global module variables 
-!-----------------------------------------------------------------------
-!
       contains
 !
       subroutine UTIL_FindUnmapped(srcField, dstField,                  &

@@ -46,6 +46,12 @@
       private
 !
 !-----------------------------------------------------------------------
+!     Global module variables 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_RouteHandle) :: rh_halo
+!
+!-----------------------------------------------------------------------
 !     Public subroutines 
 !-----------------------------------------------------------------------
 !
@@ -1090,15 +1096,13 @@
 !
 !-----------------------------------------------------------------------
 !     Store routehandle to exchage halo region data 
-!     *Only for first import field becuase it is same for the others
 !-----------------------------------------------------------------------
 !
-!      if (k == 1) then
-!      call ESMF_FieldHaloStore(field,                                   &
-!              routehandle=models(Iocean)%importField(k)%rhandle, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
-!      end if
+      if (i == 1) then
+      call ESMF_FieldHaloStore(field, routehandle=rh_halo, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Put data into state 
@@ -1177,7 +1181,7 @@
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
       type(ESMF_TimeInterval) :: timeStep
-      type(ESMF_Time) :: refTime, stopTime, currTime
+      type(ESMF_Time) :: startTime, stopTime, currTime
       type(ESMF_State) :: importState, exportState
 !
       rc = ESMF_SUCCESS
@@ -1200,7 +1204,7 @@
 !     Get start, stop and current time and time step
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(clock, timeStep=timeStep, refTime=refTime, &
+      call ESMF_ClockGet(clock, timeStep=timeStep, startTime=startTime, &
                          stopTime=stopTime, currTime=currTime, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1241,7 +1245,8 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      if ((currTime /= refTime) .or. restarted) then
+      if ((currTime /= startTime) .or. restarted) then
+        print*, "call ocn get !!!"
         call OCN_Get(gcomp, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
@@ -1392,6 +1397,15 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Perform halo region update 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
+                          checkflag=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
 !     Loop over decomposition elements (DEs) 
 !-----------------------------------------------------------------------
 !
@@ -1428,41 +1442,107 @@
       case ('taux')
         where (transpose(ptr) < TOL_R8)
           ustress(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          ustress(1:sNx,1:sNy,1,1) = 0.0d0
         end where
       case ('tauy')
-        vstress(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          vstress(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          vstress(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('nflx')
-        hflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          hflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          hflux(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('sflx')
-        sflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          sflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          sflux(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('swrd')
-        swflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          swflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          swflux(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('wndu')
-        uwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
+        where (transpose(ptr) < TOL_R8)
+          uwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
+        else where
+          uwind(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('wndv')
-        vwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
+        where (transpose(ptr) < TOL_R8)
+          vwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
+        else where
+          vwind(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('wspd')
-        wspeed(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          wspeed(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          wspeed(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('tsfc')
-        atemp(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          atemp(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          atemp(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('qsfc')
-        aqh(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          aqh(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          aqh(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('lwrd')
-        lwflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          lwflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          lwflux(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('evap')
-        evap(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          evap(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          evap(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('prec')
-        precip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          precip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          precip(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('snow')
-        snowprecip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          snowprecip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          snowprecip(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('rnof')
         print*, "runoff not implemented yet !!!"
       case ('dswr')
-        swdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          swdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          swdown(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('dlwr')
-        lwdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          lwdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          lwdown(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       case ('psfc')
-        apressure(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        where (transpose(ptr) < TOL_R8)
+          apressure(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
+        else where
+          apressure(1:sNx,1:sNy,1,1) = 0.0d0
+        end where
       end select
 !
 !-----------------------------------------------------------------------

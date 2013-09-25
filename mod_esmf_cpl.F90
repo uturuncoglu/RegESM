@@ -636,7 +636,7 @@
 !-----------------------------------------------------------------------
 !
       logical :: flag
-      real*8 :: src_total, dst_total
+      real*8 :: src_total, dst_total, rel_error
       integer :: srcValueList(9), dstValueList(9)
       integer :: localPet, petCount, localDECount
       integer :: i, j, srcCount, dstCount
@@ -931,15 +931,27 @@
       src_total = UTIL_CalcIntegral(vm, srcField, srcFrac, srcArea, rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-      if (localPet == 0) print*, "src_integral = ", src_total
+!
+      if (localPet == 0) then
+        write(*,70) localPet, 'SRC. INTEGRAL', src_total,               &
+                    trim(models(iSrc)%exportField(idSrc)%short_name) 
+      end if
 !
       dst_total = ZERO_R8
       dst_total = UTIL_CalcIntegral(vm, dstField, dstFrac, dstArea, rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-      if (localPet == 0) print*, "dst_integral = ", dst_total
 !
-      if (localPet == 0) print*, "relative error 1 = ", (dst_total-src_total)/src_total 
+      if (localPet == 0) then
+        write(*,70) localPet, 'DST. INTEGRAL', dst_total,               &
+                    trim(models(iSrc)%exportField(idSrc)%short_name)
+        rel_error = 0.0d0
+        if (src_total /= 0.0d0) then
+          rel_error = (dst_total-src_total)/src_total
+        end if
+        write(*,70) localPet, 'RELATIVE ERROR 1', rel_error,            &
+                    trim(models(iSrc)%exportField(idSrc)%short_name) 
+      end if
 !
 !-----------------------------------------------------------------------
 !     Adjust destination field based on calculated integral 
@@ -954,8 +966,17 @@
       dst_total = UTIL_CalcIntegral(vm, dstField, dstFrac, dstArea, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-      if (localPet == 0) print*, "dst_integral_corrected = ", dst_total
-      if (localPet == 0) print*, "relative error 2 = ", (dst_total-src_total)/src_total 
+!
+      if (localPet == 0) then
+        write(*,70) localPet, 'DST. INTEGRAL (CORR)', dst_total,        &
+                    trim(models(iSrc)%exportField(idSrc)%short_name)
+        rel_error = 0.0d0
+        if (src_total /= 0.0d0) then
+          rel_error = (dst_total-src_total)/src_total
+        end if
+        write(*,70) localPet, 'RELATIVE ERROR 2', rel_error,            &
+                    trim(models(iSrc)%exportField(idSrc)%short_name)
+      end if
 !
       end if
 !
@@ -1071,6 +1092,7 @@
              I2.2,'_',I2.2,'_',I2.2,'] to ',A4,' [',I4,'-',I2.2,'-',    &
              I2.2,'_',I2.2,'_',I2.2,']')
  60   format(A8,': regrid ',A4,' [',A,'] to ',A4,' [',A,']',' >> ',A)
+ 70   format(" PET(",I3.3,") - ",A," = ",E12.5," (",A,")")
 !
       end subroutine CPL_ExecuteRH
 !
