@@ -511,7 +511,6 @@
 !-----------------------------------------------------------------------
 !
       if (unmapMod) then
-      if (localPet == 0) print*, "create rh for extrapolation ..."
 !
 !-----------------------------------------------------------------------
 !     Check 2nd routehandle (i.e. rh_CROSS_DOT_NS2D_ATM-OCN)

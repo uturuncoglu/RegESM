@@ -1246,7 +1246,6 @@
 !-----------------------------------------------------------------------
 !
       if ((currTime /= startTime) .or. restarted) then
-        print*, "call ocn get !!!"
         call OCN_Get(gcomp, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
@@ -1440,109 +1439,112 @@
 !
       select case (trim(adjustl(itemNameList(i))))
       case ('taux')
-        where (transpose(ptr) < TOL_R8)
-          ustress(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          ustress(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            ustress(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('tauy')
-        where (transpose(ptr) < TOL_R8)
-          vstress(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          vstress(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            vstress(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('nflx')
-        where (transpose(ptr) < TOL_R8)
-          hflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          hflux(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            hflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('sflx')
-        where (transpose(ptr) < TOL_R8)
-          sflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          sflux(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            sflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('swrd')
-        where (transpose(ptr) < TOL_R8)
-          swflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          swflux(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            swflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('wndu')
-        where (transpose(ptr) < TOL_R8)
-          uwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
-        else where
-          uwind(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            uwind(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('wndv')
-        where (transpose(ptr) < TOL_R8)
-          vwind(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo 
-        else where
-          vwind(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            vwind(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('wspd')
-        where (transpose(ptr) < TOL_R8)
-          wspeed(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          wspeed(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            wspeed(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('tsfc')
-        where (transpose(ptr) < TOL_R8)
-          atemp(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          atemp(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            atemp(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('qsfc')
-        where (transpose(ptr) < TOL_R8)
-          aqh(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          aqh(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            aqh(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('lwrd')
-        where (transpose(ptr) < TOL_R8)
-          lwflux(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          lwflux(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            lwflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('evap')
-        where (transpose(ptr) < TOL_R8)
-          evap(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          evap(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            evap(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('prec')
-        where (transpose(ptr) < TOL_R8)
-          precip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          precip(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            precip(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('snow')
-        where (transpose(ptr) < TOL_R8)
-          snowprecip(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          snowprecip(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            snowprecip(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('rnof')
         print*, "runoff not implemented yet !!!"
+        call ESMF_Finalize(rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       case ('dswr')
-        where (transpose(ptr) < TOL_R8)
-          swdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          swdown(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            swdown(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('dlwr')
-        where (transpose(ptr) < TOL_R8)
-          lwdown(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          lwdown(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            lwdown(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       case ('psfc')
-        where (transpose(ptr) < TOL_R8)
-          apressure(1:sNx,1:sNy,1,1) = (transpose(ptr)*sfac)+addo
-        else where
-          apressure(1:sNx,1:sNy,1,1) = 0.0d0
-        end where
+        do jj = 1, sNy
+          do ii = 1, sNx
+            apressure(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+          end do
+        end do
       end select
 !
 !-----------------------------------------------------------------------
