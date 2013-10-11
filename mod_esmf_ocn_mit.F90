@@ -42,12 +42,20 @@
       use mod_types
       use mod_utils
 !
+      use mod_mit_gcm, only : sNx, sNy, nSx, nSy, OLx, OLy
+!
       implicit none
       private
 !
 !-----------------------------------------------------------------------
 !     Global module variables 
 !-----------------------------------------------------------------------
+!
+      real*8  :: myTime = 0.0d0
+      integer :: iLoop = 0
+      integer :: myIter = 0
+      real*8 :: uwind_norot(1-OLx:sNx+OLx,1-OLy:sNy+OLy,nSx,nSy)
+      real*8 :: vwind_norot(1-OLx:sNx+OLx,1-OLy:sNy+OLy,nSx,nSy)
 !
       type(ESMF_RouteHandle) :: rh_halo
 !
@@ -203,9 +211,8 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8 :: myTime
+      integer :: myThid = 1
       integer :: comm, localPet, petCount
-      integer :: iLoop, myIter, mythid
       character(ESMF_MAXSTR) :: gname
 !
       type(ESMF_VM) :: vm
@@ -228,11 +235,6 @@
 !-----------------------------------------------------------------------
 !     Initialize the gridded component 
 !-----------------------------------------------------------------------
-!
-      iLoop = 0
-      myTime = 0.
-      myIter = 0
-      myThid = 1
 !
       call MIT_INIT(comm, iLoop, myTime, myIter, myThid) 
 !
@@ -1159,6 +1161,7 @@
 !-----------------------------------------------------------------------
 !
       use mod_mit_gcm, only : deltaT
+      use mod_mit_gcm, only : uwind, vwind
 !
       implicit none
 !
@@ -1173,9 +1176,9 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8 :: trun, myTime
+      real*8 :: trun
+      integer :: myThid = 1
       integer :: localPet, petCount, phase, iter
-      integer :: iLoop, myIter, myThid 
       character(ESMF_MAXSTR) :: str1, str2
 !     
       type(ESMF_VM) :: vm
@@ -1241,24 +1244,27 @@
         end if
       end if
 !
+      if ((currTime /= startTime) .or. restarted) then
+!
 !-----------------------------------------------------------------------
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      if ((currTime /= startTime) .or. restarted) then
-        call OCN_Get(gcomp, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
+      call OCN_Get(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Rotate wind components 
+!-----------------------------------------------------------------------
+!
+      call rotate_wind_rl(uwind, vwind, uwind_norot, vwind_norot,       &
+                         .false., .true., .true., myThid)
       end if
 !
 !-----------------------------------------------------------------------
 !     Run OCN component
 !-----------------------------------------------------------------------
-!
-      iLoop = 0
-      myTime = 0.
-      myIter = 0
-      myThid = 1
 !
       call MIT_RUN(iter, iLoop, myTime, myIter, myThid)
 !
@@ -1288,9 +1294,9 @@
 !
       use mod_mit_gcm, only : sNx, sNy
       use mod_mit_gcm, only : ustress, vstress, hflux, sflux, swflux,   &
-                              uwind, vwind, atemp, aqh, lwflux, evap,   &
+                              atemp, aqh, lwflux, evap, wspeed,         &
                               precip, runoff, swdown, lwdown, apressure,&
-                              wspeed, snowprecip 
+                              snowprecip 
 !
       implicit none
 !
@@ -1471,13 +1477,13 @@
       case ('wndu')
         do jj = 1, sNy
           do ii = 1, sNx
-            uwind(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+            uwind_norot(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
           end do
         end do
       case ('wndv')
         do jj = 1, sNy
           do ii = 1, sNx
-            vwind(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+            vwind_norot(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
           end do
         end do
       case ('wspd')
