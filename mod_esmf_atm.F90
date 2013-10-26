@@ -1846,7 +1846,7 @@
         imax = global_cross_istart+ici2-1
         jmin = global_cross_jstart+jci1-1
         jmax = global_cross_jstart+jci2-1
-        call UTIL_PrintMatrix(ptr, imin, imax, jmin, jmax , 1, 1,       &
+        call UTIL_PrintMatrix(transpose(ptr), imin, imax, jmin, jmax , 1, 1,       &
                               localPet, iunit, "PTR/ATM/EXP")
         close(unit=iunit)
       end if 

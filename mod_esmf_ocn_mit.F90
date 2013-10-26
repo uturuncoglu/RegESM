@@ -42,7 +42,8 @@
       use mod_types
       use mod_utils
 !
-      use mod_mit_gcm, only : sNx, sNy, nSx, nSy, OLx, OLy
+      use mod_mit_gcm, only : sNx, sNy, nSx, nSy, OLx, OLy, Nx, Ny,     &
+                              nPx, nPy, myXGlobalLo, myYGlobalLo
 !
       implicit none
       private
@@ -613,8 +614,7 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_mit_gcm, only : sNx, sNy, OLx, OLy, nPx, nPy, Nx, Ny,     &
-                              xC, yC, xG, yG, maskC, maskW, maskS, rA
+      use mod_mit_gcm, only : xC, yC, xG, yG, maskC, maskW, maskS, rA
 !
       implicit none
 !
@@ -630,7 +630,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, localDECount, p 
+      integer :: i, j, m, n, p, bi, bj, iG, jG, localDECount, tile
       character(ESMF_MAXSTR) :: name
 !
       integer(ESMF_KIND_I4), pointer :: ptrM(:,:)
@@ -638,16 +638,34 @@
       type(ESMF_VM) :: vm
       type(ESMF_StaggerLoc) :: staggerLoc
       type(ESMF_DistGrid) :: distGrid
+      integer, allocatable :: deBlockList(:,:,:)
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get limits of the grid arrays (based on PET and nest level)
+!-----------------------------------------------------------------------
+!
+      if (.not.allocated(deBlockList)) then
+        allocate(deBlockList(2,2,nPx*nPy))
+      end if
+!
+      do tile = 0, (nPx*nPy)-1
+        deBlockList(1,1,tile+1) = myXGlobalLo
+        deBlockList(1,2,tile+1) = myXGlobalLo+sNx-1
+        deBlockList(2,1,tile+1) = myYGlobalLo 
+        deBlockList(2,2,tile+1) = myYGlobalLo+sNy-1
+      end do
 !
 !-----------------------------------------------------------------------
 !     Create ESMF DistGrid based on model domain decomposition
 !-----------------------------------------------------------------------
 !
       distGrid = ESMF_DistGridCreate(minIndex=(/ 1, 1 /),               &
-                                     maxIndex=(/ Ny, Nx /),             &
-                                     regDecomp=(/ nPy, nPx /),          &
+                                     !maxIndex=(/ Ny, Nx /),             &
+                                     maxIndex=(/ Nx, Ny /),             &
+                                     !regDecomp=(/ nPy, nPx /),          &
+                                     deBlockList=deBlockList,           &
                                      rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -686,9 +704,8 @@
 !
       if (p == 1) then
       models(Iocean)%grid = ESMF_GridCreate(distgrid=distGrid,          &
-!                                            gridEdgeLWidth=(/0,0/),     &
-!                                            gridEdgeUWidth=(/0,0/),     &
-                                            indexflag=ESMF_INDEX_DELOCAL,&
+                                            !indexflag=ESMF_INDEX_DELOCAL,&
+                                            indexflag=ESMF_INDEX_GLOBAL,&
                                             name="ocn_grid",            &
                                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -798,35 +815,74 @@
 !
       if (debugLevel > 0) then
         write(*,30) localPet, 0, adjustl("PTR/OCN/GRD/"//name),         &
-                    lbound(ptrX, dim=2), ubound(ptrX, dim=2),           &
-                    lbound(ptrX, dim=1), ubound(ptrX, dim=1)
+                    lbound(ptrX, dim=1), ubound(ptrX, dim=1),           &
+                    lbound(ptrX, dim=2), ubound(ptrX, dim=2)
       end if
 !
 !-----------------------------------------------------------------------
 !     Fill the pointers    
 !-----------------------------------------------------------------------
 !
+      bj = 1
+      bi = 1
       if (models(Iocean)%mesh(p)%gtype == Idot) then
-         ptrX = transpose(xG(1:sNx,1:sNy,1,1))
-         ptrY = transpose(yG(1:sNx,1:sNy,1,1))
+        do n = 1, sNy
+          do m = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+m
+            jG = myYGlobalLo-1+(bj-1)*sNy+n
+            ptrX(iG,jG) = xG(m,n,1,1)
+            ptrY(iG,jG) = yG(m,n,1,1)
+          end do
+        end do
+!         ptrX = transpose(xG(1:sNx,1:sNy,1,1))
+!         ptrY = transpose(yG(1:sNx,1:sNy,1,1))
       else if (models(Iocean)%mesh(p)%gtype == Icross) then
-         ptrX = transpose(xC(1:sNx,1:sNy,1,1))
-         ptrY = transpose(yC(1:sNx,1:sNy,1,1))
-         ptrM = int(transpose(maskC(1:sNx,1:sNy,1,1,1)))
-         ptrA = transpose(rA(1:sNx,1:sNy,1,1))
+        do n = 1, sNy
+          do m = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+m
+            jG = myYGlobalLo-1+(bj-1)*sNy+n
+            ptrX(iG,jG) = xC(m,n,1,1)
+            ptrY(iG,jG) = yC(m,n,1,1)
+            ptrM(iG,jG) = int(maskC(m,n,1,1,1))
+            ptrA(iG,jG) = rA(m,n,1,1)
+          end do
+        end do
+!         ptrX = transpose(xC(1:sNx,1:sNy,1,1))
+!         ptrY = transpose(yC(1:sNx,1:sNy,1,1))
+!         ptrM = int(transpose(maskC(1:sNx,1:sNy,1,1,1)))
+!         ptrA = transpose(rA(1:sNx,1:sNy,1,1))
       else if (models(Iocean)%mesh(p)%gtype == Iupoint) then
-         ptrX = transpose(xG(1:sNx,1:sNy,1,1))
-         ptrY = transpose(yC(1:sNx,1:sNy,1,1))
-         ptrM = int(transpose(maskW(1:sNx,1:sNy,1,1,1)))
+        do n = 1, sNy
+          do m = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+m
+            jG = myYGlobalLo-1+(bj-1)*sNy+n
+            ptrX(iG,jG) = xG(m,n,1,1)
+            ptrY(iG,jG) = yC(m,n,1,1)
+            ptrM(iG,jG) = int(maskW(m,n,1,1,1))
+          end do
+        end do
+!         ptrX = transpose(xG(1:sNx,1:sNy,1,1))
+!         ptrY = transpose(yC(1:sNx,1:sNy,1,1))
+!         ptrM = int(transpose(maskW(1:sNx,1:sNy,1,1,1)))
       else if (models(Iocean)%mesh(p)%gtype == Ivpoint) then
-         ptrX = transpose(xC(1:sNx,1:sNy,1,1))
-         ptrY = transpose(yG(1:sNx,1:sNy,1,1))
-         ptrM = int(transpose(maskS(1:sNx,1:sNy,1,1,1)))
+        do n = 1, sNy
+          do m = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+m
+            jG = myYGlobalLo-1+(bj-1)*sNy+n
+            ptrX(iG,jG) = xC(m,n,1,1)
+            ptrY(iG,jG) = yG(m,n,1,1)
+            ptrM(iG,jG) = int(maskS(m,n,1,1,1))
+          end do
+        end do
+!         ptrX = transpose(xC(1:sNx,1:sNy,1,1))
+!         ptrY = transpose(yG(1:sNx,1:sNy,1,1))
+!         ptrM = int(transpose(maskS(1:sNx,1:sNy,1,1,1)))
       end if
 !
       if (debugLevel > 0) then
         write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),         &
-                    1, sNx,1 ,sNy
+                    lbound(xG, dim=1), ubound(xG, dim=1),               &
+                    lbound(xG, dim=2), ubound(xG, dim=2)
       end if
 !
 !-----------------------------------------------------------------------
@@ -882,13 +938,6 @@
       end subroutine OCN_SetGridArrays
 !
       subroutine OCN_SetStates(gcomp, rc)
-!
-!-----------------------------------------------------------------------
-!     Used module declarations 
-!-----------------------------------------------------------------------
-!
-      use mod_mit_gcm, only : OLx, OLy
-!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -903,8 +952,6 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, j, k, itemCount, localDECount, localPet, petCount
-      integer :: staggerEdgeLWidth(2)
-      integer :: staggerEdgeUWidth(2)
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real*8, dimension(:,:), pointer :: ptr2d
 !
@@ -947,7 +994,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get list of export fields 
+!     Get list of export fields
 !-----------------------------------------------------------------------
 !
       call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
@@ -982,9 +1029,6 @@
         staggerLoc = ESMF_STAGGERLOC_CORNER
       end if
 !
-      staggerEdgeLWidth = (/0,0/)
-      staggerEdgeUWidth = (/0,0/)
-!
 !-----------------------------------------------------------------------
 !     Create field 
 !-----------------------------------------------------------------------
@@ -992,6 +1036,7 @@
       field = ESMF_FieldCreate(models(Iocean)%grid,                     &
                                arraySpec,                               &
                                staggerloc=staggerLoc,                   &
+                               indexflag=ESMF_INDEX_GLOBAL,             &
                                name=trim(itemNameList(i)),              &
                                rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1079,18 +1124,16 @@
         staggerLoc = ESMF_STAGGERLOC_CORNER
       end if
 !
-      staggerEdgeLWidth = (/0,0/)
-      staggerEdgeUWidth = (/0,0/)
-!
 !-----------------------------------------------------------------------
 !     Create field
 !-----------------------------------------------------------------------
 !
       field = ESMF_FieldCreate(models(Iocean)%grid,                     &
                                arraySpec,                               &
-                               totalLWidth=(/OLy,OLx/),                 &
-                               totalUWidth=(/OLy,OLx/),                 &
+                               totalLWidth=(/OLx,OLy/),                 &
+                               totalUWidth=(/OLx,OLy/),                 &
                                staggerloc=staggerLoc,                   &
+                               indexflag=ESMF_INDEX_GLOBAL,             &
                                name=trim(itemNameList(i)),              &
                                rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1100,11 +1143,11 @@
 !     Store routehandle to exchage halo region data 
 !-----------------------------------------------------------------------
 !
-      if (i == 1) then
-      call ESMF_FieldHaloStore(field, routehandle=rh_halo, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-      end if
+!      if (i == 1) then
+!      call ESMF_FieldHaloStore(field, routehandle=rh_halo, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!      end if
 !
 !-----------------------------------------------------------------------
 !     Put data into state 
@@ -1258,8 +1301,8 @@
 !     Rotate wind components 
 !-----------------------------------------------------------------------
 !
-      call rotate_wind_rl(uwind, vwind, uwind_norot, vwind_norot,       &
-                         .false., .true., .true., myThid)
+!      call rotate_wind_rl(uwind, vwind, uwind_norot, vwind_norot,       &
+!                         .false., .true., .true., myThid)
       end if
 !
 !-----------------------------------------------------------------------
@@ -1292,11 +1335,11 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_mit_gcm, only : sNx, sNy
       use mod_mit_gcm, only : ustress, vstress, hflux, sflux, swflux,   &
                               atemp, aqh, lwflux, evap, wspeed,         &
-                              precip, runoff, swdown, lwdown, apressure,&
-                              snowprecip 
+                              precip, runoff, swdown, lwdown,           &
+                              apressure, snowprecip 
+      use mod_mit_gcm, only : uwind, vwind
 !
       implicit none
 !
@@ -1311,7 +1354,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, ii, jj
+      integer :: i, j, ii, jj, bi, bj, iG, jG, imax, jmax
       integer :: id, iyear, iday, imonth, ihour, iunit
       integer :: localPet, petCount, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
@@ -1405,10 +1448,10 @@
 !     Perform halo region update 
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
-                          checkflag=.true., rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
+!                          checkflag=.false., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Loop over decomposition elements (DEs) 
@@ -1417,7 +1460,7 @@
       do j = 0, localDECount-1
 !
 !-----------------------------------------------------------------------
-!     Get pointer from field
+!     Get pointer /from field
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
@@ -1433,7 +1476,8 @@
                   lbound(ptr, dim=1), ubound(ptr, dim=1),               &
                   lbound(ptr, dim=2), ubound(ptr, dim=2)
       write(*,60) localPet, j, adjustl("IND/OCN/IMP/"//itemNameList(i)),&
-                  1, sNx, 1, sNy 
+                  lbound(ustress, dim=1), ubound(ustress, dim=1),       &
+                  lbound(ustress, dim=2), ubound(ustress, dim=2)
       end if 
 !
 !-----------------------------------------------------------------------
@@ -1443,89 +1487,166 @@
       sfac = models(Iocean)%importField(id)%scale_factor
       addo = models(Iocean)%importField(id)%add_offset
 !
+      bi = 1
+      bj = 1
+      imax = Nx+1
+      jmax = Ny+1
+!
       select case (trim(adjustl(itemNameList(i))))
       case ('taux')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            ustress(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              ustress(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('tauy')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            vstress(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              vstress(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('nflx')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            hflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              hflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('sflx')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            sflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              sflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('swrd')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            swflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              swflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('wndu')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            uwind_norot(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              !uwind_norot(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              uwind(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('wndv')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            vwind_norot(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              !vwind_norot(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              vwind(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('wspd')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            wspeed(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              wspeed(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('tsfc')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            atemp(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              atemp(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('qsfc')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            aqh(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              aqh(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('lwrd')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            lwflux(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              lwflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('evap')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            evap(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              evap(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('prec')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            precip(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              precip(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('snow')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            snowprecip(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              snowprecip(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('rnof')
@@ -1534,21 +1655,36 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       case ('dswr')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            swdown(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              swdown(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('dlwr')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            lwdown(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              lwdown(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       case ('psfc')
-        do jj = 1, sNy
-          do ii = 1, sNx
-            apressure(ii,jj,1,1) = (ptr(jj,ii)*sfac)+addo
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              apressure(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
           end do
         end do
       end select
@@ -1562,7 +1698,9 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call UTIL_PrintMatrix(ptr, 1, sNx, 1, sNy, 1, 1,                &
+!        call UTIL_PrintMatrix(transpose(ptr), 1-OLx, sNx+OLx, 1-OLy, sNy+OLy, 1, 1,&
+!                              localPet, iunit, "PTR/OCN/IMP")
+        call UTIL_PrintMatrix(uwind_norot(:,:,1,1), 1-OLx, sNx+OLx, 1-OLy, sNy+OLy, 1, 1,&
                               localPet, iunit, "PTR/OCN/IMP")
         close(unit=iunit)
       end if
@@ -1616,7 +1754,6 @@
 !-----------------------------------------------------------------------
 !
       use mod_mit_gcm, only : theta
-      use mod_mit_gcm, only : sNx, sNy 
 !
       implicit none
 !
@@ -1631,6 +1768,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      integer :: bi, bj, iG, jG, imax, jmax
       integer :: i, j, ii, jj, iunit, iyear, iday, imonth, ihour
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
@@ -1717,6 +1855,19 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!-----------------------------------------------------------------------
+!     Perform halo region update 
+!-----------------------------------------------------------------------
+!
+!      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
+!                          checkflag=.false., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over decomposition elements (DEs) 
+!-----------------------------------------------------------------------
+!
       do j = 0, localDECount-1
 !
 !-----------------------------------------------------------------------
@@ -1737,9 +1888,20 @@
 !     Put data to export field 
 !-----------------------------------------------------------------------
 !
+      bi = 1
+      bj = 1
+      imax = Nx+1
+      jmax = Ny+1
+!
       select case (trim(adjustl(itemNameList(i))))
       case ('sst')
-        ptr = transpose(theta(1:sNx,1:sNy,1,1,1))
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = theta(ii,jj,1,1,1)
+          end do
+        end do
       end select
 !
 !-----------------------------------------------------------------------

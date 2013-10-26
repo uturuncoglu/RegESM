@@ -739,6 +739,39 @@
 !
       end subroutine UTIL_AdjustField
 !
+      subroutine UTIL_GenTestField(lat, lon, fchoice)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      real*8, intent(in) :: lat(:,:)
+      real*8, intent(in) :: lon(:,:)
+      integer, intent(in) :: fchoice
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      real*8 :: length
+!
+!-----------------------------------------------------------------------
+!     Set up fields for test cases based on user choice
+!-----------------------------------------------------------------------
+!
+      select case (fchoice)
+      case (1) ! cosine hill at lon=pi and lat=0
+        length = 0.1*pi2
+      case (2) ! pseudo-spherical harmonic l=2,m=2
+      case (3) ! pseudo-spherical harmonic l=32, m=16
+      case default
+        call ESMF_Finalize(rc=rc)
+      end select
+!
+      end subroutine UTIL_GenTestField
+!
       subroutine UTIL_PrintMatrix(inp, imin, imax, jmin, jmax,          &
                                   iskip, jskip, pet, id, header)
       implicit none

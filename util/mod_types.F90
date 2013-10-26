@@ -201,6 +201,9 @@
       real*8, parameter :: cf2 = 1.0d0/cf1
       real*8, parameter :: day2s = 1.0d0/86400.0d0
       real*8, parameter :: mm2m = 1.0d0/1000.0d0
+      real*8, parameter :: pi = 3.14159265359d0
+      real*8, parameter :: pi2 = 2.0d0*pi
+      real*8, parameter :: phi = 0.5d0*pi
 !
       real*8, parameter :: MISSING_R8 = 1.0d20
       real  , parameter :: MISSING_R4 = 1.0e20
