@@ -55,8 +55,6 @@
       real*8  :: myTime = 0.0d0
       integer :: iLoop = 0
       integer :: myIter = 0
-      real*8 :: uwind_norot(1-OLx:sNx+OLx,1-OLy:sNy+OLy,nSx,nSy)
-      real*8 :: vwind_norot(1-OLx:sNx+OLx,1-OLy:sNy+OLy,nSx,nSy)
 !
       type(ESMF_RouteHandle) :: rh_halo
 !
@@ -1296,13 +1294,6 @@
       call OCN_Get(gcomp, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Rotate wind components 
-!-----------------------------------------------------------------------
-!
-!      call rotate_wind_rl(uwind, vwind, uwind_norot, vwind_norot,       &
-!                         .false., .true., .true., myThid)
       end if
 !
 !-----------------------------------------------------------------------
@@ -1339,7 +1330,7 @@
                               atemp, aqh, lwflux, evap, wspeed,         &
                               precip, runoff, swdown, lwdown,           &
                               apressure, snowprecip 
-      use mod_mit_gcm, only : uwind, vwind
+      use mod_mit_gcm, only : uwind, vwind, xG, yG
 !
       implicit none
 !
@@ -1555,7 +1546,6 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              !uwind_norot(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
               uwind(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
@@ -1567,7 +1557,6 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              !vwind_norot(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
               vwind(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
@@ -1700,7 +1689,7 @@
         open(unit=iunit, file=trim(ofile)//'.txt')
 !        call UTIL_PrintMatrix(transpose(ptr), 1-OLx, sNx+OLx, 1-OLy, sNy+OLy, 1, 1,&
 !                              localPet, iunit, "PTR/OCN/IMP")
-        call UTIL_PrintMatrix(uwind_norot(:,:,1,1), 1-OLx, sNx+OLx, 1-OLy, sNy+OLy, 1, 1,&
+        call UTIL_PrintMatrix(uwind(:,:,1,1), 1-OLx, sNx+OLx, 1-OLy, sNy+OLy, 1, 1,&
                               localPet, iunit, "PTR/OCN/IMP")
         close(unit=iunit)
       end if
