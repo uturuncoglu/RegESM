@@ -71,7 +71,7 @@
     dswr - downward shortwave radiation (W/m^2)
     lhfx - latent heat flux (W/m^2)
     shfx - sensible heat flux (W/m^2)
-    nflx - net heat flux, latent+sensible+longwave (W/m^2)
+    nflx - net heat flux, latent+sensible+longwave-shortwave (W/m^2)
     prec - total precipitation, P (m/s)
     evap - evaporation, E (m/s)
     sflx - net freshwater flux, E-P (m/s)
