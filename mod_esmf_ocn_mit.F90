@@ -302,7 +302,8 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_mit_gcm, only : TheCalendar, startdate_1, startdate_2 
+      use mod_mit_gcm, only : TheCalendar, startdate_1, startdate_2,    &
+                              starttime
 !
       implicit none
 !
@@ -328,9 +329,9 @@
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: cmpClock
-      type(ESMF_TimeInterval) :: timeStep
+      type(ESMF_TimeInterval) :: timeStep, elapsedTime
       type(ESMF_Time) :: cmpRefTime, cmpStartTime, cmpStopTime
-      type(ESMF_Time) :: startTime, currTime
+      type(ESMF_Time) :: dummTime, currTime
       type(ESMF_Calendar) :: cal 
 !
       rc = ESMF_SUCCESS
@@ -415,6 +416,12 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+      call ESMF_TimeIntervalSet(elapsedTime, s_r8=starttime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      cmpStartTime = cmpStartTime+elapsedTime
+!
 !-----------------------------------------------------------------------
 !     Set stop time
 !-----------------------------------------------------------------------
@@ -462,17 +469,17 @@
 !-----------------------------------------------------------------------
 !
       if (restarted) then
-        startTime = esmRestartTime
+        dummTime = esmRestartTime
       else
-        startTime = esmStartTime
+        dummTime = esmStartTime
       end if
 !
-      if (cmpStartTime /= startTime) then
+      if (cmpStartTime /= dummTime) then
         call ESMF_TimePrint(cmpStartTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_TimePrint(startTime, options="string", rc=rc)
+        call ESMF_TimePrint(dummTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
