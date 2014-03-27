@@ -583,7 +583,9 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
+      integer :: itemCount
       logical :: atCorrectTime
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
       type(NUOPC_Model_Type_IS) :: is
       type(ESMF_Time) :: startTime, currTime
@@ -613,15 +615,46 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-       call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
+      call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Check fields in the importState (fast time step) 
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateGet(importState, itemName="psfc",                  &
+      if (itemCount > 0) then
+      call ESMF_StateGet(importState, itemName=trim(itemNameList(1)),   &
                          field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -637,6 +670,8 @@
                               line=__LINE__, file=FILENAME,             &
                               rcToReturn=rc)
         return
+      end if
+!
       end if
 !
 !-----------------------------------------------------------------------
@@ -2063,6 +2098,7 @@
           end do
         end do
 #endif
+#ifdef OCNWETDRY
       case ('msk')
         do jj = JstrR, JendR
           do ii = IstrR, IendR
@@ -2077,6 +2113,7 @@
             end if
           end do
         end do
+#endif
       end select
 !
 !-----------------------------------------------------------------------
@@ -2350,7 +2387,10 @@
 !
               ta = rdata(ng)%Tair(rivers(i)%iindex,rivers(i)%jindex)
               if (ta > 50.0d0) then
-                ta = FORCES(ng)%Tair(rivers(i)%iindex,rivers(i)%jindex) 
+                ta = rdata(ng)%Tair(rivers(i)%iindex,rivers(i)%jindex) 
+              end if
+              if (ta > TOL_R8) then
+                ta = ZERO_R8
               end if
               tdis = 5.32d0+0.65d0*ta
               if (tdis(1) < -2.0d0) tdis = -2.0d0
