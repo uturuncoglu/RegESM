@@ -677,7 +677,7 @@
 !
       error_unit = error/total_global(1)
       if (localPet == 0) then
-        write(*,40) localPet, error_unit, trim(fname)
+        write(*,40) localPet, total_global(1), error_unit, trim(fname)
       end if
 !
 !-----------------------------------------------------------------------
@@ -735,7 +735,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 40   format(" PET(",I3.3,") - AVGERAGE DIFF     = ",E12.5," (",A,")")
+ 40   format(" PET(",I3.3,") - AVGERAGE DIFF     = ",2E12.5," (",A,")")
 !
       end subroutine UTIL_AdjustField
 !

@@ -69,10 +69,10 @@ if eval "test x$OCN_ROMS = x1"; then
                 [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_NOTICE([Compiling with support of ICE model])],
                  AC_MSG_WARN([Compiling without support of ICE model]))
   strlib="`nm $OCN_PREFIX/libNLM.a | grep wetdry_tile`"
-  AM_CONDITIONAL([DEF_WETDRY], [test -n "$strlib"])
-  AM_COND_IF([DEF_WETDRY],
-             [AM_CPPFLAGS="-DOCNWETDRY $AM_CPPFLAGS"; AC_MSG_NOTICE([Compiling with support of WET-DRY])],
-             AC_MSG_WARN([Compiling without support of WET-DRY]))
+#  AM_CONDITIONAL([DEF_WETDRY], [test -n "$strlib"])
+#  AM_COND_IF([DEF_WETDRY],
+#             [AM_CPPFLAGS="-DOCNWETDRY $AM_CPPFLAGS"; AC_MSG_NOTICE([Compiling with support of WET-DRY])],
+#             AC_MSG_WARN([Compiling without support of WET-DRY]))
 fi
 AC_CHECK_FILE([$OCN_PREFIX/MOM_COMMON_OPTIONS.h],
               [OCN_MIT=1; AC_MSG_NOTICE([Compiling with support of MITgcm ocean model])],
