@@ -57,7 +57,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: cLbnd(2), cUbnd(2)
-      integer :: i, j, k, localDECount
+      integer :: i, j, k, p, localDECount
       character(ESMF_MAXSTR) :: fname
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d, bdy2d
       integer(ESMF_KIND_I4), dimension(:,:), pointer :: msk2d
@@ -200,7 +200,7 @@
       do i = cLbnd(1), cUbnd(1)
       do j = cLbnd(2), cUbnd(2)
         if ((bdy2d(i,j) < TOL_R8).and.(msk2d(i,j) /= dstLandMask)) then
-          if (ptr2d(i,j) < ONE_R8) then
+          if (ptr2d(i,j) < ONE_R8/2.0d0) then
             msk2d(i,j) = UNMAPPED_MASK
           else
             msk2d(i,j) = MAPPED_MASK
