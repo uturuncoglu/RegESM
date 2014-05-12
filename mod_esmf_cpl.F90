@@ -316,7 +316,7 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      if (.not. flag2) then
+      if (.not. flag2 .and. grSrc == Icross .and. grDst == Icross) then
 !
 !-----------------------------------------------------------------------
 !     Create frac fields 
@@ -789,11 +789,9 @@
 !     Create temporary field in destination grid
 !-----------------------------------------------------------------------
 !
-      if (i == 1) then
-        tmpField = UTIL_FieldCreate(dstField, fname, MISSING_R8, -1, rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-      end if
+      tmpField = UTIL_FieldCreate(dstField, fname, MISSING_R8, -1, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Perform 1st regrid operation
@@ -830,6 +828,10 @@
 !
       call ESMF_FieldRegrid(tmpField, dstField, routeHandle,            &
                             zeroregion=ESMF_REGION_SELECT, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldDestroy(tmpField, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -1065,16 +1067,6 @@
       end if
 !
       end do
-!
-!-----------------------------------------------------------------------
-!     Deallocate temporary fields 
-!-----------------------------------------------------------------------
-!
-      if (unmapMod) then
-        call ESMF_FieldDestroy(tmpField, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
-      end if
 !
 !-----------------------------------------------------------------------
 !     Deallocate temporary arrays

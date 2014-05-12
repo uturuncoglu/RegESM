@@ -451,7 +451,7 @@
       integer :: i, j, k, l, m, n, s, ios1, ios2, pos1, pos2, nf
       logical :: file_exists
       character(len=400) :: str
-      character(len=200) :: dum(9)
+      character(len=200) :: dum(10)
       logical :: flag
 !
       rc = ESMF_SUCCESS
@@ -503,7 +503,7 @@
             do
               pos2 = index(str(pos1:), ':')
               if (pos2 == 0) then
-                dum(9) = trim(str(pos1:))
+                dum(10) = trim(str(pos1:))
                 exit
               else
                 dum(s) = trim(str(pos1:pos1+pos2-2))
@@ -521,7 +521,7 @@
             end do
             ! add export field to the list
             if (flag) then
-              call add_field(models(i)%exportField, dum)
+              call add_field(models(i)%exportField, dum, .true.)
               ! print out
               if (debugLevel > 0 .and. localPet == 0) then
               m = ubound(models(i)%exportField, dim=1)
@@ -548,7 +548,7 @@
             end do
             ! add import field to the list
             if (flag) then
-              call add_field(models(j)%importField, dum)
+              call add_field(models(j)%importField, dum, .false.)
               ! print out
               if (debugLevel > 0 .and. localPet == 0) then 
               n = ubound(models(j)%importField, dim=1)
@@ -582,7 +582,7 @@
 !
       end subroutine read_field_table
 !
-      subroutine add_field(field, str)
+      subroutine add_field(field, str, exflag)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -591,6 +591,7 @@
 !
       type(ESM_Field), allocatable, intent(inout) :: field(:)
       character(len=*), intent(in) :: str(:)
+      logical, intent(in) :: exflag
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
@@ -634,32 +635,51 @@
       else
         field(n)%itype = Inone
       end if
-      if (trim(str(4)) == 'cross') then
-        field(n)%gtype = Icross
-      else if (trim(str(4)) == 'dot') then
-        field(n)%gtype = Idot
-      else if (trim(str(4)) == 'u') then
-        field(n)%gtype = Iupoint
-      else if (trim(str(4)) == 'v') then
-        field(n)%gtype = Ivpoint
+
+      if (exflag) then 
+        if (trim(str(4)) == 'cross') then
+          field(n)%gtype = Icross
+        else if (trim(str(4)) == 'dot') then
+          field(n)%gtype = Idot
+        else if (trim(str(4)) == 'u') then
+          field(n)%gtype = Iupoint
+        else if (trim(str(4)) == 'v') then
+          field(n)%gtype = Ivpoint
+        else
+          field(n)%gtype = Inan
+        end if
       else
-        field(n)%gtype = Inan
+        if (trim(str(5)) == 'cross') then
+          field(n)%gtype = Icross
+        else if (trim(str(5)) == 'dot') then
+          field(n)%gtype = Idot
+        else if (trim(str(5)) == 'u') then
+          field(n)%gtype = Iupoint
+        else if (trim(str(5)) == 'v') then
+          field(n)%gtype = Ivpoint
+        else
+          field(n)%gtype = Inan
+        end if
       end if
-      field(n)%units = trim(str(5))
-      field(n)%export_units = trim(str(6))
-      if (trim(str(7)) == 'cf1') then
+      field(n)%units = trim(str(6))
+      field(n)%export_units = trim(str(7))
+      if (trim(str(8)) == 'cf1') then
         field(n)%scale_factor = cf1
-      else if (trim(str(7)) == '-cf1') then
+      else if (trim(str(8)) == '-cf1') then
         field(n)%scale_factor = -cf1
-      else if (trim(str(7)) == 'cf2') then
+      else if (trim(str(8)) == 'cf2') then
         field(n)%scale_factor = cf2
-      else if (trim(str(7)) == '-cf2') then
+      else if (trim(str(8)) == '-cf2') then
         field(n)%scale_factor = -cf2
+      else if (trim(str(8)) == 'cf3') then
+        field(n)%scale_factor = cf3
+      else if (trim(str(8)) == '-cf3') then
+        field(n)%scale_factor = -cf3
       else
-        read(str(7),*) field(n)%scale_factor
+        read(str(8),*) field(n)%scale_factor
       end if
-      read(str(8),*) field(n)%add_offset
-      if (trim(str(9)) == 'T' .or. trim(str(9)) == 't') then     
+      read(str(9),*) field(n)%add_offset
+      if (trim(str(10)) == 'T' .or. trim(str(10)) == 't') then     
         field(n)%enable_integral_adj = .true.
       else
         field(n)%enable_integral_adj = .false.

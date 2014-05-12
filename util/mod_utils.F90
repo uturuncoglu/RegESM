@@ -57,7 +57,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: cLbnd(2), cUbnd(2)
-      integer :: i, j, k, p, localDECount
+      integer :: i, j, k, localDECount
       character(ESMF_MAXSTR) :: fname
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d, bdy2d
       integer(ESMF_KIND_I4), dimension(:,:), pointer :: msk2d

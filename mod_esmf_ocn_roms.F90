@@ -1787,6 +1787,7 @@
 !
 !-----------------------------------------------------------------------
 !     Put data to OCN component variable
+!     Caution: wspd, snow and dswr is not mapped in ROMS side!
 !-----------------------------------------------------------------------
 !
       sfac = models(Iocean)%importField(id)%scale_factor
@@ -1857,6 +1858,30 @@
         do jj = LBj, UBj
           do ii = LBi, UBi
             rdata(ng)%Swrad(ii,jj) = (ptr(ii,jj)*sfac)+addo
+          end do
+        end do
+      case ('nflx')
+        do jj = LBj, UBj
+          do ii = LBi, UBi
+            rdata(ng)%nhflx(ii,jj) = (ptr(ii,jj)*sfac)+addo
+          end do
+        end do
+      case ('sflx')
+        do jj = LBj, UBj
+          do ii = LBi, UBi
+            rdata(ng)%EminP(ii,jj) = (ptr(ii,jj)*sfac)+addo
+          end do
+        end do
+      case ('taux')
+        do jj = LBj, UBj
+          do ii = LBi, UBi
+            rdata(ng)%Ustr(ii,jj) = (ptr(ii,jj)*sfac)+addo
+          end do
+        end do
+      case ('tauy')
+        do jj = LBj, UBj
+          do ii = LBi, UBi
+            rdata(ng)%Vstr(ii,jj) = (ptr(ii,jj)*sfac)+addo
           end do
         end do
       case ('rdis')

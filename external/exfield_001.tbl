@@ -1,20 +1,20 @@
 10 atm2ocn
-psfc:surface_air_pressure:bilinear:cross:mb:mb:1.0:0.0
-tsfc:surface_air_temperature:bilinear:cross:K:C:1.0:-273.16
-qsfc:surface_air_specific_humidity:bilinear:cross:kg/kg:kg/kg:1.0:0.0
-swrd:shortwave_radiation:bilinear:cross:W/m^2:Cm/s:cf2:0.0
-lwrd:longwave_radiation:bilinear:cross:W/m^2:Cm/s:-cf2:0.0
-lhfx:latent_heat_flux:bilinear:cross:W/m^2:Cm/s:cf2:0.0
-shfx:sensible_heat_flux:bilinear:cross:W/m^2:Cm/s:cf2:0.0
-prec:total_precipitation:bilinear:cross:kg/m^2s:kg/m^2s:1.0:0.0
-wndu:eastward_10m_wind:bilinear:cross:m/s:m/s:1.0:0.0
-wndv:northward_10m_wind:bilinear:cross:m/s:m/s:1.0:0.0
+psfc:surface_air_pressure:bilinear:cross:cross:mb:mb:1.0:0.0:F
+tsfc:surface_air_temperature:bilinear:cross:cross:K:C:1.0:-273.16:F
+qsfc:surface_air_specific_humidity:bilinear:cross:cross:kg/kg:kg/kg:1.0:0.0:F
+swrd:shortwave_radiation:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
+lwrd:longwave_radiation:bilinear:cross:cross:W/m^2:Cm/s:-cf2:0.0:T
+lhfx:latent_heat_flux:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
+shfx:sensible_heat_flux:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
+prec:total_precipitation:bilinear:cross:cross:kg/m^2s:kg/m^2s:1.0:0.0:F
+wndu:eastward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+wndv:northward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
 3 ocn2atm
-sst:sea_surface_temperature:bilinear:cross:C:K:1.0:273.16
-sit:sea_ice_thickness:bilinear:cross:m:mm:1000.0:0.0
-msk:dynamic_masking:nearstod:cross:unitless:unitless:1.0:0.0
+sst:sea_surface_temperature:bilinear:cross:cross:C:K:1.0:273.16:F
+sit:sea_ice_thickness:bilinear:cross:cross:m:mm:1000.0:0.0:F
+msk:dynamic_masking:nearstod:cross:cross:unitless:unitless:1.0:0.0:F
 2 atm2rtm
-rnof:surface_runoff:bilinear:cross:mm/s:m/s:0.001:0.0
-snof:subsurface_runoff:bilinear:cross:mm/s:m/s:0.001:0.0
+rnof:surface_runoff:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
+snof:subsurface_runoff:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
 1 rtm2ocn
-rdis:river_discharge:nearstod:cross:m^3:m^3:1.0:0.0
+rdis:river_discharge:nearstod:cross:cross:m^3:m^3:1.0:0.0:F

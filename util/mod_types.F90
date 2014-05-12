@@ -193,12 +193,14 @@
 !
 !-----------------------------------------------------------------------
 !     Constants 
+!     cf3 - 1/rhow (rhow is reference density of seawater in kg/m3)
 !-----------------------------------------------------------------------
 !
       real*8, parameter :: cp = 3985.0d0
       real*8, parameter :: rho0 = 1025.0d0
       real*8, parameter :: cf1 = rho0*cp
       real*8, parameter :: cf2 = 1.0d0/cf1
+      real*8, parameter :: cf3 = 1.0d0/rho0
       real*8, parameter :: day2s = 1.0d0/86400.0d0
       real*8, parameter :: mm2m = 1.0d0/1000.0d0
       real*8, parameter :: pi = 3.14159265359d0
