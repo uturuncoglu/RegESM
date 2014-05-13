@@ -1,0 +1,1338 @@
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/Master/ocean_coupler.F roms-ice/Master/ocean_coupler.F
+--- TAR/roms-ice/Master/ocean_coupler.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/Master/ocean_coupler.F	2014-04-14 11:12:00.000000000 +0300
+@@ -119,4 +119,672 @@
+ # endif
+ 
+ #endif
++#ifdef REGCM_COUPLING
++      USE mod_kinds
++      IMPLICIT NONE
++!
++      PRIVATE
++      PUBLIC :: atm2ocn_coupling
++      PUBLIC :: allocate_atm2ocn
++      PUBLIC :: initialize_atm2ocn 
++!
++!  Declarations.
++!
++      TYPE RCM_DATA
++      real(r8), pointer :: Pair(:,:)
++      real(r8), pointer :: Tair(:,:)
++      real(r8), pointer :: Qair(:,:)
++      real(r8), pointer :: Swrad(:,:)
++      real(r8), pointer :: Lwrad(:,:)
++      real(r8), pointer :: Lwrad_down(:,:)
++      real(r8), pointer :: Lhflx(:,:)
++      real(r8), pointer :: Shflx(:,:)
++      real(r8), pointer :: Rain(:,:)
++      real(r8), pointer :: Uwind(:,:)
++      real(r8), pointer :: Vwind(:,:)
++      real(r8), pointer :: Nhflx(:,:)
++      real(r8), pointer :: EminP(:,:)
++      real(r8), pointer :: Ustr(:,:)
++      real(r8), pointer :: Vstr(:,:)
++      real(r8), pointer :: Rdis(:)
++      real(r8), pointer :: Tdis(:)
++      END TYPE RCM_DATA
++!
++      TYPE (RCM_DATA), PUBLIC, ALLOCATABLE :: rdata(:)
++!
++      INTEGER, PUBLIC, ALLOCATABLE :: CoupleSteps(:) 
++            
++      CONTAINS
++
++      SUBROUTINE atm2ocn_coupling (ng, tile)
++!
++!=======================================================================
++!                                                                      !
++!  This subroutine acquires the coupling data streams between ocean    !
++!  and atmosphere models. Currently, the following data streams are    !
++!  coded:                                                              !
++!                                                                      !
++!     (...) RegCM units                                                !
++!     [...] ROMS  units                                                !
++!                                                                      !
++!  Fields imported form RegCM model:                                   !
++!                                                                      !
++!     * Surface atmospheric pressure (Pa), [mb]                        !
++!     * Surface air relative humidity (percent), [fraction]            !
++!     * Surface (2 m) air temperature (Celsius), [Celsius]             !
++!     * Surface (10 m) U-wind speed (m/s), [m/s]                       !
++!     * Surface (10 m) V-wind speed (m/s), [m/s]                       !
++!     * Precipitation (m/s), [kg/m2/s]                                 !
++!     * Shortwave radiation (Watts/m2), [Celsius m/s]                  !
++!     * Downwelling long wave raditaion (Watts/m2), [Celsius m/s]      !
++!                                                                      !
++!  Fields exported to RegCM model:                                     !
++!                                                                      !
++!     * Sea surface potential temperature (Kelvin), [Celsius]          !
++!
++!  Fields imported from HD model:
++!
++!     * Runoff
++!     * River Temperature
++!                                                                      !
++!=======================================================================
++!
++      USE mod_param
++!
++      implicit none
++!
++!  Imported variable declarations.
++!
++      integer, intent(in) :: ng, tile
++!
++#include "tile.h"
++!
++#ifdef PROFILE
++      CALL wclock_on (ng, iNLM, 48)
++#endif
++      CALL atm2ocn_coupling_tile (ng, tile,                             &
++     &                            LBi, UBi, LBj, UBj)
++#ifdef PROFILE
++      CALL wclock_off (ng, iNLM, 48)
++#endif
++!
++      RETURN
++      END SUBROUTINE atm2ocn_coupling
++!
++!***********************************************************************
++      SUBROUTINE atm2ocn_coupling_tile (ng, tile,                       &
++                                        LBi, UBi, LBj, UBj)
++!***********************************************************************
++!
++      USE mod_param
++      USE mod_parallel
++      USE mod_coupler
++      USE mod_forces
++      USE mod_sources, only : SOURCES, Nsrc
++      USE mod_ocean
++      USE mod_ncparam
++      USE mod_scalars
++      USE mod_stepping
++      USE mod_iounits
++      USE mod_grid 
++# if defined EW_PERIODIC || defined NS_PERIODIC
++      USE exchange_2d_mod
++# endif
++# ifdef DISTRIBUTE
++      USE distribute_mod,  ONLY : mp_reduce
++      USE mp_exchange_mod, ONLY : mp_exchange2d
++# endif
++!
++      implicit none
++!
++!  Imported variable declarations.
++!
++      integer, intent(in) :: ng, tile
++      integer, intent(in) :: LBi, UBi, LBj, UBj
++!
++!  Local variable declarations.
++!
++      integer :: i, j, k, gtype, id, is, status
++      real(r8) :: cff1, cff2
++      real(r8) :: Hscale
++      real(r8) :: Hscale2
++!
++# include "set_bounds.h"
++!
++      Hscale = rho0*Cp
++      Hscale2 = 1.0_r8/(rho0*Cp)
++!
++!-----------------------------------------------------------------------
++!  Import fields from river discharge model (HD) to ocean model (ROMS).
++!-----------------------------------------------------------------------
++!
++#ifdef HD_COUPLING
++#if defined UV_PSOURCE || defined Q_PSOURCE
++     DO is = 1, Nsrc(ng)
++       SOURCES(ng)%Qbar(is) = rdata(ng)%Rdis(is)
++#    ifdef SOLVE3D
++       DO k = 1, N(ng)
++         SOURCES(ng)%Qsrc(is,k) = SOURCES(ng)%Qbar(is)*                 &
++                                  SOURCES(ng)%Qshape(is,k)
++       END DO
++#    endif
++#endif
++!
++#if defined TS_PSOURCE && defined SOLVE3D
++       DO k = 1, N(ng)
++         SOURCES(ng)%Tsrc(is,k,itemp) = rdata(ng)%Tdis(is)
++         SOURCES(ng)%Tsrc(is,k,isalt) = 0.0_r8 
++       END DO      
++#endif
++     END DO   
++#endif
++!
++!-----------------------------------------------------------------------
++!  Import fields from atmosphere model (RegCM) to ocean model (ROMS).
++!-----------------------------------------------------------------------
++!
++#if defined BULK_FLUXES || defined ECOSIM || defined ATM_PRESS
++!
++!-----------------------------------------------------------------------
++!  Surface air pressure (mb)
++!-----------------------------------------------------------------------
++!
++      id = idPair
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Pair,                               &
++     &                    FORCES(ng)%Pair,                              &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#endif
++#if defined BULK_FLUXES || defined ECOSIM || \
++   (defined SHORTWAVE && defined ANA_SRFLUX)
++!
++!-----------------------------------------------------------------------
++!  Surface air humidity (g/kg) 
++!-----------------------------------------------------------------------
++!
++      id = idQair
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Qair,                               &
++     &                    FORCES(ng)%Hair,                              &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++!
++!-----------------------------------------------------------------------
++!  Surface (2m) air temperature (Celsius) 
++!-----------------------------------------------------------------------
++!
++      id = idTair
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Tair,                               &
++     &                    FORCES(ng)%Tair,                              &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#endif
++#if defined BULK_FLUXES || defined ECOSIM
++!
++!-----------------------------------------------------------------------
++!  U-wind (10m) component (m/s)
++!-----------------------------------------------------------------------
++!
++      id = idUair
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Uwind,                              &
++     &                    FORCES(ng)%Uwind,                             &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++!
++!-----------------------------------------------------------------------
++!  V-wind (10m) component (m/s)
++!-----------------------------------------------------------------------
++!
++      id = idVair
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Vwind,                              &
++     &                    FORCES(ng)%Vwind,                             &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#ifdef CURVGRID
++!
++!-----------------------------------------------------------------------
++!  Rotate wind components 
++!-----------------------------------------------------------------------
++!
++      FORCES(ng)%Uwind = FORCES(ng)%Uwind*cos(GRID(ng)%angler)+         &
++                         FORCES(ng)%Vwind*sin(GRID(ng)%angler)
++      FORCES(ng)%Vwind = FORCES(ng)%Vwind*cos(GRID(ng)%angler)-         &
++                         FORCES(ng)%Uwind*sin(GRID(ng)%angler)       
++#endif
++#endif
++#ifdef BULK_FLUXES
++!
++!-----------------------------------------------------------------------
++!  Precipitation (kg/m2/s) 
++!-----------------------------------------------------------------------
++!
++      id = idrain
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Rain,                               &
++     &                    FORCES(ng)%rain,                              &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#ifdef LONGWAVE_OUT
++!
++!-----------------------------------------------------------------------
++!  Downwelling longwave radiation (Celsius m/s) 
++!-----------------------------------------------------------------------
++!
++      id = idLdwn
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Lwrad_down,                         &
++     &                    FORCES(ng)%lrflx,                             &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#else
++!
++!-----------------------------------------------------------------------
++!  Net longwave radiation (Celsius m/s) 
++!-----------------------------------------------------------------------
++!
++      id = idLrad 
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Lwrad,                              &
++     &                    FORCES(ng)%lrflx,                             &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#endif
++!
++!-----------------------------------------------------------------------
++!  Latent heat flux (Celsius m/s) 
++!-----------------------------------------------------------------------
++!
++      id = idLhea
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Lhflx,                              &
++     &                    FORCES(ng)%lhflx,                             &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++!
++!-----------------------------------------------------------------------
++!  Sensible heat flux (Celsius m/s) 
++!-----------------------------------------------------------------------
++!
++      id = idShea
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Shflx,                              &
++     &                    FORCES(ng)%shflx,                             &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#endif
++#ifdef SHORTWAVE
++!
++!-----------------------------------------------------------------------
++!  Shortwave radiation (Celsius m/s) 
++!-----------------------------------------------------------------------
++!
++      id = idSrad
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Swrad,                              &
++     &                    FORCES(ng)%srflx,                             &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++#endif
++#ifndef BULK_FLUXES
++!
++!-----------------------------------------------------------------------
++!  Surface net heat flux.
++!-----------------------------------------------------------------------
++!
++      id = idTsur(itemp) 
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Nhflx,                              &
++     &                    FORCES(ng)%stflx(:,:,itemp),                  &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status) 
++!
++!-----------------------------------------------------------------------
++!  Surface net freshwater flux: E-P.
++!-----------------------------------------------------------------------
++!
++      id = idsfwf 
++      gtype = r2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%EminP,                              &
++     &                    FORCES(ng)%stflx(:,:,isalt),                  &
++#ifdef MASKING
++     &                    GRID(ng)%rmask,                               &
++#endif
++     &                    status)
++!
++!-----------------------------------------------------------------------
++!  Surface U-wind stress (Pa)
++!-----------------------------------------------------------------------
++!
++      id = idUsms 
++      gtype = u2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    Istr , IendR, JstrR, JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Ustr,                               &
++     &                    FORCES(ng)%sustr,                             &
++#ifdef MASKING
++     &                    GRID(ng)%umask,                               &
++#endif
++     &                    status)
++!
++!-----------------------------------------------------------------------
++!  Surface V-wind stress (Pa)
++!-----------------------------------------------------------------------
++!
++      id = idVsms
++      gtype = v2dvar
++      CALL ROMS_import2d (ng, tile, gtype,                              &
++     &                    IstrR, IendR, Jstr , JendR,                   &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    rdata(ng)%Vstr,                               &
++     &                    FORCES(ng)%svstr,                             &
++#ifdef MASKING
++     &                    GRID(ng)%vmask,                               &
++#endif
++     &                    status)
++#ifdef CURVGRID
++!
++!-----------------------------------------------------------------------
++!  Rotate stress components 
++!-----------------------------------------------------------------------
++!
++      FORCES(ng)%sustr = FORCES(ng)%sustr*cos(GRID(ng)%angler)+         &
++                         FORCES(ng)%svstr*sin(GRID(ng)%angler)
++      FORCES(ng)%svstr = FORCES(ng)%svstr*cos(GRID(ng)%angler)-         &
++                         FORCES(ng)%sustr*sin(GRID(ng)%angler)
++#endif
++#endif
++!
++      RETURN
++      END SUBROUTINE atm2ocn_coupling_tile
++
++      SUBROUTINE allocate_atm2ocn (ng, LBi, UBi, LBj, UBj)
++      USE mod_param
++      USE mod_sources, only : Nsrc
++!
++!  Imported variable declarations.
++!
++      integer, intent(in) :: ng, LBi, UBi, LBj, UBj
++!
++      IF (ng .eq. 1) allocate(rdata(Ngrids))
++!
++      allocate(rdata(ng)%Pair(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Tair(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Qair(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Swrad(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Lwrad(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Lwrad_down(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Lhflx(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Shflx(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Nhflx(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%EminP(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Ustr(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Vstr(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Rain(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Uwind(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Vwind(LBi:UBi,LBj:UBj))
++      allocate(rdata(ng)%Rdis(Nsrc(ng)))
++      allocate(rdata(ng)%Tdis(Nsrc(ng)))
++!
++      IF (ng .eq. 1) allocate(CoupleSteps(Ngrids))
++!
++      RETURN
++      END SUBROUTINE allocate_atm2ocn
++!
++      SUBROUTINE initialize_atm2ocn (ng, tile)
++      USE mod_param
++      USE mod_scalars
++      USE mod_sources, only : Nsrc
++!
++!  Imported variable declarations.
++!
++      integer, intent(in) :: ng, tile
++!
++!  Local variable declarations.
++!
++      integer :: Imin, Imax, Jmin, Jmax
++      integer :: i, j, k, is
++!
++      real(r8), parameter :: IniVal = 1.0e20_r8
++      real(r8), parameter :: IniZer = 0.0_r8
++!
++!  Set array initialization range.
++!
++#ifdef _OPENMP
++      IF (WESTERN_EDGE) THEN
++        Imin=BOUNDS(ng)%LBi(tile)
++      ELSE
++        Imin=Istr
++      END IF
++      IF (EASTERN_EDGE) THEN
++        Imax=BOUNDS(ng)%UBi(tile)
++      ELSE
++        Imax=Iend
++      END IF
++      IF (SOUTHERN_EDGE) THEN
++        Jmin=BOUNDS(ng)%LBj(tile)
++      ELSE
++        Jmin=Jstr
++      END IF
++      IF (NORTHERN_EDGE) THEN
++        Jmax=BOUNDS(ng)%UBj(tile)
++      ELSE
++        Jmax=Jend
++      END IF
++#else
++      Imin=BOUNDS(ng)%LBi(tile)
++      Imax=BOUNDS(ng)%UBi(tile)
++      Jmin=BOUNDS(ng)%LBj(tile)
++      Jmax=BOUNDS(ng)%UBj(tile)
++#endif
++!
++      DO j=Jmin,Jmax
++        DO i=Imin,Imax
++          rdata(ng)%Pair(i,j) = IniVal
++          rdata(ng)%Tair(i,j) = IniVal
++          rdata(ng)%Qair(i,j) = IniVal
++          rdata(ng)%Swrad(i,j) = IniVal
++          rdata(ng)%Lwrad(i,j) = IniVal
++          rdata(ng)%Lwrad_down(i,j) = IniVal
++          rdata(ng)%Lhflx(i,j) = IniVal
++          rdata(ng)%Shflx(i,j) = IniVal
++          rdata(ng)%Rain(i,j) = IniVal
++          rdata(ng)%Uwind(i,j) = IniVal
++          rdata(ng)%Vwind(i,j) = IniVal
++          rdata(ng)%Nhflx(i,j) = IniVal
++          rdata(ng)%EminP(i,j) = IniVal
++          rdata(ng)%Ustr(i,j) = IniVal
++          rdata(ng)%Vstr(i,j) = IniVal
++        END DO
++      END DO  
++!
++      DO is = 1,Nsrc(ng) 
++        rdata(ng)%Rdis(is) = IniZer 
++        rdata(ng)%Tdis(is) = IniZer 
++      END DO
++!
++      RETURN
++      END SUBROUTINE initialize_atm2ocn
++
++      SUBROUTINE ROMS_import2d (ng, tile, gtype,                        &
++     &                          Imin, Imax, Jmin, Jmax,                 &
++     &                          LBi, UBi, LBj, UBj,                     & 
++     &                          InpField,                               &
++     &                          OutField,                               &
++#ifdef MASKING
++     &                          gmask,                                  &        
++#endif
++     &                          status)
++      USE mod_param
++      USE mod_ncparam
++# if defined EW_PERIODIC || defined NS_PERIODIC
++      USE exchange_2d_mod
++# endif
++# ifdef DISTRIBUTE
++      USE distribute_mod,  ONLY : mp_reduce
++      USE mp_exchange_mod, ONLY : mp_exchange2d
++# endif
++!
++!  Imported variable declarations.
++!
++      integer, intent(in) :: ng, tile, gtype
++      integer, intent(in) :: Imin, Imax, Jmin, Jmax
++      integer, intent(in) :: LBi, UBi, LBj, UBj
++      real(r8), intent(in) ::  InpField(:,:)
++      real(r8), intent(out) :: OutField(LBi:UBi,LBj:UBj)
++#ifdef MASKING
++      real(r8), intent(in) :: gmask(LBi:UBi,LBj:UBj)
++#endif
++      integer, intent(out) :: status
++!
++!  Local variable declarations.
++!
++# ifdef DISTRIBUTE
++#  ifdef EW_PERIODIC
++      logical :: EWperiodic=.TRUE.
++#  else
++      logical :: EWperiodic=.FALSE.
++#  endif
++#  ifdef NS_PERIODIC
++      logical :: NSperiodic=.TRUE.
++#  else
++      logical :: NSperiodic=.FALSE.
++#  endif
++# endif
++      integer :: i, j
++      real(r8) :: OutFmin, OutFmax
++      real(r8), parameter :: Large = 1.0E+20_r8
++      real(r8), parameter :: Large2 = Large/2.0_r8
++      real(r8), dimension(2) :: range
++# ifdef DISTRIBUTE
++      character (len=3), dimension(2) :: op_handle
++# endif
++!
++!-----------------------------------------------------------------------
++!  Import 2D field (update also halo regions).
++!-----------------------------------------------------------------------
++!
++      status=0
++      range(1)= Large
++      range(2)=-Large
++      where ( InpField .LT. Large2 ) OutField = InpField
++      range(1)=MINVAL(OutField,mask=( OutField .GT. Large2 ))
++      range(2)=MAXVAL(OutField,mask=( OutField .GT. Large2 ))
++!
++!-----------------------------------------------------------------------
++!  Apply land-sea mask 
++!-----------------------------------------------------------------------
++!
++#ifdef MASKING
++      OutField = OutField*gmask
++#endif
++!
++!-----------------------------------------------------------------------
++!  Global reduction for imported field range values.
++!-----------------------------------------------------------------------
++! 
++# ifdef DISTRIBUTE
++      op_handle(1)='MIN'
++      op_handle(2)='MAX'
++      CALL mp_reduce (ng, iNLM, 2, range, op_handle)
++      OutFmin=range(1)
++      OutFmax=range(2)
++# endif
++!
++!-----------------------------------------------------------------------
++!  Exchange boundary information.
++!-----------------------------------------------------------------------
++!
++# if defined EW_PERIODIC || defined NS_PERIODIC
++      IF (gtype.eq.r2dvar) THEN
++        CALL exchange_r2d_tile (ng, tile,                               &
++     &                          LBi, UBi, LBj, UBj,                     &
++     &                          OutField)
++      ELSE IF (gtype.eq.u2dvar) THEN
++        CALL exchange_u2d_tile (ng, tile,                               &
++     &                          LBi, UBi, LBj, UBj,                     &
++     &                          OutField)
++      ELSE IF (gtype.eq.v2dvar) THEN
++        CALL exchange_v2d_tile (ng, tile,                               &
++     &                          LBi, UBi, LBj, UBj,                     &
++     &                          OutField)
++      END IF
++# endif
++# ifdef DISTRIBUTE
++      CALL mp_exchange2d (ng, tile, iNLM, 1,                            &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    NghostPoints, EWperiodic, NSperiodic,         &
++     &                    OutField)
++# endif
++      RETURN
++      END SUBROUTINE ROMS_import2d
++#endif
++
+       END MODULE ocean_coupler_mod
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Drivers/nl_ocean.h roms-ice/ROMS/Drivers/nl_ocean.h
+--- TAR/roms-ice/ROMS/Drivers/nl_ocean.h	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Drivers/nl_ocean.h	2013-12-13 20:27:27.000000000 +0200
+@@ -258,9 +258,13 @@
+ 
+       IF (exit_flag.ne.NoError) RETURN
+ !
++#ifdef REGCM_COUPLING
++ 10   FORMAT (/,1x,a,1x,'ROMS/TOMS: started time-stepping:',            &
++     &        ' (Grid: ',i2.2,' TimeSteps: ',i12.12,' - ',i12.12,')',/)
++#else
+  10   FORMAT (/,1x,a,1x,'ROMS/TOMS: started time-stepping:',            &
+      &        ' (Grid: ',i2.2,' TimeSteps: ',i8.8,' - ',i8.8,')',/)
+-
++#endif
+       RETURN
+       END SUBROUTINE ROMS_run
+ 
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Modules/mod_scalars.F roms-ice/ROMS/Modules/mod_scalars.F
+--- TAR/roms-ice/ROMS/Modules/mod_scalars.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Modules/mod_scalars.F	2014-02-13 13:59:39.000000000 +0200
+@@ -181,6 +181,9 @@
+ 
+         real(r8), allocatable :: dt(:)                   ! seconds
+         real(r8), allocatable :: dtfast(:)               ! seconds
++#ifdef REGCM_COUPLING
++        real(r8) :: cpldt                                ! seconds
++#endif
+         real(r8), allocatable :: tdays(:)                ! days
+         real(r8), allocatable :: time(:)                 ! seconds
+         real(r8), allocatable :: TimeEnd(:)              ! seconds
+@@ -521,6 +524,13 @@
+         real(r8) :: TotVolume                   ! Total volume
+         real(r8) :: MaxVolume                   ! Minimum cell volume
+         real(r8) :: MinVolume                   ! Maximum cell volume
++#ifdef CONSERVE_MASS
++!
++!  Diagnostic surface averaged variables.
++!
++        real(r8) :: area = 0.0_r8               ! diagnostics surface area
++        real(r8) :: TotArea                     ! Total surface area
++#endif
+ !
+ !  Minimun and maximum grid spacing
+ !
+@@ -1273,6 +1283,31 @@
+ !    lmd_r1        Fraction of total radiance for wavelength band 1 as
+ !                    a function of the Jerlov water type.
+ !
++#ifdef CAS
++        real(r8), dimension(6) :: lmd_mu1 =                             &
++     &            (/ 0.35_r8, 0.6_r8, 1.0_r8, 1.5_r8, 1.4_r8,           &
++     &              0.033_r8 /)
++ 
++        real(r8), dimension(6) :: lmd_mu2 =                             &
++     &            (/ 23.0_r8, 20.0_r8, 17.0_r8, 14.0_r8, 7.9_r8,        &
++     &               15.0_r8 /)
++ 
++        real(r8), dimension(6) :: lmd_r1 =                              &
++     &            (/ 0.58_r8, 0.62_r8, 0.67_r8, 0.77_r8, 0.78_r8,       &
++     &               0.53_r8 /)
++#elif BSEA
++        real(r8), dimension(6) :: lmd_mu1 =                             &
++     &            (/ 0.35_r8, 0.6_r8, 1.0_r8, 1.5_r8, 1.4_r8,           &
++     &              0.33_r8 /)
++
++        real(r8), dimension(6) :: lmd_mu2 =                             &
++     &            (/ 23.0_r8, 20.0_r8, 17.0_r8, 14.0_r8, 7.9_r8,        &
++     &               2.34_r8 /)
++
++        real(r8), dimension(6) :: lmd_r1 =                              &
++     &            (/ 0.58_r8, 0.62_r8, 0.67_r8, 0.77_r8, 0.78_r8,       &
++     &               0.57_r8 /)
++#else
+         real(r8), dimension(5) :: lmd_mu1 =                             &
+      &            (/ 0.35_r8, 0.6_r8, 1.0_r8, 1.5_r8, 1.4_r8 /)
+ 
+@@ -1282,6 +1317,7 @@
+         real(r8), dimension(5) :: lmd_r1 =                              &
+      &            (/ 0.58_r8, 0.62_r8, 0.67_r8, 0.77_r8, 0.78_r8 /)
+ #endif
++#endif
+ 
+ #ifdef LMD_MIXING
+ !
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Nonlinear/bulk_flux.F roms-ice/ROMS/Nonlinear/bulk_flux.F
+--- TAR/roms-ice/ROMS/Nonlinear/bulk_flux.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Nonlinear/bulk_flux.F	2014-02-13 14:02:25.000000000 +0200
+@@ -770,7 +770,11 @@
+ !
+ !  Compute latent heat of vaporization (J/kg) at sea surface, Hlv.
+ !
++#ifdef REGCM_COUPLING
++          Hlv(i,j)=2.5104E+6_r8
++#else
+           Hlv(i,j)=(2.501_r8-0.00237_r8*TseaC(i))*1.0E+6_r8
++#endif
+ !
+ !  Assume that wind is measured relative to sea surface and include
+ !  gustiness.
+@@ -988,7 +992,9 @@
+      &                                     (blk_Cpa*diffh))
+           Hsr=rain(i,j)*wet_bulb*blk_Cpw*                               &
+      &        ((TseaC(i)-TairC(i))+(Qsea(i)-Q(i))*Hlv(i,j)/blk_Cpa)
++# ifndef REGCM_COUPLING
+           SHeat(i,j)=(Hs+Hsr)
++# endif
+ # ifdef MASKING
+           SHeat(i,j)=SHeat(i,j)*rmask(i,j)
+ # endif
+@@ -1002,7 +1008,9 @@
+           upvel=-1.61_r8*Wstar(i)*Qstar(i)-                             &
+      &          (1.0_r8+1.61_r8*Q(i))*Wstar(i)*Tstar(i)/TairK(i)
+           Hlw=rhoAir(i)*Hlv(i,j)*upvel*Q(i)
++# ifndef REGCM_COUPLING
+           LHeat(i,j)=(Hl+Hlw)
++# endif
+ # ifdef ENHANCED_LHF_TRANSFER
+           LHeat(i,j)=LHeat(i,j)*1.07_r8
+ # endif
+@@ -1248,7 +1256,7 @@
+ # ifdef EMINUSP
+           evap(i,j)=LHeat(i,j)/Hlv(i,j)
+           stflx(i,j,isalt)=cff*(evap(i,j)-rain(i,j))
+-#  ifdef ICE_MODEL
++#  if defined ICE_MODEL && !defined REGCM_COUPLING
+           evap(i,j) = (1.0_r8-ai(i,j,listp))*evap(i,j)
+           stflx(i,j,isalt) = (1.0_r8-ai(i,j,listp))*stflx(i,j,isalt)
+ #  endif
+@@ -1407,7 +1415,8 @@
+      &                    LBi, UBi, LBj, UBj,                           &
+      &                    tau_aiy_n)
+ # endif
+-# if defined EMINUSP || (defined ICE_MODEL && defined ICE_THERMO)
++!# if defined EMINUSP || (defined ICE_MODEL && defined ICE_THERMO)
++# if defined EMINUSP
+         CALL exchange_r2d_tile (ng, tile,                               &
+      &                          LBi, UBi, LBj, UBj,                     &
+      &                          evap)
+@@ -1455,7 +1464,8 @@
+      &                    qai_n, coef_ice_heat, rhs_ice_heat, snow_n )
+ #   endif
+ #  endif
+-#  if defined EMINUSP || (defined ICE_MODEL && defined ICE_THERMO)
++!#  if defined EMINUSP || (defined ICE_MODEL && defined ICE_THERMO)
++#  if defined EMINUSP
+       CALL mp_exchange2d (ng, tile, iNLM, 3,                            &
+      &                    LBi, UBi, LBj, UBj,                           &
+      &                    NghostPoints,                                 &
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Nonlinear/diag.F roms-ice/ROMS/Nonlinear/diag.F
+--- TAR/roms-ice/ROMS/Nonlinear/diag.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Nonlinear/diag.F	2014-04-21 19:00:09.000000000 +0300
+@@ -51,6 +51,9 @@
+      &                GRID(ng) % pm,                                    &
+      &                GRID(ng) % pn,                                    &
+      &                GRID(ng) % omn,                                   &
++#ifdef MASKING
++     &                GRID(ng) % rmask,                                 &
++#endif
+ #ifdef SOLVE3D
+      &                GRID(ng) % Hz,                                    &
+      &                GRID(ng) % z_r,                                   &
+@@ -82,6 +85,9 @@
+      &                      IminS, ImaxS, JminS, JmaxS,                 &
+      &                      nstp, krhs,                                 &
+      &                      h, pm, pn, omn,                             &
++#ifdef MASKING
++     &                      rmask,                                      &
++#endif
+ #ifdef SOLVE3D
+      &                      Hz, z_r, z_w,                               &
+      &                      rho, u, v, t, wvel,                         &
+@@ -119,6 +125,9 @@
+       real(r8), intent(in) :: pm(LBi:,LBj:)
+       real(r8), intent(in) :: pn(LBi:,LBj:)
+       real(r8), intent(in) :: omn(LBi:,LBj:)
++# ifdef MASKING
++      real(r8), intent(in) :: rmask(LBi:,LBj:)
++# endif
+ # ifdef SOLVE3D
+       real(r8), intent(in) :: Hz(LBi:,LBj:,:)
+       real(r8), intent(in) :: z_r(LBi:,LBj:,:)
+@@ -140,6 +149,9 @@
+       real(r8), intent(in) :: pm(LBi:UBi,LBj:UBj)
+       real(r8), intent(in) :: pn(LBi:UBi,LBj:UBj)
+       real(r8), intent(in) :: omn(LBi:UBi,LBj:UBj)
++# ifdef MASKING
++      real(r8), intent(in) :: rmask(LBi:UBi,LBj:UBj)
++# endif
+ # ifdef SOLVE3D
+       real(r8), intent(in) :: Hz(LBi:UBi,LBj:UBj,N(ng))
+       real(r8), intent(in) :: z_r(LBi:UBi,LBj:UBj,N(ng))
+@@ -197,6 +209,9 @@
+       real(r8) :: my_maxbio(NBT)
+ # endif
+ #endif
++#ifdef CONSERVE_MASS
++      real(r8) :: my_area
++#endif
+       real(r8), dimension(IminS:ImaxS,JminS:JmaxS) :: ke2d
+       real(r8), dimension(IminS:ImaxS,JminS:JmaxS) :: pe2d
+       real(r8), dimension(IminS:ImaxS,JminS:JmaxS) :: uvmax
+@@ -505,6 +520,32 @@
+           avgke=avgke/volume
+           avgpe=avgpe/volume
+           avgkp=avgke+avgpe
++#ifdef CONSERVE_MASS
++!
++!     calculate surface area
++!
++        my_area = 0.0_r8
++#ifdef MASKING
++        DO j=Jstr,Jend
++          DO i=Istr,Iend
++            my_area = my_area+omn(i,j)*rmask(i,j)
++          END DO
++        END DO
++#else
++        DO j=Jstr,Jend
++          DO i=Istr,Iend
++            my_area = my_area+omn(i,j)
++          END DO
++        END DO
++#endif
++#ifdef DISTRIBUTE
++        area = my_area
++        buffer(1)=my_area
++        op_handle(1)='SUM'
++        CALL mp_reduce (ng, iNLM, 1, buffer, op_handle)
++        TotArea=buffer(1)
++#endif
++#endif
+           IF (first_time(ng).eq.0) THEN
+             first_time(ng)=1
+             IF (Master) THEN
+@@ -544,7 +585,11 @@
+      &                          maxspeed(ng)
+ #endif
+             CALL my_flush (stdout)
++#ifdef REGCM_COUPLING
++ 30         FORMAT (i12,1x,a,4(1pe14.6))
++#else
+  30         FORMAT (i8,1x,a,4(1pe14.6))
++#endif
+  40         FORMAT ('(',i2.2,'x,',a,',i',i1,'.',i1,',',                 &
+      &                            a,',i',i1,'.',i1,',',                 &
+ #ifdef SOLVE3D
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Nonlinear/main3d.F roms-ice/ROMS/Nonlinear/main3d.F
+--- TAR/roms-ice/ROMS/Nonlinear/main3d.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Nonlinear/main3d.F	2014-04-11 13:36:27.000000000 +0300
+@@ -85,6 +85,9 @@
+ # ifdef AIR_OCEAN
+       USE ocean_coupler_mod, ONLY : ocn2atm_coupling
+ # endif
++# ifdef REGCM_COUPLING
++      USE ocean_coupler_mod, ONLY : atm2ocn_coupling
++# endif
+ # ifdef WAVES_OCEAN
+       USE ocean_coupler_mod, ONLY : ocn2wav_coupling
+ # endif
+@@ -190,7 +193,23 @@
+ !$OMP BARRIER
+         END DO
+         IF (exit_flag.ne.NoError) RETURN
+-
++!
++# ifdef REGCM_COUPLING
++!
++!-----------------------------------------------------------------------
++!  Couple atmosphere to ocean model 
++!-----------------------------------------------------------------------
++!
++        DO ng=1,Ngrids
++          IF ((iic(ng) .ne. ntstart(ng)) .and.                          &
++            iic(ng)-1 .ge. int(cpldt/dt(ng))) THEN
++            DO tile=first_tile(ng),last_tile(ng),+1
++              CALL atm2ocn_coupling (ng, tile)
++            END DO
++          END IF
++        END DO
++# endif
++!
+ # if defined W4DPSAS || defined NLM_OUTER || \
+      defined W4DPSAS_SENSITIVITY
+ !
+@@ -259,7 +278,23 @@
+ # ifdef NESTING
+         CALL nesting (5)
+ # endif
+-
++!
++!# ifdef REGCM_COUPLING
++!
++!-----------------------------------------------------------------------
++!  Couple atmosphere to ocean model 
++!-----------------------------------------------------------------------
++!
++!        DO ng=1,Ngrids
++!          IF ((iic(ng) .ne. ntstart(ng)) .and.                          &
++!            iic(ng)-1 .ge. int(cpldt/dt(ng))) THEN
++!            DO tile=first_tile(ng),last_tile(ng),+1
++!              CALL atm2ocn_coupling (ng, tile)
++!            END DO
++!          END IF
++!        END DO
++!# endif
++!
+ # ifdef AIR_OCEAN
+ !
+ !-----------------------------------------------------------------------
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Nonlinear/prsgrd32.h roms-ice/ROMS/Nonlinear/prsgrd32.h
+--- TAR/roms-ice/ROMS/Nonlinear/prsgrd32.h	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Nonlinear/prsgrd32.h	2014-01-22 17:25:11.000000000 +0200
+@@ -260,7 +260,7 @@
+      &                 (z_w(i,j,N(ng))-z_r(i,j,N(ng)))
+ #endif
+ #ifdef ATM_PRESS
+-	  P(i,j,N(ng)) = P(i,j,N(ng) + fac*(Pair(i,j)-OneAtm)
++	  P(i,j,N(ng)) = P(i,j,N(ng)) + fac*(Pair(i,j)-OneAtm)
+ #endif
+ #ifdef POT_TIDES
+           P(i,j,N(ng)) = P(i,j,N(ng)) - g*Ptide(i,j)
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Nonlinear/set_zeta.F roms-ice/ROMS/Nonlinear/set_zeta.F
+--- TAR/roms-ice/ROMS/Nonlinear/set_zeta.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Nonlinear/set_zeta.F	2013-12-31 13:34:28.000000000 +0200
+@@ -90,7 +90,7 @@
+       real(r8), intent(out) :: evap(LBi:,LBj:)
+       real(r8), intent(inout) :: Zt_avg1(LBi:,LBj:)
+ # else
+-      real(r8), intent(in) :: Zt_avg1(LBi:,LBj:)
++      real(r8), intent(inout) :: Zt_avg1(LBi:,LBj:)
+ # endif
+       real(r8), intent(out) :: zeta(LBi:,LBj:,:)
+ # else
+@@ -99,7 +99,7 @@
+       real(r8), intent(out) :: evap(LBi:UBi,LBj:UBj)
+       real(r8), intent(inout) :: Zt_avg1(LBi:UBi,LBj:UBj)
+ # else
+-      real(r8), intent(in) :: Zt_avg1(LBi:UBi,LBj:UBj)
++      real(r8), intent(inout) :: Zt_avg1(LBi:UBi,LBj:UBj)
+ # endif
+       real(r8), intent(out) :: zeta(LBi:UBi,LBj:UBj,3)
+ # endif
+@@ -107,6 +107,7 @@
+ !  Local variable declarations.
+ !
+       real(r8) :: cff
++      real(r8) :: diff, diff_unit, InitVolume = -1.0_r8
+ !
+       integer :: i, j
+ 
+@@ -124,6 +125,69 @@
+         END DO
+       END DO
+ # endif
++# if defined MED12 && defined CONSERVE_MASS
++!
++!  Set initial volume
++!
++      if (InitVolume .lt. 0.0_r8) then
++         InitVolume = volume
++      end if
++!
++!  Calculate volume difference (actual - initial) 
++!
++      diff = volume-InitVolume
++!
++!  Calculate unit volume difference (diff / Atlantic box area) 
++!
++      diff_unit = diff/0.2463524618E12
++      if (tile == 0) then
++        write(*,fmt="(A,E17.10)")  "Inital Volume = ", InitVolume
++        write(*,fmt="(A,E17.10)")  "Actual Volume = ", volume
++        write(*,fmt="(A,2E17.10)") "Diff          = ", diff, diff_unit 
++      end if
++!
++! Correct sea level for actual volume - initial volume in Atlantic Box
++! Apply to fast-time averaged free-surface height
++!
++      DO j=JstrR,JendR
++        DO i=IstrR,IendR
++          if ((i .lt. 66) .and. (j .gt. 23) .and. (j .lt. 130)) then
++            Zt_avg1(i,j) = Zt_avg1(i,j) - diff_unit
++          end if
++        END DO
++      END DO
++# endif
++# if defined BSEA && defined CONSERVE_MASS
++!
++!  Set initial volume
++!
++      if (InitVolume .lt. 0.0_r8) then
++         InitVolume = volume
++      end if
++!
++!  Calculate volume difference (actual - initial) 
++!
++      diff = volume-InitVolume
++!
++!  Calculate unit volume difference (diff / Atlantic box area) 
++!
++      diff_unit = diff/TotArea
++      if (tile == 0) then
++        write(*,fmt="(A,E17.10)")  "Inital Area   = ", TotArea
++        write(*,fmt="(A,E17.10)")  "Inital Volume = ", InitVolume
++        write(*,fmt="(A,E17.10)")  "Actual Volume = ", volume
++        write(*,fmt="(A,2E17.10)") "Diff          = ", diff, diff_unit
++      end if
++!
++! Correct sea level for actual volume - initial volume in Atlantic Box
++! Apply to fast-time averaged free-surface height
++!
++      DO j=JstrR,JendR
++        DO i=IstrR,IendR
++          Zt_avg1(i,j) = Zt_avg1(i,j) - diff_unit
++        END DO
++      END DO
++# endif
+ !
+ !-----------------------------------------------------------------------
+ !  Prepare to time-step 2D equations:  set initial free-surface
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Utility/def_rst.F roms-ice/ROMS/Utility/def_rst.F
+--- TAR/roms-ice/ROMS/Utility/def_rst.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Utility/def_rst.F	2014-02-13 14:09:44.000000000 +0200
+@@ -259,7 +259,8 @@
+         nvd5=2
+ #else
+         nvd3=3
+-        nvd4=4
++        !nvd4=4
++        nvd4=3
+         nvd5=5
+ #endif
+ !
+@@ -284,8 +285,9 @@
+         sr2dgrd(2)=DimIDs( 5)
+         sr2dgrd(3)=DimIDs(12)
+ # ifdef PERFECT_RESTART
+-        t2dgrd(3)=DimIDs(31)
+-        t2dgrd(4)=DimIDs(12)
++        !t2dgrd(3)=DimIDs(31)
++        !t2dgrd(4)=DimIDs(12)
++        t2dgrd(3)=DimIDs(12)
+ # else
+         t2dgrd(3)=DimIDs(12)
+ # endif
+@@ -320,8 +322,9 @@
+         u2dgrd(1)=DimIDs( 2)
+         u2dgrd(2)=DimIDs( 6)
+ # ifdef PERFECT_RESTART
+-        u2dgrd(3)=DimIDs(31)
+-        u2dgrd(4)=DimIDs(12)
++        !u2dgrd(3)=DimIDs(31)
++        !u2dgrd(4)=DimIDs(12)
++        u2dgrd(3)=DimIDs(12)
+ # else
+         u2dgrd(3)=DimIDs(12)
+ # endif
+@@ -352,8 +355,9 @@
+         v2dgrd(1)=DimIDs( 3)
+         v2dgrd(2)=DimIDs( 7)
+ # ifdef PERFECT_RESTART
+-        v2dgrd(3)=DimIDs(31)
+-        v2dgrd(4)=DimIDs(12)
++        !v2dgrd(3)=DimIDs(31)
++        !v2dgrd(4)=DimIDs(12)
++        v2dgrd(3)=DimIDs(12)
+ # else
+         v2dgrd(3)=DimIDs(12)
+ # endif
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Utility/get_date.F roms-ice/ROMS/Utility/get_date.F
+--- TAR/roms-ice/ROMS/Utility/get_date.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Utility/get_date.F	2013-12-13 20:33:24.000000000 +0200
+@@ -284,6 +284,10 @@
+      &         (/ 1,32,61,92,122,153,183,214,245,275,306,336,367 /)
+ 
+       real(r8) :: rday
++# ifdef REGCM_COUPLING
++      integer :: i
++      real(r8) :: sday, nday
++# endif
+ !
+ !-----------------------------------------------------------------------
+ !  Get calendar day from model time.
+@@ -292,6 +296,51 @@
+ !  The reference time is a positive date specified at initialization.
+ !
+       IF (INT(r_date(1)).gt.0) THEN
++#ifdef REGCM_COUPLING
++        rday=time+r_date(3)+                                            &
++     &       (r_date(6)+(r_date(7)+r_date(8)/60.0_r8)/60.0_r8)/24.0_r8
++        year=INT(r_date(2))+INT(rday/365.25_r8)
++        sday = 0.0_r8
++        DO i = INT(r_date(2)), year-1
++          leap=MOD(i,4)
++          if (leap.eq.0) THEN
++            nday = 366.0_r8
++          else
++            nday = 365.0_r8
++          end if
++          sday = sday+nday
++        END DO
++        IF (rday .lt. sday) year = year-1
++        IF (year .eq. INT(r_date(2))) THEN
++          yday = rday
++        ELSE
++          IF ((sday-rday) .lt. 0.0_r8) THEN
++            !yday = MAX(1.0_r8,MOD(rday,365.25_r8))
++            yday = MAX(1.0_r8, rday-sday)
++          ELSE
++            yday = rday-(sday-nday)+1
++          END IF
++        END IF
++        leap=MOD(year,4)
++        IF (leap.eq.0) THEN
++          month=0
++          DO i = 1, 12
++            IF ((yday .GE. iydl(i)) .AND. (yday .LT. iydl(i+1))) THEN
++              month = i
++            END IF
++          END DO
++          day=INT(yday)-iydl(month)+1
++        ELSE
++          month=0
++          DO i = 1, 12
++            IF ((yday .GE. iyd(i)) .AND. (yday .LT. iyd(i+1))) THEN
++              month = i
++            END IF
++          END DO
++          day=INT(yday)-iyd(month)+1
++        END IF
++        hour=(rday-AINT(rday))*24.0_r8
++#else
+         rday=time+r_date(3)+                                            &
+      &       (r_date(6)+(r_date(7)+r_date(8)/60.0_r8)/60.0_r8)/24.0_r8
+         year=INT(r_date(2))+INT(rday/365.25_r8)
+@@ -306,6 +355,7 @@
+           day=INT(yday)-iydl(month)+1
+         END IF
+         hour=(rday-AINT(rday))*24.0_r8
++#endif
+ !
+ !  The reference time is for a climatological simulation with 365.25
+ !  days in every year.
+@@ -330,6 +380,23 @@
+ !  days in every year.
+ !
+       ELSE IF (INT(r_date(1)).eq.-1) THEN
++#ifdef REGCM_COUPLING
++        rday=time+r_date(3)+                                            &
++     &       (r_date(6)+(r_date(7)+r_date(8)/60.0_r8)/60.0_r8)/24.0_r8
++        IF (r_date(2).eq.1) THEN
++          year=INT(rday/360.0_r8)
++        ELSE
++          year=INT(r_date(2))+INT(rday/360.0_r8)
++        END IF
++        yday=MAX(1.0_r8,MOD(rday,360.0_r8))
++        month=INT(yday/30.0_r8)+1
++        IF (rday .gt. 360.0_r8) THEN
++          day=INT(MOD(yday,30.0_r8))
++        ELSE
++          day=CEILING(MOD(yday,30.0_r8))
++        END IF
++        hour=(rday-AINT(rday))*24.0_r8
++#else
+         rday=time+r_date(3)+                                            &
+      &       (r_date(6)+(r_date(7)+r_date(8)/60.0_r8)/60.0_r8)/24.0_r8
+         year=INT(r_date(2))+INT(rday/360.0_r8)
+@@ -337,6 +404,7 @@
+         month=INT(yday/30.0_r8)
+         day=INT(MOD(yday,30.0_r8))
+         hour=(rday-AINT(rday))*24.0_r8
++#endif
+ !
+ !  The reference time is in terms of modified Julian days.
+ !
+@@ -523,13 +591,21 @@
+ !
+       real(r8), intent(in) :: time
+ 
++#ifdef REGCM_COUPLING
++      character(len=20), intent(out) :: time_code
++#else
+       character(len=14), intent(out) :: time_code
++#endif
+ !
+ !  Local variable declarations.
+ !
+       integer :: iday, ihour, isec, minute
+ 
++#ifdef REGCM_COUPLING
++      character (len=20) :: text
++#else
+       character (len=14) :: text
++#endif
+ !
+ !-----------------------------------------------------------------------
+ !  Encode current mode time.
+@@ -542,7 +618,11 @@
+       isec=MOD(isec,60)
+ !
+       WRITE (text,10) iday, ihour, minute, isec
++#ifdef REGCM_COUPLING
++ 10   FORMAT (i11,1x,i2.2,':',i2.2,':',i2.2)
++#else
+  10   FORMAT (i5,1x,i2.2,':',i2.2,':',i2.2)
++#endif
+       time_code=text
+ 
+       RETURN
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Utility/inp_par.F roms-ice/ROMS/Utility/inp_par.F
+--- TAR/roms-ice/ROMS/Utility/inp_par.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Utility/inp_par.F	2013-12-13 20:34:23.000000000 +0200
+@@ -117,7 +117,11 @@
+ !  input parameters to all nodes.
+ !
+ !!    CALL my_getarg (1, Iname)
++#ifdef REGCM_COUPLING 
++      IF (Master) CALL my_getarg (2, Iname)
++#else 
+       IF (Master) CALL my_getarg (1, Iname)
++#endif
+       CALL mp_bcasts (1, model, Iname)
+       OPEN (inp, FILE=TRIM(Iname), FORM='formatted', STATUS='old',      &
+      &      ERR=20)
+diff --exclude=Linux-ifort.mk --exclude=.svn --exclude=.svnignore --exclude=CVS -Naur TAR/roms-ice/ROMS/Utility/read_phypar.F roms-ice/ROMS/Utility/read_phypar.F
+--- TAR/roms-ice/ROMS/Utility/read_phypar.F	2013-10-17 23:00:45.000000000 +0300
++++ roms-ice/ROMS/Utility/read_phypar.F	2014-02-13 14:17:48.000000000 +0200
+@@ -471,6 +471,10 @@
+ #endif
+             CASE ('NDTFAST')
+               Npts=load_i(Nval, Rval, Ngrids, ndtfast)
++#ifdef REGCM_COUPLING
++            CASE ('CPLDT')
++              Npts=load_r(Nval, Rval, 1, cpldt)
++#endif
+             CASE ('ERstr')
+               Npts=load_i(Nval, Rval, 1, Ivalue)
+               ERstr=Ivalue(1)
+@@ -3671,6 +3675,14 @@
+ # if defined LMD_SKPP || defined SOLAR_SOURCE
+           WRITE (out,120) lmd_Jwt(ng), 'lmd_Jwt',                       &
+      &          'Jerlov water type.'
++# if defined CAS || BSEA
++          IF ((lmd_Jwt(ng).lt.1).or.(lmd_Jwt(ng).gt.6)) THEN
++            WRITE (out,260) 'lmd_Jwt = ', lmd_Jwt(ng),                  &
++     &            'It must between one and six.'
++            exit_flag=5
++            RETURN
++          END IF
++# else
+           IF ((lmd_Jwt(ng).lt.1).or.(lmd_Jwt(ng).gt.5)) THEN
+             WRITE (out,260) 'lmd_Jwt = ', lmd_Jwt(ng),                  &
+      &            'It must between one and five.'
+@@ -3678,6 +3690,7 @@
+             RETURN
+           END IF
+ # endif
++# endif
+ # ifdef BODYFORCE
+           WRITE (out,130) levsfrc(ng), 'levsfrc',                       &
+      &          'Deepest level to apply surface stress as a',           &
