@@ -480,7 +480,7 @@
       do j = cLbnd(2), cUbnd(2)
         if (ptrMask(i,j) >= UNMAPPED_MASK) then 
           total_de(1) = total_de(1)+                                    &
-                        ptrField(i,j)*ptrArea(i,j)*ptrFrac(i,j)
+                        ptrField(i,j)*ptrArea(i,j)!*ptrFrac(i,j)
         end if
       end do
       end do
@@ -639,7 +639,7 @@
       do i = cLbnd(1), cUbnd(1)
       do j = cLbnd(2), cUbnd(2)      
         if (ptrMask(i,j) >= UNMAPPED_MASK) then
-          total_de(1) = total_de(1)+ptrArea(i,j)*ptrFrac(i,j)
+          total_de(1) = total_de(1)+ptrArea(i,j)!*ptrFrac(i,j)
         end if
       end do
       end do
