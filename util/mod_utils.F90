@@ -224,6 +224,8 @@
         nullify(msk2d)
       end if
 !
+      end do
+!
 !-----------------------------------------------------------------------
 !     Remove temporary fields
 !-----------------------------------------------------------------------
@@ -239,8 +241,6 @@
       call ESMF_FieldDestroy(cField, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-!
-      end do
 ! 
       end subroutine UTIL_FindUnmapped
 !
