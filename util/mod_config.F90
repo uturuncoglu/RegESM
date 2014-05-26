@@ -86,7 +86,7 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get run mode (concurent vs. sequential) 
+!     Get run mode (concurrent vs. sequential) 
 !-----------------------------------------------------------------------
 ! 
       call ESMF_ConfigFindLabel(cf, 'PETLayoutOption:', rc=rc)
@@ -98,7 +98,7 @@
           line=__LINE__, file=FILENAME)) return
 !
       runMod = Iseq
-      if (trim(petLayoutOption) == 'concurent') runMod = Ipar
+      if (trim(petLayoutOption) == 'concurrent') runMod = Ipar
       if (localPet == 0) then
         write(*, fmt='(A12,A)') "PET Layout: ", trim(RUNNDES(runMod)) 
       end if
