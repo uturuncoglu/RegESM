@@ -563,7 +563,7 @@
 !
       end function UTIL_CalcIntegral
 !
-      subroutine UTIL_AdjustField(vm, field, area, frac, error, rc)
+      subroutine UTIL_AdjustField(vm, field, frac, error, rc)
 !
 !-----------------------------------------------------------------------
 !     Imported variable declarations 
@@ -571,7 +571,6 @@
 !
       type(ESMF_VM), intent(in) :: vm
       type(ESMF_Field), intent(inout) :: field
-      type(ESMF_Field), intent(in) :: area
       type(ESMF_Field), intent(in) :: frac
       real(ESMF_KIND_R8), intent(in) :: error
       integer, intent(out) :: rc
@@ -629,7 +628,12 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldGet(area, localDe=k, farrayPtr=ptrArea, rc=rc)
+!-----------------------------------------------------------------------
+!     Get pointer from grid (area item) 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridGetItem(grid, ESMF_GRIDITEM_AREA, staggerloc=sLoc,  &
+                            localDe=k, farrayPtr=ptrArea, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
