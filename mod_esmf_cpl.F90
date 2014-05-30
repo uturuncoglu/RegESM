@@ -358,7 +358,6 @@
       call ESMF_FieldRegridStore(srcField=srcField,                     &
                                  dstField=dstField,                     &
                                  srcMaskValues=(/models(iSrc)%isLand/), &
-                                 dstMaskValues=(/models(iDst)%isLand/), &
                                  srcFracField=srcFrac,                  &
                                  dstFracField=dstFrac,                  &
                                  unmappedaction=unmap,                  &
