@@ -881,7 +881,7 @@
 !     Debug: write data to disk   
 !-----------------------------------------------------------------------
 !
-      if (debugLevel > 4) then
+      if (debugLevel > 2) then
       call ESMF_FieldWrite(srcField, 'src_data_'//trim(cname)//'.nc',   &
                            variableName='src_data', overwrite=.true.,   &
                            rc=rc)
