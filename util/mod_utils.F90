@@ -311,11 +311,17 @@
 !     Create field from base field attributes 
 !-----------------------------------------------------------------------
 !
-      UTIL_FieldCreate = ESMF_FieldCreate(grid, arraySpec,              &
-                                          staggerloc=staggerLoc,        &
-                                          totalLWidth=tlw(:,1),         &
-                                          totalUWidth=tuw(:,1),         &
-                                          name=trim(fname), rc=rc)
+      if (localDECount == 1) then
+        UTIL_FieldCreate = ESMF_FieldCreate(grid, arraySpec,            &
+                                            staggerloc=staggerLoc,      &
+                                            totalLWidth=tlw(:,1),       &
+                                            totalUWidth=tuw(:,1),       &
+                                            name=trim(fname), rc=rc)
+      else
+        UTIL_FieldCreate = ESMF_FieldCreate(grid, arraySpec,            &
+                                            staggerloc=staggerLoc,      &
+                                            name=trim(fname), rc=rc)
+      end if
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -388,7 +394,7 @@
 !      
       end function UTIL_FieldCreate
 !
-      function UTIL_CalcIntegral(vm, field, frac, area, rc)
+      function UTIL_CalcIntegral(vm, field, frac, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -400,7 +406,6 @@
       type(ESMF_VM), intent(in) :: vm
       type(ESMF_Field), intent(in) :: field
       type(ESMF_Field), intent(in) :: frac
-      type(ESMF_Field), intent(in) :: area
       integer, intent(out) :: rc
 !
 !-----------------------------------------------------------------------
@@ -459,7 +464,12 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldGet(area, localDe=k, farrayPtr=ptrArea, rc=rc)
+!-----------------------------------------------------------------------
+!     Get pointer from grid (area item) 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridGetItem(grid, ESMF_GRIDITEM_AREA, staggerloc=sLoc,  &
+                            localDe=k, farrayPtr=ptrArea, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -480,7 +490,7 @@
       do j = cLbnd(2), cUbnd(2)
         if (ptrMask(i,j) >= UNMAPPED_MASK) then 
           total_de(1) = total_de(1)+                                    &
-                        ptrField(i,j)*ptrArea(i,j)!*ptrFrac(i,j)
+                        ptrField(i,j)*ptrArea(i,j)*ptrFrac(i,j)
         end if
       end do
       end do
@@ -639,7 +649,7 @@
       do i = cLbnd(1), cUbnd(1)
       do j = cLbnd(2), cUbnd(2)      
         if (ptrMask(i,j) >= UNMAPPED_MASK) then
-          total_de(1) = total_de(1)+ptrArea(i,j)!*ptrFrac(i,j)
+          total_de(1) = total_de(1)+ptrArea(i,j)*ptrFrac(i,j)
         end if
       end do
       end do
