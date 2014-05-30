@@ -125,9 +125,7 @@
       type(ESMF_VM) :: vm
       type(ESMF_DistGrid) :: distgrid 
       type(ESMF_Grid) :: srcGrid, dstGrid
-      type(ESMF_Field) :: srcFrac, dstFrac, srcArea, dstArea
-      type(ESMF_Array) :: srcArrArea, dstArrArea
-      type(ESMF_ArraySpec) :: srcArrSpec, dstArrSpec
+      type(ESMF_Field) :: srcFrac, dstFrac
       type(ESMF_StaggerLoc) :: srcSLoc, dstSLoc
       type(ESMF_UnmappedAction_Flag) :: unmap
       type(ESMF_RegridMethod_Flag) :: regridMethod
@@ -188,7 +186,7 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Create empty field bundle to store frac and area fields 
+!     Create empty field bundle to store frac fields 
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldBundleGet(savFields, rc=rc)
@@ -309,13 +307,13 @@
 !     Get source and destination field
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldGet(srcField, arrayspec=srcArrSpec,                &
-                         grid=srcGrid, staggerloc=srcSLoc, rc=rc)
+      call ESMF_FieldGet(srcField, grid=srcGrid,                        &
+                         staggerloc=srcSLoc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldGet(dstField, arrayspec=dstArrSpec,                &
-                         grid=dstGrid, staggerloc=dstSLoc, rc=rc)
+      call ESMF_FieldGet(dstField, grid=dstGrid,                        &
+                         staggerloc=dstSLoc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
 !
@@ -371,97 +369,10 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Create area field (source)
-!-----------------------------------------------------------------------
-!
-      call ESMF_GridGet(srcGrid, distgrid=distgrid,                     &
-                        localDECount=localDECount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (.not. allocated(tlw)) then
-        allocate(tlw(2,localDECount))
-        allocate(tuw(2,localDECount))
-      end if
-!
-      call ESMF_FieldGet(srcField, totalLWidth=tlw,                     &
-                         totalUWidth=tuw, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      srcArrArea = ESMF_ArrayCreate(distgrid, srcArrSpec,               &
-                                    totalLWidth=tlw(:,1),               &
-                                    totalUWidth=tuw(:,1), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_GridGetItem(srcGrid, ESMF_GRIDITEM_AREA,                &
-                            staggerloc=srcSLoc, array=srcArrArea, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return      
-!
-      srcArea = ESMF_FieldCreate(srcGrid, srcArrArea,                   &
-                                 staggerloc=srcSLoc,                    &
-                                 totalLWidth=tlw(:,1),                  &
-                                 totalUWidth=tuw(:,1),                  &
-                                 name='aa_'//trim(fname)//'_SRC', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (allocated(tlw)) then
-        deallocate(tlw)
-        deallocate(tuw)
-      end if
-!
-!-----------------------------------------------------------------------
-!     Create area field (destination)
-!-----------------------------------------------------------------------
-!
-      call ESMF_GridGet(dstGrid, distgrid=distgrid,                     &
-                        localDECount=localDECount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (.not. allocated(tlw)) then
-        allocate(tlw(2,localDECount))
-        allocate(tuw(2,localDECount))
-      end if
-!
-      call ESMF_FieldGet(dstField, totalLWidth=tlw,                     &
-                         totalUWidth=tuw, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      dstArrArea = ESMF_ArrayCreate(distgrid, dstArrSpec,               &
-                                    totalLWidth=tlw(:,1),               &
-                                    totalUWidth=tuw(:,1), rc=rc) 
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_GridGetItem(dstGrid, ESMF_GRIDITEM_AREA,                &
-                            staggerloc=dstSLoc, array=dstArrArea, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      dstArea = ESMF_FieldCreate(dstGrid, dstArrArea,                   &
-                                 staggerloc=dstSLoc,                    &
-                                 totalLWidth=tlw(:,1),                  &
-                                 totalUWidth=tuw(:,1),                  &
-                                 name='aa_'//trim(fname)//'_DST', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (allocated(tlw)) then
-        deallocate(tlw)
-        deallocate(tuw)
-      end if
-!
-!-----------------------------------------------------------------------
 !     Add fields to fieldbundle  
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldBundleAdd(savFields, (/ srcFrac, srcArea,          &
-                               dstFrac, dstArea /), rc=rc)
+      call ESMF_FieldBundleAdd(savFields, (/ srcFrac, dstFrac /), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -665,9 +576,7 @@
       type(ESMF_VM) :: vm
       type(ESMF_Grid) :: srcGrid, dstGrid
       type(ESMF_RouteHandle) :: routeHandle
-      type(ESMF_ArraySpec) :: srcArrSpec, dstArrSpec
       type(ESMF_StaggerLoc) :: srcSLoc, dstSLoc
-      type(ESMF_Field) :: srcArea, dstArea
       type(ESMF_Field) :: srcField, dstField, tmpField
       type(ESMF_Field) :: srcFrac, dstFrac
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d
@@ -879,44 +788,13 @@
       if (models(iSrc)%exportField(idSrc)%enable_integral_adj) then
 !
 !-----------------------------------------------------------------------
-!     Check: area fields are created before or not 
-!     Example area field name, aa_CROSS_DOT_ATM-OCN_SRC        
-!-----------------------------------------------------------------------
-!
-      fname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
-              trim(cname)
-!
-      call ESMF_FieldBundleGet(savFields,                               &
-                               fieldName='aa_'//trim(fname)//'_SRC',    &
-                               isPresent=flag, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      if (flag) then
-!
-!-----------------------------------------------------------------------
-!     Get source and destination area from field bundle 
-!-----------------------------------------------------------------------
-! 
-      call ESMF_FieldBundleGet(savFields,                               &
-                               fieldName='aa_'//trim(fname)//'_SRC',    &
-                               field=srcArea, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_FieldBundleGet(savFields,                               &
-                               fieldName='aa_'//trim(fname)//'_DST',    &
-                               field=dstArea, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      end if
-!
-!-----------------------------------------------------------------------
 !     Check: frac fields are created before or not 
 !     Example area field name, ff_CROSS_DOT_ATM-OCN_SRC        
 !-----------------------------------------------------------------------
 !
+      fname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(cname)
+!              
       flag = .false.
       call ESMF_FieldBundleGet(savFields,                               &
                                fieldName='ff_'//trim(fname)//'_SRC',    &
@@ -947,7 +825,7 @@
 !-----------------------------------------------------------------------
 !
       src_total = ZERO_R8
-      src_total = UTIL_CalcIntegral(vm, srcField, srcFrac, srcArea, rc) 
+      src_total = UTIL_CalcIntegral(vm, srcField, srcFrac, rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -957,7 +835,7 @@
       end if
 !
       dst_total = ZERO_R8
-      dst_total = UTIL_CalcIntegral(vm, dstField, dstFrac, dstArea, rc) 
+      dst_total = UTIL_CalcIntegral(vm, dstField, dstFrac, rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -976,13 +854,13 @@
 !     Adjust destination field based on calculated integral 
 !-----------------------------------------------------------------------
 !
-      call UTIL_AdjustField(vm, dstField, dstArea, dstFrac,             &
+      call UTIL_AdjustField(vm, dstField, dstFrac,                      &
                             dst_total-src_total, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
       dst_total = ZERO_R8
-      dst_total = UTIL_CalcIntegral(vm, dstField, dstFrac, dstArea, rc)
+      dst_total = UTIL_CalcIntegral(vm, dstField, dstFrac, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -1024,18 +902,6 @@
 ! 
       call ESMF_FieldWrite(dstFrac, 'dst_frac_'//trim(cname)//'.nc',    &
                            variableName='dst_frac', overwrite=.true.,   &
-                           rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_FieldWrite(srcArea, 'src_area_'//trim(cname)//'.nc',    &
-                           variableName='src_area', overwrite=.true.,   &
-                           rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_FieldWrite(dstArea, 'dst_area_'//trim(cname)//'.nc',    &
-                           variableName='dst_area', overwrite=.true.,   &
                            rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
