@@ -116,7 +116,7 @@
       logical :: flag1, flag2
       integer :: i, j, localPet, petCount, localDECount
       integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
-      integer :: cplCount, srcCount, dstCount, itemCount
+      integer :: cplCount, srcCount, dstCount, itemCount, lsmsk(1)
       integer(ESMF_KIND_I4), allocatable, dimension(:,:) :: tlw, tuw
       character(ESMF_MAXSTR) :: cname, fname, rname, msgString
       character(ESMF_MAXSTR), pointer :: cplList(:)
@@ -158,6 +158,24 @@
         end if
       end do
       end do
+!
+!-----------------------------------------------------------------------
+!     Exchange land-sea mask information 
+!-----------------------------------------------------------------------
+!
+      lsmsk(1) = models(iSrc)%isLand
+      call ESMF_VMBroadcast(vm, bcstData=lsmsk, count=1,                &
+                            rootPet=models(iSrc)%petList(1), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      models(iSrc)%isLand = lsmsk(1)
+!
+      lsmsk(1) = models(iDst)%isLand
+      call ESMF_VMBroadcast(vm, bcstData=lsmsk, count=1,                &
+                            rootPet=models(iDst)%petList(1), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+      models(iDst)%isLand = lsmsk(1)      
 !
 !-----------------------------------------------------------------------
 !     Get internal state 
