@@ -740,10 +740,11 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Set mask value for land points 
+!     Set mask value for land and ocean 
 !-----------------------------------------------------------------------
 !
       models(Iocean)%isLand = 0
+      models(Iocean)%isOcean = 1
 !
 !-----------------------------------------------------------------------
 !     Allocate items for grid area (only for cell center)

@@ -695,10 +695,11 @@
       if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
-!     Set mask value for land points 
+!     Set mask value for land and ocean 
 !-----------------------------------------------------------------------
 !
       models(Iatmos)%isLand = 2
+      models(Iatmos)%isOcean = 0
 !
 !-----------------------------------------------------------------------
 !     Allocate items for grid area 
@@ -836,7 +837,7 @@
       if (associated(ptrX)) then
         nullify(ptrX)
       end if
-      if (associated(ptrA)) then
+      if (associated(ptrM)) then
         nullify(ptrM)
       end if
       if (associated(ptrA)) then

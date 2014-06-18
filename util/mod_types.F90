@@ -84,6 +84,7 @@
         logical :: modActive
         integer, allocatable :: petList(:) 
         integer :: isLand
+        integer :: isOcean
         type(ESM_Mesh), allocatable :: mesh(:) 
         type(ESM_Field), allocatable :: importField(:)
         type(ESM_Field), allocatable :: exportField(:)

@@ -352,7 +352,7 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_hd_param, only : nl, nb, hd_lsm
+      use mod_hd_param, only : nl, nb, hd_lsm, area
 !
       implicit none
 !
@@ -372,7 +372,7 @@
       type(ESMF_DistGrid) :: distGrid
       type(ESMF_StaggerLoc) :: staggerLoc
       integer, pointer :: ptrM(:,:)
-      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:)
+      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
       real(ESMF_KIND_R8), allocatable :: lon1d(:), lat1d(:)
       real(ESMF_KIND_R8), parameter :: umfang = 360.0d0
       character (len=40) :: name
@@ -442,6 +442,22 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Set mask value for land points 
+!-----------------------------------------------------------------------
+!
+      models(Iriver)%isLand = 0
+      models(Iriver)%isOcean = 1
+!
+!-----------------------------------------------------------------------
+!     Allocate items for grid area 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddItem(models(Iriver)%grid,                        &
+                            staggerLoc=staggerLoc,                      &
+                            itemflag=ESMF_GRIDITEM_AREA,                &
+                            rc=rc)
+!
+!-----------------------------------------------------------------------
 !     Get pointers and set coordinates for the grid 
 !-----------------------------------------------------------------------
 !
@@ -465,6 +481,14 @@
                              staggerLoc=staggerLoc,                     &
                              itemflag=ESMF_GRIDITEM_MASK,               &
                              farrayPtr=ptrM,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGetItem (models(Iriver)%grid,                       &
+                             staggerLoc=staggerLoc,                     &
+                             itemflag=ESMF_GRIDITEM_AREA,               &
+                             farrayPtr=ptrA,                            &
                              rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -505,6 +529,9 @@
         ptrY(i,:) = lat1d
       end do
       ptrM = hd_lsm
+      do i = 1, nl
+        ptrA(i,:) = area(i)
+      end do
 !
       if (allocated(lon1d)) deallocate(lon1d)
       if (allocated(lat1d)) deallocate(lat1d)
@@ -522,6 +549,9 @@
       end if
       if (associated(ptrM)) then
         nullify(ptrM)
+      end if
+      if (associated(ptrA)) then
+        nullify(ptrA)
       end if
 !
 !-----------------------------------------------------------------------
