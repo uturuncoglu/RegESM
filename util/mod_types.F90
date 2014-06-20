@@ -100,6 +100,8 @@
         integer :: divDT
         integer :: nPets
         logical :: modActive
+        logical :: modExtrapolation
+        integer :: modInteraction
         integer, allocatable :: petList(:)
       end type ESM_Conn
 !
@@ -129,6 +131,15 @@
       integer, parameter :: Iatmos = 1 
       integer, parameter :: Iocean = 2
       integer, parameter :: Iriver = 3
+!
+!-----------------------------------------------------------------------
+!     Interaction interfaces  
+!-----------------------------------------------------------------------
+!
+      character(len=3) :: IFACEDES(3) = (/'LND','OCN','ALL'/)
+      integer, parameter :: Ioverlnd = 1
+      integer, parameter :: Ioverocn = 2
+      integer, parameter :: Ioverall = 3
 !
 !-----------------------------------------------------------------------
 !     Staggered grid point indices
@@ -190,7 +201,6 @@
       integer :: runMod
       integer :: debugLevel
       logical :: restarted
-      logical :: unmapMod
 !
 !-----------------------------------------------------------------------
 !     Constants 

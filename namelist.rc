@@ -28,16 +28,6 @@ PETLayoutOption: sequential
 PETs: 60 60 0 
 #
 #-----------------------------------------------------------------------
-#     Activate extrapolation for unmapped grid cells
-#     
-#     Based on two step interpolation: (1) bilinear -> (2) nearest
-#     0   : deactivate (default option)
-#     > 0 : activate (i.e. 1)
-#-----------------------------------------------------------------------
-#
-UnmappedFill: 1 
-#
-#-----------------------------------------------------------------------
 #     Debug mode
 #     '0' : no debug
 #     '1' : only print informative messages 

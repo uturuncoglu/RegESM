@@ -394,7 +394,7 @@
 !      
       end function UTIL_FieldCreate
 !
-      function UTIL_CalcIntegral(vm, field, frac, rc)
+      function UTIL_CalcIntegral(vm, field, maskval, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -405,7 +405,7 @@
 !
       type(ESMF_VM), intent(in) :: vm
       type(ESMF_Field), intent(in) :: field
-      type(ESMF_Field), intent(in) :: frac
+      integer(ESMF_KIND_I4), intent(in) :: maskval(:)
       integer, intent(out) :: rc
 !
 !-----------------------------------------------------------------------
@@ -415,7 +415,6 @@
       integer :: cLbnd(2), cUbnd(2)
       integer :: i, j, k, localDECount, localPet, petCount
       real(ESMF_KIND_R8), pointer :: ptrField(:,:) 
-      real(ESMF_KIND_R8), pointer :: ptrFrac(:,:)
       real(ESMF_KIND_R8), pointer :: ptrArea(:,:)      
       integer(ESMF_KIND_I4), pointer :: ptrMask(:,:)      
       real*8 :: total_de(1), total_global(1)
@@ -460,10 +459,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldGet(frac, localDe=k, farrayPtr=ptrFrac, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
 !-----------------------------------------------------------------------
 !     Get pointer from grid (area item) 
 !-----------------------------------------------------------------------
@@ -488,9 +483,8 @@
 !
       do i = cLbnd(1), cUbnd(1)
       do j = cLbnd(2), cUbnd(2)
-        if (ptrMask(i,j) >= UNMAPPED_MASK) then 
-          total_de(1) = total_de(1)+                                    &
-                        ptrField(i,j)*ptrArea(i,j)!*ptrFrac(i,j)
+        if (any(ptrMask(i,j) == maskval)) then 
+          total_de(1) = total_de(1)+ptrField(i,j)*ptrArea(i,j)
         end if
       end do
       end do
@@ -505,9 +499,6 @@
       end if
       if (associated(ptrArea)) then
         nullify(ptrArea)
-      end if
-      if (associated(ptrFrac)) then
-        nullify(ptrFrac)
       end if
       if (associated(ptrMask)) then
         nullify(ptrMask)
@@ -563,7 +554,7 @@
 !
       end function UTIL_CalcIntegral
 !
-      subroutine UTIL_AdjustField(vm, field, frac, error, rc)
+      subroutine UTIL_AdjustField(vm, field, maskval, error, rc)
 !
 !-----------------------------------------------------------------------
 !     Imported variable declarations 
@@ -571,7 +562,7 @@
 !
       type(ESMF_VM), intent(in) :: vm
       type(ESMF_Field), intent(inout) :: field
-      type(ESMF_Field), intent(in) :: frac
+      integer(ESMF_KIND_I4), intent(in) :: maskval(:)
       real(ESMF_KIND_R8), intent(in) :: error
       integer, intent(out) :: rc
 !
@@ -582,7 +573,6 @@
       integer :: cLbnd(2), cUbnd(2)
       integer :: i, j, k, localDECount, localPet, petCount
       real(ESMF_KIND_R8), pointer :: ptrField(:,:) 
-      real(ESMF_KIND_R8), pointer :: ptrFrac(:,:)
       real(ESMF_KIND_R8), pointer :: ptrArea(:,:)    
       integer(ESMF_KIND_I4), pointer :: ptrMask(:,:)    
       real(ESMF_KIND_R8) :: total_de(1), total_global(1)
@@ -619,16 +609,6 @@
       do k = 0, localDECount-1
 !
 !-----------------------------------------------------------------------
-!     Get field pointers 
-!-----------------------------------------------------------------------
-!
-      call ESMF_FieldGet(frac, localDe=k, farrayPtr=ptrFrac,            &
-                         computationalLBound=cLbnd,                     &
-                         computationalUBound=cUbnd, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Get pointer from grid (area item) 
 !-----------------------------------------------------------------------
 !
@@ -647,13 +627,13 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Calculate total area of matched grid area including fractions 
+!     Calculate total area of matched region 
 !-----------------------------------------------------------------------
 !
       do i = cLbnd(1), cUbnd(1)
       do j = cLbnd(2), cUbnd(2)      
-        if (ptrMask(i,j) >= UNMAPPED_MASK) then
-          total_de(1) = total_de(1)+ptrArea(i,j)!*ptrFrac(i,j)
+        if (any(ptrMask(i,j) == maskval)) then
+          total_de(1) = total_de(1)+ptrArea(i,j)
         end if
       end do
       end do
@@ -665,9 +645,6 @@
 !
       if (associated(ptrArea)) then
         nullify(ptrArea)
-      end if
-      if (associated(ptrFrac)) then
-        nullify(ptrFrac)
       end if
       if (associated(ptrMask)) then
         nullify(ptrMask)
@@ -725,7 +702,7 @@
 !
       do i = cLbnd(1), cUbnd(1)
       do j = cLbnd(2), cUbnd(2)
-        if (ptrMask(i,j) >= UNMAPPED_MASK) then
+        if (any(ptrMask(i,j) == maskval)) then
           ptrField(i,j) = ptrField(i,j)-error_unit
         end if
       end do

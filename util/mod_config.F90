@@ -144,26 +144,6 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Set mode for extrapolation of unmmapped grid cell 
-!-----------------------------------------------------------------------
-!
-      call ESMF_ConfigGetAttribute(cf, dumm,                            &
-                                   label='UnmappedFill:', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      unmapMod = .false.
-      if (dumm > 0) unmapMod = .true.
-!
-      if (localPet == 0) then
-        if (unmapMod) then
-          write(*,*) "Extrapolation for unmapped grid cells: ON"
-        else
-          write(*,*) "Extrapolation for unmapped grid cells: OFF"
-        end if
-      end if       
-!
-!-----------------------------------------------------------------------
 !     Set debug level 
 !-----------------------------------------------------------------------
 !
@@ -335,6 +315,23 @@
       connectors(Iocean,Iriver)%modActive = .false.
 !
 !-----------------------------------------------------------------------
+!     Set interface for connector
+!-----------------------------------------------------------------------
+!
+      connectors(:,:)%modInteraction = Ioverall
+!
+      connectors(Iatmos,Iocean)%modInteraction = Ioverocn
+      connectors(Iocean,Iatmos)%modInteraction = Ioverocn      
+      connectors(Iatmos,Iriver)%modInteraction = Ioverlnd
+      connectors(Iriver,Iocean)%modInteraction = Ioverlnd
+!
+!-----------------------------------------------------------------------
+!     Initialize extrapolation option
+!-----------------------------------------------------------------------
+!
+      connectors(:,:)%modExtrapolation = .false. 
+!
+!-----------------------------------------------------------------------
 !     Debug: write list of active connectors
 !-----------------------------------------------------------------------
 !
@@ -449,7 +446,7 @@
 !
       integer :: iunit = 10
       integer :: i, j, k, l, m, n, s, ios1, ios2, pos1, pos2, nf
-      logical :: file_exists
+      logical :: extp, file_exists
       character(len=400) :: str
       character(len=200) :: dum(10)
       logical :: flag
@@ -467,7 +464,7 @@
         ios1 = 0
         do while (ios1 == 0)
           ! read header
-          read(iunit,*,iostat=ios1) nf, str
+          read(iunit,*,iostat=ios1) nf, str, extp
           if (ios1 /= 0) exit
           ! define gridded components for import and export 
           select case (trim(str))
@@ -488,8 +485,11 @@
               call ESMF_Finalize(endflag=ESMF_END_ABORT)  
           end select   
 !
+          connectors(i,j)%modExtrapolation = extp
+!
           if (debugLevel > 0 .and. localPet == 0) then
-          write(*,fmt='(A,I2)') COMPDES(i)//' -> '//COMPDES(j)//' ', nf
+          write(*,fmt='(A,I2,A,L)') COMPDES(i)//' -> '//COMPDES(j)//' ',&
+                                nf, ' ', extp
           end if
 !
           ! loop over fields
