@@ -89,6 +89,15 @@ AC_ARG_WITH([rtm],
 AM_CONDITIONAL(DO_COMPILE_LIBRTM, [test -d "$RTM_PREFIX"])
 AC_SUBST(RTM_PREFIX)
 
+# check WAV
+AC_ARG_WITH([wav],
+  AC_HELP_STRING([--with-wav],
+            [Path to WAV model installation (default: yes)]),
+  [WAV_PREFIX="$withval"], [WAV_PREFIX="${PWD}/src/wav"]
+)
+AM_CONDITIONAL(DO_COMPILE_LIBWAV, [test -d "$WAV_PREFIX"])
+AC_SUBST(WAV_PREFIX)
+
 # check DEBUG
 DEBUG="0"
 AC_ARG_ENABLE(debug,
