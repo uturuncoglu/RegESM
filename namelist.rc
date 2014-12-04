@@ -25,7 +25,7 @@ PETLayoutOption: sequential
 #     'sequential' and 'concurrent' mode. 
 #-----------------------------------------------------------------------
 #
-PETs: 60 60 0 
+PETs: 16 0 0 16 
 #
 #-----------------------------------------------------------------------
 #     Debug mode
@@ -36,7 +36,7 @@ PETs: 60 60 0
 #     '4' : '3' + write exchange fileds into ASCII
 #-----------------------------------------------------------------------
 #
-DebugLevel: 3
+DebugLevel: 1
 #
 #-----------------------------------------------------------------------
 #     Coupled model run information
@@ -49,10 +49,10 @@ DebugLevel: 3
 #-----------------------------------------------------------------------
 #
 Calendar:    gregorian
-StartTime:   1979 01 01 00 00 00
-RestartTime: 1979 01 01 00 00 00
-StopTime:    2012 01 01 00 00 00
-TimeStep:    0000 00 00 03 00 00
+StartTime:   2008 01 01 00 00 00
+RestartTime: 2008 01 01 00 00 00
+StopTime:    2008 01 05 00 00 00
+TimeStep:    0000 00 00 01 00 00
 #
 #-----------------------------------------------------------------------
 #     Coupling time step among components
@@ -60,16 +60,18 @@ TimeStep:    0000 00 00 03 00 00
 #     Matrix of divider for driver TimeStep. Zero (0) means no 
 #     interaction between components.
 # 
-#          ATM  OCN  RTM
-#     ATM   0    8    1         i.e  if driver TimeStep = 1-day then
-#     OCN   8    0    0              3-hr  for ATM-OCN and OCN-ATM
-#     RTM   0    1    0              1-day for ATM-RTM and RTM-OCN
+#          ATM  OCN  RTM  WAV
+#     ATM   0    8    1    0     i.e  if driver TimeStep = 1-day then
+#     OCN   8    0    0    0          3-hr  for ATM-OCN and OCN-ATM
+#     RTM   0    1    0    0          1-day for ATM-RTM and RTM-OCN
+#     WAV   0    0    0    0
 #-----------------------------------------------------------------------
 #
 DividerForTStep::
-0 1 0
-1 0 0
-0 0 0
+0 0 0 1
+0 0 0 0
+0 0 0 0
+0 0 0 0
 :: 
 #
 #-----------------------------------------------------------------------

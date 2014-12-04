@@ -39,6 +39,10 @@
           NUOPC_Label_SetClock       => label_SetClock,                 &
           NUOPC_Label_CheckImport    => label_CheckImport
 !
+!
+      use mod_types
+      use mod_utils
+!
       implicit none
       private
 !
@@ -61,7 +65,142 @@
       integer, intent(out) :: rc
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Register NUOPC generic routines    
+!-----------------------------------------------------------------------
+!
+      call NUOPC_SetServices(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Register initialize routine (P 1/2) for specific implementation   
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_INITIALIZE,&
+                                      userRoutine=WAV_SetInitializeP1,  &
+                                      phase=1,                          &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_INITIALIZE,&
+                                      userRoutine=WAV_SetInitializeP2,  &
+                                      phase=2,                          &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+
+
+
       end subroutine WAV_SetServices
+!
+      subroutine WAV_SetInitializeP1(gcomp, importState, exportState,   &
+                                     clock, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Set import fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, ubound(models(Iwavee)%importField, dim=1)
+        call NUOPC_StateAdvertiseField(importState,                     &
+             StandardName=trim(models(Iwavee)%importField(i)%long_name),&
+             name=trim(models(Iwavee)%importField(i)%short_name), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do 
+!
+!-----------------------------------------------------------------------
+!     Set export fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, ubound(models(Iwavee)%exportField, dim=1)
+        call NUOPC_StateAdvertiseField(exportState,                     &
+             StandardName=trim(models(Iwavee)%exportField(i)%long_name),&
+             name=trim(models(Iwavee)%exportField(i)%short_name), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do
+!
+      end subroutine WAV_SetInitializeP1
+!
+      subroutine WAV_SetInitializeP2(gcomp, importState, exportState,   &
+                                     clock, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      logical :: flag
+      integer :: comm, localPet, petCount
+      character(ESMF_MAXSTR) :: gname
+!
+      type(ESMF_VM) :: vm
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, name=gname, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount,         &
+                      mpiCommunicator=comm, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize the gridded component 
+!-----------------------------------------------------------------------
+!
+      print*, "before - ", comm
+      call WAM_Init(comm)  
+      print*, "after  - ", comm
+
+!
+      end subroutine WAV_SetInitializeP2
 !
       end module mod_esmf_wav
 

@@ -43,6 +43,7 @@
       use mod_esmf_atm, only: ATM_SetServices
       use mod_esmf_ocn, only: OCN_SetServices
       use mod_esmf_rtm, only: RTM_SetServices
+      use mod_esmf_wav, only: WAV_SetServices
       use mod_esmf_cpl, only: CPL_SetServices
 !
       implicit none
@@ -269,6 +270,10 @@
             call ESMF_GridCompSetServices(genIS%wrap%modelComp(i),      &
                                           RTM_SetServices,              &
                                           userRc=urc, rc=rc)
+          else if (i == Iwavee) then
+            call ESMF_GridCompSetServices(genIS%wrap%modelComp(i),      &
+                                          WAV_SetServices,              &
+                                          userRc=urc, rc=rc)
           end if
 !
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
@@ -362,9 +367,10 @@
 !     ATM and OCN model components are activated
 !-----------------------------------------------------------------------
 !
-      if (models(Iatmos)%modActive .and.                                &
-          models(Iocean)%modActive .and. .not.                          &
-          models(Iriver)%modActive) then
+      if ((models(Iatmos)%modActive .and.                               &
+           models(Iocean)%modActive .and. .not.                         &
+           models(Iriver)%modActive) .or.                               &
+           models(Iwavee)%modActive) then
         call NUOPC_RunSequenceAdd(genIS%wrap%runSeq, 1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
@@ -372,6 +378,7 @@
         do i = 1, nModels
           do j = 1, nModels
             if (connectors(i,j)%modActive) then      
+              print*, i, j
               call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),            &
                                        i=i, j=j, phase=1, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc,                      &
@@ -384,6 +391,7 @@
 !
         do i = 1, nModels
           if (models(i)%modActive) then
+            print*, i
             call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),              &
                                      i=i, j=-1, phase=1, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc,                        &
