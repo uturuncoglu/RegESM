@@ -35,16 +35,55 @@
       implicit none
 !
 !-----------------------------------------------------------------------
+!     Constants 
+!     cf3 - 1/rhow (rhow is reference density of seawater in kg/m3)
+!-----------------------------------------------------------------------
+!
+      real*8, parameter :: cp = 3985.0d0
+      real*8, parameter :: rho0 = 1025.0d0
+      real*8, parameter :: cf1 = rho0*cp
+      real*8, parameter :: cf2 = 1.0d0/cf1
+      real*8, parameter :: cf3 = 1.0d0/rho0
+      real*8, parameter :: day2s = 1.0d0/86400.0d0
+      real*8, parameter :: mm2m = 1.0d0/1000.0d0
+      real*8, parameter :: pi = 4.0d0*atan(1.0d0)
+      real*8, parameter :: pi2 = 2.0d0*pi
+      real*8, parameter :: phi = 0.5d0*pi
+      real*8, parameter :: D2R = PI/180.0d0
+      real*8, parameter :: R2D = 1.0d0/D2R
+      real*8, parameter :: RADIUS = 6371.0d3
+!
+      real*8, parameter :: MISSING_R8 = 1.0d20
+      real  , parameter :: MISSING_R4 = 1.0e20
+      real*8, parameter :: TOL_R8 = MISSING_R8/2.0d0
+      real  , parameter :: TOL_R4 = MISSING_R4/2.0
+!
+      real(ESMF_KIND_I4), parameter :: ZERO_I4 = 0
+      real(ESMF_KIND_R8), parameter :: ZERO_R8 = 0.0d0
+      real(ESMF_KIND_R8), parameter :: ONE_R8 = 1.0d0
+!
+      integer(ESMF_KIND_I4), parameter :: MAPPED_MASK = 99
+      integer(ESMF_KIND_I4), parameter :: UNMAPPED_MASK = 98
+!
+      integer, parameter :: MAX_MAPPED_GRID = 1000
+!
+!-----------------------------------------------------------------------
 !     RTM river point data type 
 !-----------------------------------------------------------------------
 !
       type RTM_River
-        real*8 :: lat, lon
+        logical :: asIndex
+        logical :: isActive
+        real*8  :: eRadius
+        real*8  :: lat, lon
+        integer :: iindex, jindex
         integer :: dir
         integer :: npoints
-        real*8 :: monfac(12)
-        integer :: iindex, jindex
+        real*8  :: monfac(12)
         integer :: rootPet
+        integer :: mapSize
+        real*8  :: mapArea
+        real*8  :: mapTable(3,MAX_MAPPED_GRID) ! i, j and weight
       end type RTM_River
 !
 !-----------------------------------------------------------------------
@@ -72,6 +111,10 @@
       type ESM_Mesh
         integer :: gid
         integer :: gtype
+        real(ESMF_KIND_R8), allocatable :: glon(:,:)
+        real(ESMF_KIND_R8), allocatable :: glat(:,:)
+        real(ESMF_KIND_R8), allocatable :: gare(:,:)
+        integer(ESMF_KIND_I4), allocatable :: gmsk(:,:) 
       end type ESM_Mesh
 !
 !-----------------------------------------------------------------------
@@ -201,33 +244,7 @@
       integer :: runMod
       integer :: debugLevel
       logical :: restarted
-!
-!-----------------------------------------------------------------------
-!     Constants 
-!     cf3 - 1/rhow (rhow is reference density of seawater in kg/m3)
-!-----------------------------------------------------------------------
-!
-      real*8, parameter :: cp = 3985.0d0
-      real*8, parameter :: rho0 = 1025.0d0
-      real*8, parameter :: cf1 = rho0*cp
-      real*8, parameter :: cf2 = 1.0d0/cf1
-      real*8, parameter :: cf3 = 1.0d0/rho0
-      real*8, parameter :: day2s = 1.0d0/86400.0d0
-      real*8, parameter :: mm2m = 1.0d0/1000.0d0
-      real*8, parameter :: pi = 3.14159265359d0
-      real*8, parameter :: pi2 = 2.0d0*pi
-      real*8, parameter :: phi = 0.5d0*pi
-!
-      real*8, parameter :: MISSING_R8 = 1.0d20
-      real  , parameter :: MISSING_R4 = 1.0e20
-      real*8, parameter :: TOL_R8 = MISSING_R8/2.0d0
-      real  , parameter :: TOL_R4 = MISSING_R4/2.0
-!
-      real(ESMF_KIND_R8), parameter :: ZERO_R8 = 0.0d0
-      real(ESMF_KIND_R8), parameter :: ONE_R8 = 1.0d0
-!
-      integer(ESMF_KIND_I4), parameter :: MAPPED_MASK = 99
-      integer(ESMF_KIND_I4), parameter :: UNMAPPED_MASK = 98
+      integer :: riverOpt
 !
       contains
 !

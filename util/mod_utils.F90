@@ -730,41 +730,4 @@
 !
       end subroutine UTIL_AdjustField
 !
-      subroutine UTIL_PrintMatrix(inp, imin, imax, jmin, jmax,          &
-                                  iskip, jskip, pet, id, header)
-      implicit none
-!
-!-----------------------------------------------------------------------
-!     Imported variable declarations 
-!-----------------------------------------------------------------------
-!
-      integer, intent(in) :: imin, imax, jmin, jmax
-      real*8 , intent(in) :: inp(imin:imax,jmin:jmax)
-      integer, intent(in) :: iskip, jskip, pet, id
-      character(len=*), intent(in) :: header
-!
-!-----------------------------------------------------------------------
-!     Local variable declarations 
-!-----------------------------------------------------------------------
-!
-      integer :: i, j
-      character(100) :: fmt_123
-!
-!-----------------------------------------------------------------------
-!     Write data 
-!-----------------------------------------------------------------------
-!
-      write(id, fmt="('PET(',I2,') - ',A)") pet, trim(header)
-!
-      write(fmt_123, fmt="('(/, 5X, ', I3, 'I10)')") (imax-imin)+1
-      write(id, fmt=trim(fmt_123))  (i, i=imin, imax, iskip)
-!   
-      write(fmt_123, fmt="('(I5, ', I3, 'F10.4)')") imax
-      do j=jmin, jmax, jskip
-        write(id, fmt=trim(fmt_123)) j, (inp(i,j),i=imin, imax, iskip)
-      end do
-!
-      return
-      end subroutine UTIL_PrintMatrix      
-!
       end module mod_utils

@@ -254,8 +254,8 @@
               k = ubound(models(Iatmos)%petList, dim=1)
               models(i)%petList(j) = models(Iatmos)%petList(k)+j
             else if (i .eq. Iriver) then
-              k = ubound(models(Iatmos)%petList, dim=1)
-              models(i)%petList(j) = models(Iatmos)%petList(k)
+              k = ubound(models(Iocean)%petList, dim=1)
+              models(i)%petList(j) = models(Iocean)%petList(k)+j
             end if
           end do
         end do
@@ -375,6 +375,18 @@
       call read_field_table('exfield.tbl', localPet, rc)
 !
 !-----------------------------------------------------------------------
+!     Read river option (only active when RTM is activated) 
+!-----------------------------------------------------------------------
+!
+      if (models(Iriver)%modActive) then
+        call ESMF_ConfigGetAttribute(cf, riverOpt,                      &
+                                     label='RiverOpt:', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+!-----------------------------------------------------------------------
 !     Read river list for coupling (only active when RTM is activated) 
 !-----------------------------------------------------------------------
 !
@@ -395,15 +407,39 @@
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
 !
+          call ESMF_ConfigGetAttribute(cf, dumm, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          rivers(i)%asIndex = .false.
+          if (dumm == 0) rivers(i)%asIndex = .true. 
+!
+          call ESMF_ConfigGetAttribute(cf, dumm, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          rivers(i)%isActive = .false.
+          if (dumm == 1) rivers(i)%isActive = .true. 
+!
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%eRadius, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+!
+          if (rivers(i)%asIndex) then
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%iindex, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+!
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%jindex, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+          else
           call ESMF_ConfigGetAttribute(cf, rivers(i)%lon, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
-          rivers(i)%iindex = 0
 !
           call ESMF_ConfigGetAttribute(cf, rivers(i)%lat, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
-          rivers(i)%jindex = 0
+          end if 
 !
           call ESMF_ConfigGetAttribute(cf, rivers(i)%dir, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&

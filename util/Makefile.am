@@ -18,7 +18,10 @@
 #-----------------------------------------------------------------------
 
 noinst_LIBRARIES = libesmutil.a
-libesmutil_a_SOURCES = mod_types.F90 mod_config.F90 mod_utils.F90
+libesmutil_a_SOURCES = mod_types.F90 \
+                       mod_config.F90 \
+                       mod_utils.F90 \
+                       mod_shared.F90
 
 CPPFLAGS += -I.
 if DO_COMPILE_LIBESMF
@@ -43,4 +46,5 @@ clean-local:
 
 mod_types.o: mod_types.F90
 mod_utils.o: mod_utils.F90 mod_types.o
+mod_shared.o: mod_shared.F90 mod_types.o
 mod_config.o: mod_config.F90 mod_types.o
