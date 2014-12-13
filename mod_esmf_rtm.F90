@@ -36,7 +36,7 @@
           NUOPC_Label_DataInitialize => label_DataInitialize
 !
       use mod_types
-      use mod_utils
+      use mod_shared
 !
       use mod_hd_iface, only :                                          &
           RTM_Initialize => hd_init,                                    &
@@ -1146,8 +1146,8 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call UTIL_PrintMatrix(ptr, 1, nl, 1, nb, 1, 1,                  &
-                              localPet, iunit, "PTR/RTM/IMP")
+        call print_matrix(ptr, 1, nl, 1, nb, 1, 1,                      &
+                          localPet, iunit, "PTR/RTM/IMP")
         close(unit=iunit)
       end if
 !
@@ -1343,8 +1343,8 @@
         write(ofile,80) 'rtm_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call UTIL_PrintMatrix(ptr, 1, nl, 1, nb, 1, 1,                  &
-                              localPet, iunit, "PTR/RTM/EXP")
+        call print_matrix(ptr, 1, nl, 1, nb, 1, 1,                      &
+                          localPet, iunit, "PTR/RTM/EXP")
         close(unit=iunit)
       end if
 !

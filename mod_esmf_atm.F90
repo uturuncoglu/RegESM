@@ -37,7 +37,7 @@
           NUOPC_Label_SetClock       => label_SetClock
 !
       use mod_types
-      use mod_utils
+      use mod_shared
 !
       use mod_regcm_interface, only :                                   &
           ATM_Initialize => RCM_initialize,                             &
@@ -1481,8 +1481,8 @@
         imax = global_cross_istart+ici2-1
         jmin = global_cross_jstart+jci1-1
         jmax = global_cross_jstart+jci2-1
-        call UTIL_PrintMatrix(ptr, imin, imax, jmin, jmax, 1, 1,        &
-                              localPet, iunit, "PTR/ATM/IMP")
+        call print_matrix(ptr, imin, imax, jmin, jmax, 1, 1,            &
+                          localPet, iunit, "PTR/ATM/IMP")
         close(unit=iunit)
       end if
 !
@@ -1847,7 +1847,7 @@
         imax = global_cross_istart+ici2-1
         jmin = global_cross_jstart+jci1-1
         jmax = global_cross_jstart+jci2-1
-        call UTIL_PrintMatrix(transpose(ptr), imin, imax, jmin, jmax , 1, 1,       &
+        call print_matrix(transpose(ptr), imin, imax, jmin, jmax , 1, 1,&
                               localPet, iunit, "PTR/ATM/EXP")
         close(unit=iunit)
       end if 

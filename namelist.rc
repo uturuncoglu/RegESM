@@ -28,6 +28,16 @@ PETLayoutOption: sequential
 PETs: 60 60 0 
 #
 #-----------------------------------------------------------------------
+#     Activate extrapolation for unmapped grid cells
+#     
+#     Based on two step interpolation: (1) bilinear -> (2) nearest
+#     0   : deactivate (default option)
+#     > 0 : activate (i.e. 1)
+#-----------------------------------------------------------------------
+#
+UnmappedFill: 1
+#
+#-----------------------------------------------------------------------
 #     Debug mode
 #     '0' : no debug
 #     '1' : only print informative messages 
@@ -36,7 +46,7 @@ PETs: 60 60 0
 #     '4' : '3' + write exchange fileds into ASCII
 #-----------------------------------------------------------------------
 #
-DebugLevel: 3
+DebugLevel: 1
 #
 #-----------------------------------------------------------------------
 #     Coupled model run information
@@ -73,16 +83,42 @@ DividerForTStep::
 :: 
 #
 #-----------------------------------------------------------------------
+#     Type of imposing river discharge (RTM --> OCN)
+#     
+#     (1) As point source (OCN retrieves 1D field, i.e. ROMS point source)
+#         The array contains discarge from each individual river
+#
+#     (2) As surface boundary forcing (OCN retrieves 2D field)
+#         The 2D field contains fresh water flux calculated from discharge 
+#         The algorithm finds the closest OCN grid point to river
+#         The number of effective OCN grids is used to distribute 
+#         freshwater flux. The effective radius for each individual river
+#          can be set by RiverList option  
+#-----------------------------------------------------------------------
+#
+RiverOpt: 2
+#
+#-----------------------------------------------------------------------
 #     List of rivers (activated only for RTM-OCN coupling)
 #     It defines outflow box coordinates, number of mounth point and
 #     monthly correction factors.  
 #      
-#     [lon] [lat] [dir] [npoint] [1] [2] .... [12]
+#     column 1 - river position defined as index = 0 / coordinate = 1
+#     column 2 - river is not-active = 0 / active = 1
+#     column 3 - effective radius in km
+#     column 4 - if first column = 0 i-index else longitude
+#     column 5 - if first column = 0 j-index else latitude
+#     column 6 - river direction (if RiverOpt = 1 and ROMS)
+#     column 7 - number of source point (if RiverOpt = 1 and ROMS) 
+#     column 8-19 - monthly coorrection factors to tune river discharge
 #-----------------------------------------------------------------------
 #
 RiverList::
-48.26 46.25 -1 7 1.2314 1.6660 1.5636 1.0291 0.8576 0.6014 0.6332 0.6699 0.7280 0.8048 0.8410 0.9091 # Volga
-51.80 47.12 -1 2 1.5546 2.0101 0.5512 0.4209 1.6536 3.3892 1.9705 1.4449 1.3162 1.2875 0.8818 0.9785 # Ural
-49.26 38.74  1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Kura
-47.42 43.40  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Terek
+0 0  0.0     0     0  1 5 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Nile (offline)
+1 1 50.0  4.82 43.63 -1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Rhone
+1 1 40.0 12.39 44.86  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Po
+1 1 45.0  0.67 40.83  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ebro
+1 1 45.0 35.31 36.80  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ceyhan
+1 1 40.0 12.44 45.23  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Adige
+1 1 40.0 12.33 41.86 -1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Tiber
 ::

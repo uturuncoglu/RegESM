@@ -40,7 +40,7 @@
           NUOPC_Label_CheckImport    => label_CheckImport
 !
       use mod_types
-      use mod_utils
+      use mod_shared
 !
       use mod_mit_gcm, only : sNx, sNy, nSx, nSy, OLx, OLy, Nx, Ny,     &
                               nPx, nPy, myXGlobalLo, myYGlobalLo
@@ -1695,10 +1695,9 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-!        call UTIL_PrintMatrix(transpose(ptr), 1-OLx, sNx+OLx, 1-OLy, sNy+OLy, 1, 1,&
-!                              localPet, iunit, "PTR/OCN/IMP")
-        call UTIL_PrintMatrix(uwind(:,:,1,1), 1-OLx, sNx+OLx, 1-OLy, sNy+OLy, 1, 1,&
-                              localPet, iunit, "PTR/OCN/IMP")
+        call print_matrix(transpose(ptr), 1-OLx, sNx+OLx,               &
+                          1-OLy, sNy+OLy, 1, 1,                         &
+                          localPet, iunit, "PTR/OCN/IMP")
         close(unit=iunit)
       end if
 !
@@ -1910,8 +1909,8 @@
         write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call UTIL_PrintMatrix(ptr, 1, sNx, 1, sNy, 1, 1,                &
-                              localPet, iunit, "PTR/OCN/EXP")
+        call print_matrix(ptr, 1, sNx, 1, sNy, 1, 1,                    &
+                          localPet, iunit, "PTR/OCN/EXP")
         close(unit=iunit)
       end if         
 !
