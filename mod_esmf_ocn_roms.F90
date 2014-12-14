@@ -1,19 +1,19 @@
 !-----------------------------------------------------------------------
 !
-!     This file is part of ICTP RegESM.
+!     This file is part of ITU RegESM.
 !
-!     ICTP RegESM is free software: you can redistribute it and/or modify
+!     ITU RegESM is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
 !     the Free Software Foundation, either version 3 of the License, or
 !     (at your option) any later version.
 !
-!     ICTP RegESM is distributed in the hope that it will be useful,
+!     ITU RegESM is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !     GNU General Public License for more details.
 !
 !     You should have received a copy of the GNU General Public License
-!     along with ICTP RegESM.  If not, see <http://www.gnu.org/licenses/>.
+!     along with ITU RegESM.  If not, see <http://www.gnu.org/licenses/>.
 !
 !-----------------------------------------------------------------------
 #define FILENAME "mod_esmf_ocn.F90"
@@ -2400,6 +2400,7 @@
       nr = size(rivers, dim=1)
 !
       do ng = 1, Ngrids
+        k = 0
         do r = 1, nr
           if (rivers(r)%isActive) then
             ! get river discharge
@@ -2418,21 +2419,40 @@
                                    line=__LINE__, file=FILENAME)) return
             rdis = 30000.0
 !
-            ! distribute data to the mapped ocean grid points
-            np = rivers(r)%mapSize 
-            do k = 1, np
-              i = int(rivers(r)%mapTable(1,k))
-              j = int(rivers(r)%mapTable(2,k))                
+            ! apply monthly correction factor
+            rdis = rdis*rivers(r)%monfac(mm)
 !
-              do jj = LBj, UBj
-                do ii = LBi, UBi
-                  if (ii == i .and. jj ==j .and. rdis(1) < TOL_R8) then
-                    rdata(ng)%R2dis(ii,jj) = rdata(ng)%R2dis(ii,jj)+    &
+            ! apply as point source
+            if (riverOpt == 1) then
+              ! set direction
+              if (rivers(r)%dir < 0) then
+                rdis = -rdis
+              end if               
+              ! fill data arrays
+              np = rivers(r)%npoints
+              do j = 1, np
+                k = k+1
+                rdata(ng)%R1dis(k) = (rdis(1)*sfac)+addo
+              end do 
+!
+            ! apply as surface boundary condition
+            else if (riverOpt == 2) then
+              ! distribute data to the mapped ocean grid points
+              np = rivers(r)%mapSize 
+              do k = 1, np
+                i = int(rivers(r)%mapTable(1,k))
+                j = int(rivers(r)%mapTable(2,k))                
+!
+                do jj = LBj, UBj
+                  do ii = LBi, UBi
+                    if (ii == i .and. jj ==j .and. rdis(1) < TOL_R8) then
+                      rdata(ng)%R2dis(ii,jj) = rdata(ng)%R2dis(ii,jj)+  &
                                              (rdis(1)/rivers(r)%mapArea)
-                  end if 
-                end do
-              end do  
-            end do
+                    end if 
+                  end do
+                end do  
+              end do
+            end if
 !
             ! print debug info
             if (localPet == 0) then
