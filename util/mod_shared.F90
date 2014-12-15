@@ -354,7 +354,7 @@
       end if
 !
       do r = 1, nRiver 
-        if (rivers(r)%isActive) then
+        if (rivers(r)%isActive > 0) then
           ! calculate distance to river point
           distance = ZERO_R8
           call gc_latlon(rivers(r)%lon, rivers(r)%lat,                  &

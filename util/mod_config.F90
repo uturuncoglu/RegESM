@@ -413,11 +413,9 @@
           rivers(i)%asIndex = .false.
           if (dumm == 0) rivers(i)%asIndex = .true. 
 !
-          call ESMF_ConfigGetAttribute(cf, dumm, rc=rc)
+          call ESMF_ConfigGetAttribute(cf, rivers(i)%isActive, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
-          rivers(i)%isActive = .false.
-          if (dumm == 1) rivers(i)%isActive = .true. 
 !
           call ESMF_ConfigGetAttribute(cf, rivers(i)%eRadius, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&

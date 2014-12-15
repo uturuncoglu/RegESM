@@ -1170,7 +1170,7 @@
 !
       nr = size(rivers, dim=1)
       do i = 1, nr
-        if (rivers(i)%isActive) then
+        if (rivers(i)%isActive > 0) then
           if (.not. rivers(i)%asIndex) then
             call get_ij(vm, rivers(i)%lon, rivers(i)%lat,               &
                         rivers(i)%iindex, rivers(i)%jindex, rc)
@@ -2402,7 +2402,7 @@
       do ng = 1, Ngrids
         k = 0
         do r = 1, nr
-          if (rivers(r)%isActive) then
+          if (rivers(r)%isActive > 0) then
             ! get river discharge
             if (localPet == rivers(r)%rootPet) then
               rdis = ptr(rivers(r)%iindex,rivers(r)%jindex)
@@ -2417,10 +2417,15 @@
             if (ESMF_LogFoundError(rcToCheck=rc,                        &
                                    msg=ESMF_LOGERR_PASSTHRU,            &
                                    line=__LINE__, file=FILENAME)) return
-            rdis = 30000.0
 !
             ! apply monthly correction factor
             rdis = rdis*rivers(r)%monfac(mm)
+!
+            ! if river data is provided as monthly values (m^3/s), then
+            ! overwrite river discharge data
+            if (rivers(r)%isActive == 2) then
+              rdis = rivers(r)%monfac(mm)
+            end if
 !
             ! apply as point source
             if (riverOpt == 1) then

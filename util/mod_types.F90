@@ -73,7 +73,7 @@
 !
       type RTM_River
         logical :: asIndex
-        logical :: isActive
+        integer :: isActive
         real*8  :: eRadius
         real*8  :: lat, lon
         integer :: iindex, jindex
