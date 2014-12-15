@@ -184,7 +184,6 @@
       call gc_latlon(plon, plat, imin, imax, jmin, jmax,                &
                      models(Iocean)%mesh(k)%glon,                       &
                      models(Iocean)%mesh(k)%glat, distance)
-      print*, "turuncu 1 ", localPet
 !
 !-----------------------------------------------------------------------
 !     Get local minimum distance and location. 
@@ -203,7 +202,6 @@
           end if
         end do
       end do
-      print*, "turuncu 2 - ", localPet, i, j
 !
 !-----------------------------------------------------------------------
 !     Broadcast grid indices of grid point that has the mininum distance
