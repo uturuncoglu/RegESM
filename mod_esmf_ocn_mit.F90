@@ -55,6 +55,7 @@
       real*8  :: myTime = 0.0d0
       integer :: iLoop = 0
       integer :: myIter = 0
+      integer, allocatable :: mpi_myXGlobalLo(:), mpi_myYGlobalLo(:)
 !
       type(ESMF_RouteHandle) :: rh_halo
 !
@@ -241,7 +242,7 @@
 !     Set-up grid and load coordinate data 
 !-----------------------------------------------------------------------
 !
-      call OCN_SetGridArrays(gcomp, localPet, rc)
+      call OCN_SetGridArrays(gcomp, petCount, localPet, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -613,7 +614,7 @@
 !
       end subroutine OCN_CheckImport
 !
-      subroutine OCN_SetGridArrays(gcomp, localPet, rc)
+      subroutine OCN_SetGridArrays(gcomp, petCount, localPet, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
@@ -628,24 +629,62 @@
 !-----------------------------------------------------------------------
 !
       type(ESMF_GridComp), intent(inout) :: gcomp
-      integer :: localPet 
-      integer :: rc
+      integer, intent(in) :: localPet 
+      integer, intent(in) :: petCount 
+      integer, intent(inout) :: rc
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, m, n, p, bi, bj, iG, jG, localDECount, tile
+      integer :: i, j, k, m, n, p, nr, bi, bj, iG, jG
+      integer :: localDECount, tile
       character(ESMF_MAXSTR) :: name
 !
       integer(ESMF_KIND_I4), pointer :: ptrM(:,:)
       real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
+      character(ESMF_MAXSTR) :: cname
+!
       type(ESMF_VM) :: vm
+      type(ESMF_Array) :: arrX, arrY, arrM, arrA
       type(ESMF_StaggerLoc) :: staggerLoc
       type(ESMF_DistGrid) :: distGrid
       integer, allocatable :: deBlockList(:,:,:)
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, name=cname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Collect bottom-left X-index and bottom-left Y-index
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(mpi_myXGlobalLo)) then
+        allocate(mpi_myXGlobalLo(nPx*nPy))
+        allocate(mpi_myYGlobalLo(nPx*nPy))
+      end if
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ myXGlobalLo /),            &
+                             sendCount=1, recvData=mpi_myXGlobalLo,     &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return      
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ myYGlobalLo /),            &
+                             sendCount=1, recvData=mpi_myYGlobalLo,     &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get limits of the grid arrays (based on PET and nest level)
@@ -655,11 +694,13 @@
         allocate(deBlockList(2,2,nPx*nPy))
       end if
 !
+      bj = 1
+      bi = 1
       do tile = 0, (nPx*nPy)-1
-        deBlockList(1,1,tile+1) = myXGlobalLo
-        deBlockList(1,2,tile+1) = myXGlobalLo+sNx-1
-        deBlockList(2,1,tile+1) = myYGlobalLo 
-        deBlockList(2,2,tile+1) = myYGlobalLo+sNy-1
+        deBlockList(1,1,tile+1) = mpi_myXGlobalLo(tile+1)
+        deBlockList(1,2,tile+1) = mpi_myXGlobalLo(tile+1)+sNx-1
+        deBlockList(2,1,tile+1) = mpi_myYGlobalLo(tile+1) 
+        deBlockList(2,2,tile+1) = mpi_myYGlobalLo(tile+1)+sNy-1
       end do
 !
 !-----------------------------------------------------------------------
@@ -667,9 +708,7 @@
 !-----------------------------------------------------------------------
 !
       distGrid = ESMF_DistGridCreate(minIndex=(/ 1, 1 /),               &
-                                     !maxIndex=(/ Ny, Nx /),             &
                                      maxIndex=(/ Nx, Ny /),             &
-                                     !regDecomp=(/ nPy, nPx /),          &
                                      deBlockList=deBlockList,           &
                                      rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -709,7 +748,6 @@
 !
       if (p == 1) then
       models(Iocean)%grid = ESMF_GridCreate(distgrid=distGrid,          &
-                                            !indexflag=ESMF_INDEX_DELOCAL,&
                                             indexflag=ESMF_INDEX_GLOBAL,&
                                             name="ocn_grid",            &
                                             rc=rc)
@@ -840,8 +878,6 @@
             ptrY(iG,jG) = yG(m,n,1,1)
           end do
         end do
-!         ptrX = transpose(xG(1:sNx,1:sNy,1,1))
-!         ptrY = transpose(yG(1:sNx,1:sNy,1,1))
       else if (models(Iocean)%mesh(p)%gtype == Icross) then
         do n = 1, sNy
           do m = 1, sNx
@@ -853,10 +889,6 @@
             ptrA(iG,jG) = rA(m,n,1,1)
           end do
         end do
-!         ptrX = transpose(xC(1:sNx,1:sNy,1,1))
-!         ptrY = transpose(yC(1:sNx,1:sNy,1,1))
-!         ptrM = int(transpose(maskC(1:sNx,1:sNy,1,1,1)))
-!         ptrA = transpose(rA(1:sNx,1:sNy,1,1))
       else if (models(Iocean)%mesh(p)%gtype == Iupoint) then
         do n = 1, sNy
           do m = 1, sNx
@@ -867,9 +899,6 @@
             ptrM(iG,jG) = int(maskW(m,n,1,1,1))
           end do
         end do
-!         ptrX = transpose(xG(1:sNx,1:sNy,1,1))
-!         ptrY = transpose(yC(1:sNx,1:sNy,1,1))
-!         ptrM = int(transpose(maskW(1:sNx,1:sNy,1,1,1)))
       else if (models(Iocean)%mesh(p)%gtype == Ivpoint) then
         do n = 1, sNy
           do m = 1, sNx
@@ -880,9 +909,6 @@
             ptrM(iG,jG) = int(maskS(m,n,1,1,1))
           end do
         end do
-!         ptrX = transpose(xC(1:sNx,1:sNy,1,1))
-!         ptrY = transpose(yG(1:sNx,1:sNy,1,1))
-!         ptrM = int(transpose(maskS(1:sNx,1:sNy,1,1,1)))
       end if
 !
       if (debugLevel > 0) then
@@ -890,6 +916,32 @@
                     lbound(xG, dim=1), ubound(xG, dim=1),               &
                     lbound(xG, dim=2), ubound(xG, dim=2)
       end if
+!
+!-----------------------------------------------------------------------
+!     Create temporary arrays.
+!-----------------------------------------------------------------------
+!
+       if (models(Iocean)%mesh(p)%gtype == Icross) then
+        arrX = ESMF_ArrayCreate(distGrid, ptrX,                         &
+                                indexflag=ESMF_INDEX_DELOCAL, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                             line=__LINE__, file=FILENAME)) return
+!
+        arrY = ESMF_ArrayCreate(distGrid, ptrY,                         &
+                                indexflag=ESMF_INDEX_DELOCAL, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                             line=__LINE__, file=FILENAME)) return
+!
+        arrM = ESMF_ArrayCreate(distGrid, ptrM,                         &
+                                indexflag=ESMF_INDEX_DELOCAL, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                             line=__LINE__, file=FILENAME)) return
+!
+        arrA = ESMF_ArrayCreate(distGrid, ptrA,                         &
+                                indexflag=ESMF_INDEX_DELOCAL, rc=rc) 
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                             line=__LINE__, file=FILENAME)) return
+       end if
 !
 !-----------------------------------------------------------------------
 !     Nullify pointers 
@@ -907,7 +959,6 @@
       if (associated(ptrA)) then
         nullify(ptrA)
       end if
-!
       end do
 !
 !-----------------------------------------------------------------------
@@ -935,10 +986,128 @@
       end do     
 !
 !-----------------------------------------------------------------------
+!     Collect data from arrays to first PET of the component
+!-----------------------------------------------------------------------
+!
+      if (models(Iriver)%modActive) then
+!
+      i = minloc(models(Iocean)%mesh(:)%gtype, dim=1,                   &
+                 mask=(models(Iocean)%mesh(:)%gtype == Icross))
+!
+      if (localPet == 0) then
+        allocate(models(Iocean)%mesh(i)%glon(Nx,Ny))
+        allocate(models(Iocean)%mesh(i)%glat(Nx,Ny))
+        allocate(models(Iocean)%mesh(i)%gmsk(Nx,Ny))
+        allocate(models(Iocean)%mesh(i)%gare(Nx,Ny))
+      else
+        allocate(models(Iocean)%mesh(i)%glon(0,0))
+        allocate(models(Iocean)%mesh(i)%glat(0,0))
+        allocate(models(Iocean)%mesh(i)%gmsk(0,0))
+        allocate(models(Iocean)%mesh(i)%gare(0,0))
+      end if
+!
+      call ESMF_ArrayGather(arrX, farray=models(Iocean)%mesh(i)%glon,   &
+                            rootPet=0, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ArrayGather(arrY, farray=models(Iocean)%mesh(i)%glat,   &
+                            rootPet=0, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ArrayGather(arrM, farray=models(Iocean)%mesh(i)%gmsk,   &
+                            rootPet=0, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ArrayGather(arrA, farray=models(Iocean)%mesh(i)%gare,   &
+                            rootPet=0, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Destroy temporary arrays 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ArrayDestroy(arrX, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ArrayDestroy(arrY, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ArrayDestroy(arrM, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ArrayDestroy(arrA, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Find location of the rivers 
+!-----------------------------------------------------------------------
+!
+      nr = size(rivers, dim=1)
+      do i = 1, nr
+        if (rivers(i)%isActive > 0) then
+          if (.not. rivers(i)%asIndex) then
+            call get_ij(vm, rivers(i)%lon, rivers(i)%lat,               &
+                        rivers(i)%iindex, rivers(i)%jindex, rc)
+          else
+            call get_ll(vm, rivers(i)%iindex, rivers(i)%jindex,         &
+                        rivers(i)%lon, rivers(i)%lat, rc)
+          end if
+          if (ESMF_LogFoundError(rcToCheck=rc,                          &
+                                 msg=ESMF_LOGERR_PASSTHRU,              &
+                                 line=__LINE__, file=FILENAME)) return
+!
+          rivers(i)%rootPet = findPet(vm, rivers(i)%iindex,             &
+                                      rivers(i)%jindex, rc)
+!
+          if (localPet == 0) then
+            write(*,20) i, rivers(i)%dir, rivers(i)%eRadius,            &
+                        rivers(i)%lon, rivers(i)%lat,                   &
+                        rivers(i)%iindex, rivers(i)%jindex,             &
+                        rivers(i)%rootPet, 'ACTIVE'
+          end if
+        else
+          if (.not. rivers(i)%asIndex) then
+            rivers(i)%iindex = ZERO_I4
+            rivers(i)%jindex = ZERO_I4
+            rivers(i)%rootPet = ZERO_I4
+          else
+            rivers(i)%lon = ZERO_R8 
+            rivers(i)%lat = ZERO_R8
+            rivers(i)%rootPet = ZERO_I4
+          end if 
+!
+          if (localPet == 0) then
+            write(*,20) i, rivers(i)%dir, rivers(i)%eRadius,            &
+                        rivers(i)%lon, rivers(i)%lat,                   &
+                        rivers(i)%iindex, rivers(i)%jindex,             &
+                        rivers(i)%rootPet, 'NOT ACTIVE!'
+          end if
+        end if
+      end do
+!
+!-----------------------------------------------------------------------
+!     Map ocean grid points to rivers defined by RTM component 
+!-----------------------------------------------------------------------
+!
+      call map_rivers(vm, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+!-----------------------------------------------------------------------
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 20   format(" RIVER(",I2.2,") - ",I3,2F6.2," [",I3.3,":",I3.3,"] - ",I2)
+ 20   format(" RIVER(",I2.2,") - ",I4,3F6.2," [",I3.3,":",I3.3,"] - ",I2," ",A)
  30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine OCN_SetGridArrays
@@ -1210,7 +1379,6 @@
 !-----------------------------------------------------------------------
 !
       use mod_mit_gcm, only : deltaT
-      use mod_mit_gcm, only : uwind, vwind
 !
       implicit none
 !
@@ -1334,11 +1502,13 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_mit_gcm, only : ustress, vstress, hflux, sflux, swflux,   &
-                              atemp, aqh, lwflux, evap, wspeed,         &
-                              precip, runoff, swdown, lwdown,           &
-                              apressure, snowprecip 
-      use mod_mit_gcm, only : uwind, vwind, xG, yG
+      use mod_mit_gcm, only : ustress_ESMF, vstress_ESMF, hflux_ESMF,   &
+                              sflux_ESMF, swflux_ESMF, atemp_ESMF,      &
+                              aqh_ESMF, lwflux_ESMF, evap_ESMF,         &
+                              wspeed_ESMF, precip_ESMF, runoff_ESMF,    &
+                              swdown_ESMF, lwdown_ESMF, apressure_ESMF, &
+                              snowprecip_ESMF, uwind_ESMF, vwind_ESMF
+      use mod_mit_gcm, only : xG, yG
 !
       implicit none
 !
@@ -1355,6 +1525,7 @@
 !
       integer :: i, j, ii, jj, bi, bj, iG, jG, imax, jmax
       integer :: id, iyear, iday, imonth, ihour, iunit
+      integer :: LBi, UBi, LBj, UBj
       integer :: localPet, petCount, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
@@ -1475,8 +1646,10 @@
                   lbound(ptr, dim=1), ubound(ptr, dim=1),               &
                   lbound(ptr, dim=2), ubound(ptr, dim=2)
       write(*,60) localPet, j, adjustl("IND/OCN/IMP/"//itemNameList(i)),&
-                  lbound(ustress, dim=1), ubound(ustress, dim=1),       &
-                  lbound(ustress, dim=2), ubound(ustress, dim=2)
+                  lbound(ustress_ESMF, dim=1),                          &
+                  ubound(ustress_ESMF, dim=1),                          &
+                  lbound(ustress_ESMF, dim=2),                          &
+                  ubound(ustress_ESMF, dim=2)
       end if 
 !
 !-----------------------------------------------------------------------
@@ -1499,7 +1672,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              ustress(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              ustress_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1510,7 +1683,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              vstress(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              vstress_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1521,7 +1694,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              hflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              hflux_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1532,7 +1705,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              sflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              sflux_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1543,7 +1716,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              swflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              swflux_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1554,7 +1727,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              uwind(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              uwind_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1565,7 +1738,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              vwind(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              vwind_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1576,7 +1749,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              wspeed(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              wspeed_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1587,7 +1760,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              atemp(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              atemp_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1598,7 +1771,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              aqh(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              aqh_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1609,7 +1782,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              lwflux(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              lwflux_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1620,7 +1793,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              evap(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              evap_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1631,7 +1804,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              precip(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              precip_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1642,15 +1815,10 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              snowprecip(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              snowprecip_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
-      case ('rnof')
-        print*, "runoff not implemented yet !!!"
-        call ESMF_Finalize(rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
       case ('dswr')
         do jj = 1-OLy, sNy+OLy
           do ii = 1-OLx, sNx+OLx
@@ -1658,7 +1826,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              swdown(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              swdown_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1669,7 +1837,7 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              lwdown(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              lwdown_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
@@ -1680,10 +1848,19 @@
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             if ((iG > 0 .and. iG < imax) .and.                          &
                 (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
-              apressure(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+              apressure_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
             end if
           end do
         end do
+      case ('rdis')
+        LBi = myXGlobalLo-1+(bi-1)*sNx+(1-OLx)
+        UBi = myXGlobalLo-1+(bi-1)*sNx+(sNx+OLx)
+        LBj = myYGlobalLo-1+(bj-1)*sNy+(1-OLy)
+        UBj = myYGlobalLo-1+(bj-1)*sNy+(sNy+OLy)
+        call put_river(vm, clock, LBi, UBi, LBj, UBj,                   &
+                       ptr, sfac, addo, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       end select
 !
 !-----------------------------------------------------------------------
@@ -1695,7 +1872,7 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        call print_matrix(transpose(ptr), 1-OLx, sNx+OLx,               &
+        call print_matrix(uwind_ESMF(:,:,1,1), 1-OLx, sNx+OLx,          &
                           1-OLy, sNy+OLy, 1, 1,                         &
                           localPet, iunit, "PTR/OCN/IMP")
         close(unit=iunit)
@@ -1954,6 +2131,216 @@
  100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
 !
       end subroutine OCN_Put
+!
+      subroutine put_river(vm, clock, LBi, UBi, LBj, UBj,               &
+                           ptr, sfac, addo, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_mit_gcm, only : runoff_ESMF
+      use mod_mit_gcm, only : xG, yG
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_VM), intent(in) :: vm
+      type(ESMF_Clock), intent(in) :: clock
+      integer, intent(in) :: LBi, UBi, LBj, UBj
+      real(ESMF_KIND_R8), intent(in) :: ptr(LBi:UBi,LBj:UBj)
+      real(ESMF_KIND_R8), intent(in) :: sfac, addo
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      real*8 :: rdis(1)
+      integer :: i, j, k, r, ii, jj, iG, jG, bi, bj
+      integer :: mm, ng, np, nr, localPet, petCount 
+      character(ESMF_MAXSTR) :: str
+!
+      type(ESMF_Time) :: currTime
+! 
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query VM
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query clock and time 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, mm=mm, timeStringISOFrac=str, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!     
+!-----------------------------------------------------------------------
+!     Fill array with river discharge data
+!-----------------------------------------------------------------------
+!
+      nr = size(rivers, dim=1)
+!
+      k = 0
+      bi = 1
+      bj = 1
+      do r = 1, nr
+        if (rivers(r)%isActive > 0) then
+          ! get river discharge
+          if (localPet == rivers(r)%rootPet) then
+            rdis = ptr(rivers(r)%iindex,rivers(r)%jindex)
+            if (rdis(1) < TOL_R8) then
+              rdis = (rdis*sfac)+addo
+            end if
+          end if
+!
+          ! broadcast data across the PETs
+          call ESMF_VMBroadcast(vm, bcstData=rdis, count=1,           &
+                                rootPet=rivers(r)%rootPet, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc,                        &
+                                 msg=ESMF_LOGERR_PASSTHRU,            &
+                                 line=__LINE__, file=FILENAME)) return
+!
+          ! apply monthly correction factor
+          rdis = rdis*rivers(r)%monfac(mm)
+!
+          ! if river data is provided as monthly values (m^3/s), then
+          ! overwrite river discharge data
+          if (rivers(r)%isActive == 2) then
+            rdis = rivers(r)%monfac(mm)
+          end if
+!
+          ! apply as point source
+          if (riverOpt == 1) then
+            call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,        &
+                 msg='riverOpt == 1 is not supported by MITgcm')
+            return
+!
+          ! apply as surface boundary condition
+          else if (riverOpt == 2) then
+            ! distribute data to the mapped ocean grid points
+            np = rivers(r)%mapSize 
+            do k = 1, np
+              i = int(rivers(r)%mapTable(1,k))
+              j = int(rivers(r)%mapTable(2,k))                
+
+              do jj = 1-OLy, sNy+OLy
+                do ii = 1-OLx, sNx+OLx
+                  iG = myXGlobalLo-1+(bi-1)*sNx+ii
+                  jG = myYGlobalLo-1+(bj-1)*sNy+jj
+                  if (iG == i .and. jG ==j .and. rdis(1) < TOL_R8) then
+                    runoff_ESMF(ii,jj,1,1) = runoff_ESMF(ii,jj,1,1)+  &
+                                           (rdis(1)/rivers(r)%mapArea)
+                  end if 
+                end do
+              end do  
+            end do
+          end if
+!
+          ! print debug info
+          if (localPet == 0) then
+            if (rdis(1) < TOL_R8) then
+              write(*,110) r, trim(str), rdis(1)
+            else
+              write(*,110) r, trim(str), ZERO_R8
+            end if 
+          end if
+        else
+          ! print debug info
+          if (localPet == 0) then
+            write(*,110) r, trim(str), ZERO_R8
+          end if
+        end if
+      end do
+!
+!-----------------------------------------------------------------------
+!     Formats 
+!-----------------------------------------------------------------------
+!
+ 110  format(' River (',I2.2,') Discharge [',A,'] : ',F15.6)
+!
+      end subroutine put_river
+!
+      function findPet(vm, i, j, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!      
+      integer :: findPet
+!
+      type(ESMF_VM), intent(in) :: vm
+      integer, intent(in) :: i, j
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: k, n, m, bi, bj, iG, jG
+      integer :: petCount, localPet, rootPet, sendData(1)
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query VM 
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Find rootPET that has river discharge data 
+!-----------------------------------------------------------------------
+!
+      bj = 1
+      bi = 1
+!
+      do k = 0, petCount-1
+        do n = 1, sNy
+          do m = 1, sNx
+            iG = mpi_myXGlobalLo(k)-1+(bi-1)*sNx+m
+            jG = mpi_myYGlobalLo(k)-1+(bj-1)*sNy+n
+            if (iG == i .and. jG == j) then
+              rootPet = k
+              exit
+            end if
+          end do
+        end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Broadcast rootPET data to PETs 
+!-----------------------------------------------------------------------
+!
+      sendData(1) = rootPet
+      call ESMF_VMBroadcast(vm, bcstData=sendData, count=1,             &
+                            rootPet=rootPet, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      findPet = sendData(1)
+!
+      end function findPet
 !
       end module mod_esmf_ocn
 

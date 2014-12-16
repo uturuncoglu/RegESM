@@ -2521,6 +2521,10 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!-----------------------------------------------------------------------
+!     Find rootPET that has river discharge data 
+!-----------------------------------------------------------------------
+!
       do ng = 1, Ngrids 
         do k = 0, petCount-1
           LBi = BOUNDS(ng)%LBi(k)
@@ -2538,6 +2542,10 @@
           end do
         end do
       end do
+!
+!-----------------------------------------------------------------------
+!     Broadcast rootPET data to PETs 
+!-----------------------------------------------------------------------
 !
       sendData(1) = rootPet
       call ESMF_VMBroadcast(vm, bcstData=sendData, count=1,             &

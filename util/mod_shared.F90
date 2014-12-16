@@ -189,12 +189,14 @@
 !     Get local minimum distance and location. 
 !-----------------------------------------------------------------------
 !
-      mdistance = minval(distance)
+      mdistance = minval(distance, mask=(models(Iocean)%mesh(k)%gmsk == &
+                         models(Iocean)%isLand))
 !
       i = 0
       j = 0
       do jj = jmin, jmax
         do ii = imin, imax
+!          write(*,fmt='(A,3I5,2F10.4)') "turuncu - ", localPet, ii, jj, models(Iocean)%mesh(k)%glon(ii,jj),models(Iocean)%mesh(k)%glat(ii,jj) 
           if (distance(ii,jj) == mdistance) then
             i = ii
             j = jj
@@ -202,6 +204,7 @@
           end if
         end do
       end do
+!      print*, "turuncu 2 - ", i, j
 !
 !-----------------------------------------------------------------------
 !     Broadcast grid indices of grid point that has the mininum distance
