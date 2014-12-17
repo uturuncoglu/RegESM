@@ -13,6 +13,8 @@ Supported Components
     * MIT-gcm (MITgcm_c63s) - http://mitgcm.org/download/
 * RTM: 
     * HD (1.0.2) - http://www.mpimet.mpg.de/en/science/the-land-in-the-earth-system/terrestrial-hydrology/hd-model.html and for license: http://www.mpimet.mpg.de/en/science/models/model-distribution.html
+* WAV:
+    * WAM (Cycle_4.5.3_MPI)
 
 Prerequisites
 =============

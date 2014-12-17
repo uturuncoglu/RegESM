@@ -378,7 +378,6 @@
         do i = 1, nModels
           do j = 1, nModels
             if (connectors(i,j)%modActive) then      
-              print*, i, j
               call NUOPC_RunElementAdd(genIS%wrap%runSeq(1),            &
                                        i=i, j=j, phase=1, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc,                      &
