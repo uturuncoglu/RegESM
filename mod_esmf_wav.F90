@@ -43,6 +43,11 @@
       use mod_types
       use mod_utils
 !
+      use wam_user_interface, only :                                    &
+          WAV_Initialize => WAM_init,                                   &
+          WAV_Run        => WAM_run,                                    &
+          WAV_Finalize   => WAM_finalize
+!
       implicit none
       private
 !
@@ -119,6 +124,17 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!-----------------------------------------------------------------------
+!     Register finalize routine    
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_FINALIZE,  &
+                                      userRoutine=WAV_SetFinalize,      &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
       end subroutine WAV_SetServices
 !
       subroutine WAV_SetInitializeP1(gcomp, importState, exportState,   &
@@ -171,12 +187,6 @@
 !
       subroutine WAV_SetInitializeP2(gcomp, importState, exportState,   &
                                      clock, rc)
-!
-!-----------------------------------------------------------------------
-!     Used module declarations 
-!-----------------------------------------------------------------------
-!
-!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -218,7 +228,7 @@
 !     Initialize the gridded component 
 !-----------------------------------------------------------------------
 !
-      call WAM_Init(comm)  
+      call WAV_Initialize(comm)  
 !
 !-----------------------------------------------------------------------
 !     Set-up grid and load coordinate data 
@@ -272,7 +282,7 @@
 !-----------------------------------------------------------------------
 !
 !      if (restarted .and. currTime == esmRestartTime) then
-!        call OCN_Put(gcomp, rc=rc)
+!        call WAV_Put(gcomp, rc=rc)
 !        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
 !                               line=__LINE__, file=FILENAME)) return
 !      end if
@@ -449,7 +459,7 @@
                                line=__LINE__, file=FILENAME)) return
 !
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and OCN stop times do not match: '//              &
+             msg='ESM and WAV stop times do not match: '//              &
              'please check the config files')
         return
       end if
@@ -464,7 +474,7 @@
                                line=__LINE__, file=FILENAME)) return
 !
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and OCN calendars do not match: '//               &
+             msg='ESM and WAV calendars do not match: '//               &
              'please check the config files')
         return
       end if
@@ -586,7 +596,7 @@
 !
       use wam_grid_module, only : nx, amowep, amoeap, xdello
       use wam_grid_module, only : ny, amosop, amonop, xdella, l_s_mask
-      use wam_mpi_module , only : petotal, nstart, nend
+      use wam_mpi_module , only : petotal, irank, nstart, nend
 !
       implicit none
 !
@@ -777,6 +787,8 @@
           do jj = jmin, jmax
             if (l_s_mask(ii,jj)) then
               ptrM(ii,jj) = models(Iwavee)%isOcean
+            else
+              ptrM(ii,jj) = models(Iwavee)%isLand
             end if
           end do
         end do
@@ -825,7 +837,6 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 20   format(" RIVER(",I2.2,") - ",I3,2F6.2," [",I3.3,":",I3.3,"] - ",I2)
  30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine WAV_SetGridArrays
@@ -1062,6 +1073,663 @@
       if (allocated(itemNameList)) deallocate(itemNameList)
 !
       end subroutine WAV_SetStates
+!
+      subroutine WAV_ModelAdvance(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      real*8 :: trun
+      integer :: localPet, petCount, phase
+      character(ESMF_MAXSTR) :: str1, str2
+!     
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock
+      type(ESMF_TimeInterval) :: timeStep
+      type(ESMF_Time) :: refTime, stopTime, currTime
+      type(ESMF_State) :: importState, exportState
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, clock=clock, importState=importState,&
+                            exportState=exportState, currentPhase=phase,&
+                            vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get start, stop and current time and time step
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, timeStep=timeStep, refTime=refTime, &
+                         stopTime=stopTime, currTime=currTime, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get time interval 
+!-----------------------------------------------------------------------
+!
+      call ESMF_TimeIntervalGet(timeStep, s_r8=trun, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Debug: write time information 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel >= 0 .and. localPet == 0) then
+        call ESMF_TimeGet(currTime,                                     &
+                          timeStringISOFrac=str1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_TimeGet(currTime+timeStep,                            &
+                          timeStringISOFrac=str2, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        if (debugLevel == 0) then
+          write(*,40) trim(str1), trim(str2), phase
+        else
+          write(*,50) trim(str1), trim(str2), phase, trun!-minval(dt)
+        end if
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get import fields 
+!-----------------------------------------------------------------------
+!
+      if ((currTime /= refTime) .or. restarted) then
+        call WAV_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Run WAV component
+!-----------------------------------------------------------------------
+!
+      call WAV_Run()
+!
+!-----------------------------------------------------------------------
+!     Put export fields 
+!-----------------------------------------------------------------------
+!
+      call WAV_Put(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return      
+!
+!-----------------------------------------------------------------------
+!     Formats 
+!-----------------------------------------------------------------------
+!
+ 40   format(' Running WAV Component: ',A,' --> ',A,' Phase: ',I1)
+ 50   format(' Running WAV Component: ',A,' --> ',A,' Phase: ',I1,      &
+             ' [', F15.2, ']')    
+!
+      end subroutine WAV_ModelAdvance
+!
+      subroutine WAV_SetFinalize(gcomp, importState, exportState,       &
+                                 clock, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Call model finalize routines
+!-----------------------------------------------------------------------
+!
+      call WAV_Finalize()
+!
+!-----------------------------------------------------------------------
+!     Destroy ESMF objects 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockDestroy(clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(importState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(exportState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end subroutine WAV_SetFinalize
+!
+      subroutine WAV_Get(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use wam_grid_module, only : nx, ny, nsea, l_s_mask
+      use wam_user_interface, only : us_esmf, vs_esmf
+!
+      implicit none   
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, ii, jj
+      integer :: id, iyear, iday, imonth, ihour, iunit
+      integer :: localPet, petCount, itemCount, localDECount
+      character(ESMF_MAXSTR) :: cname, msgString, ofile
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      real(ESMF_KIND_R8) :: sfac, addo
+      real(ESMF_KIND_R8), allocatable :: arr2d(:,:)
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+      type(ESMF_Field) :: field
+      type(ESMF_State) :: importState
+      type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, name=cname, clock=clock,             &
+                            importState=importState, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get current time 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 2) then
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
+                        dd=iday, h=ihour, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return 
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      if (.not. allocated(itemTypeList)) then
+        allocate(itemTypeList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList,        &
+                         itemTypeList=itemTypeList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over excahange fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+!
+      id = get_varid(models(Iwavee)%importField, itemNameList(i)) 
+!
+!-----------------------------------------------------------------------
+!     Get field
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Gather field 
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(arr2d)) allocate(arr2d(nx,ny))
+!
+      do j = 0, petCount-1
+        call ESMF_FieldGather(field, arr2d, rootPet=j, vm=vm, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write size of pointers    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+      write(*,60) localPet, j, adjustl("IND/WAV/IMP/"//itemNameList(i)),&
+                  1, nx, 1, ny
+      end if 
+!
+!-----------------------------------------------------------------------
+!     Put data to WAV component variable
+!-----------------------------------------------------------------------
+!
+      sfac = models(Iwavee)%importField(id)%scale_factor
+      addo = models(Iwavee)%importField(id)%add_offset
+!
+      select case (trim(adjustl(itemNameList(i))))
+      case ('wndu')
+        us_esmf(1:nsea) = pack(arr2d, l_s_mask)
+        us_esmf(1:nsea) = (us_esmf(1:nsea)*sfac)+addo
+      case ('wndv')
+        vs_esmf(1:nsea) = pack(arr2d, l_s_mask)
+        vs_esmf(1:nsea) = (vs_esmf(1:nsea)*sfac)+addo
+      end select
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in netCDF format    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 3) then
+        write(ofile,80) 'wav_import', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (allocated(itemTypeList)) deallocate(itemTypeList)
+      if (allocated(arr2d)) deallocate(arr2d)
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
+ 70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+!
+      end subroutine WAV_Get
+!
+      subroutine WAV_Put(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use wam_model_module, only : z0, ustar
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, imin, imax, jmin, jmax
+      integer :: iunit, iyear, iday, imonth, ihour
+      integer :: petCount, localPet, itemCount, localDECount
+      character(ESMF_MAXSTR) :: cname, msgString, ofile
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      real(ESMF_KIND_R8), pointer :: ptr(:,:)
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+      type(ESMF_Field) :: field
+      type(ESMF_State) :: exportState
+      type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, name=cname, clock=clock,             &
+                            exportState=exportState, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get current time 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 2) then
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
+                        dd=iday, h=ihour, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iwavee)%grid,                            &
+                        localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of export fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return 
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      if (.not. allocated(itemTypeList)) then
+        allocate(itemTypeList(itemCount))
+      end if
+      call ESMF_StateGet(exportState, itemNameList=itemNameList,        &
+                         itemTypeList=itemTypeList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over export fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+!
+!-----------------------------------------------------------------------
+!     Get export field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(exportState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set initial value to missing 
+!-----------------------------------------------------------------------
+!
+      ptr = MISSING_R8
+!
+      imin = lbound(ptr, dim=1)
+      imax = ubound(ptr, dim=1)
+      jmin = lbound(ptr, dim=2)
+      jmax = ubound(ptr, dim=2)
+!
+!-----------------------------------------------------------------------
+!     Put data to export field 
+!-----------------------------------------------------------------------
+!
+      select case (trim(adjustl(itemNameList(i))))
+      case ('z0')
+        call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, z0, rc)
+      case ('ustar')
+        call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, ustar, rc)
+      end select
+!
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in ASCII format   
+!-----------------------------------------------------------------------
+!
+!      if (debugLevel == 4) then
+!        iunit = localPet
+!        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
+!                        iyear, imonth, iday, ihour, localPet, j
+!        open(unit=iunit, file=trim(ofile)//'.txt') 
+!        call print_matrix(ptr, IstrR, IendR, JstrR, JendR, 1, 1,        &
+!                          localPet, iunit, "PTR/OCN/EXP")
+!        close(unit=iunit)
+!      end if         
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write field in netCDF format    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel == 3) then
+        write(ofile,100) 'wav_export', trim(itemNameList(i)),           &
+                        iyear, imonth, iday, ihour, localPet
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+      if (allocated(itemTypeList)) deallocate(itemTypeList)
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+!
+      end subroutine WAV_Put
+!
+      subroutine WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, inp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use wam_mpi_module,   only : nstart, nend, pelocal, irank
+      use wam_grid_module,  only : nx, ny, nsea, l_s_mask
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_VM), intent(in) :: vm
+      integer, intent(in) :: imin, imax, jmin, jmax
+      real(ESMF_KIND_R8), intent(inout) :: ptr(imin:imax,jmin:jmax)
+      real(ESMF_KIND_R4), intent(in) :: inp(1:nsea)
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: localPet, petCount
+      integer :: i, j, k, ii, jj, ijs, ijl
+      integer(ESMF_KIND_I4), allocatable :: offsets_recv(:)
+      integer(ESMF_KIND_I4), allocatable :: blocksize(:) 
+      real(ESMF_KIND_R4), allocatable :: dumm1(:), dumm2(:,:)
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query VM
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Allocate temporary arrays 
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(dumm1)) then
+        allocate(dumm1(1:nsea))
+        dumm1 = ZERO_R4
+      end if
+      if (.not. allocated(dumm2)) then
+        allocate(dumm2(nx,ny))
+        dumm2 = ZERO_R4
+      end if
+!
+      if (.not. allocated(blocksize)) then
+        allocate(blocksize(petCount))
+        blocksize = ZERO_I4
+      end if
+      if (.not. allocated(offsets_recv)) then
+        allocate (offsets_recv(petCount))
+        offsets_recv = ZERO_I4
+      end if
+!      
+!-----------------------------------------------------------------------
+!     Collect block size from each PETs 
+!-----------------------------------------------------------------------
+!
+      ijs = nstart(irank)
+      ijl = nend(irank)
+!
+      call ESMF_VMAllGatherV(vm, sendData= (/ ijl-ijs+1 /),             &
+                             sendCount=1, recvData=blocksize,           &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMAllGatherV(vm, sendData= (/ ijs-1 /),                 &
+                             sendCount=1, recvData=offsets_recv,        &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Collect data from each PETs 
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMAllGatherV(vm, sendData=inp(1:blocksize(irank)),      &
+                             sendCount=blocksize(irank),                &
+                             recvData=dumm1,                            &
+                             recvCounts=blocksize,                      &
+                             recvOffsets=offsets_recv,                  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Unpack data and fill pointer 
+!-----------------------------------------------------------------------
+!
+      dumm2 = unpack(dumm1, l_s_mask, MISSING_R4)
+!
+      do ii = imin, imax
+        do jj = jmin, jmax
+          if (dumm2(ii,jj) < TOL_R4) then
+            ptr(ii,jj) = dumm2(ii,jj)
+          end if
+        end do 
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays 
+!-----------------------------------------------------------------------
+!
+      if (allocated(dumm1)) deallocate(dumm1)
+      if (allocated(dumm2)) deallocate(dumm2)
+      if (allocated(blocksize)) deallocate(blocksize)
+      if (allocated(offsets_recv)) deallocate(offsets_recv)
+!
+      end subroutine WAV_Unpack
 !
       end module mod_esmf_wav
 

@@ -269,7 +269,7 @@
               !k = ubound(models(Iatmos)%petList, dim=1)
               !models(i)%petList(j) = models(Iatmos)%petList(k)
               models(i)%petList(j) = 0
-            else if (i .eq. Iocean) then
+            else if (i .eq. Iwavee) then
               !k = ubound(models(Iocean)%petList, dim=1)
               !models(i)%petList(j) = models(Iocean)%petList(k)+j
               models(i)%petList(j) = k
