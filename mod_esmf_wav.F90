@@ -359,19 +359,19 @@
       if (coldstart) then
         read(cdatea,'(I4,5I2)') ref_year, ref_month, ref_day,           &
                                 ref_hour, ref_minute, ref_second
-      end if
 !
-      call ESMF_TimeSet(cmpRefTime,                                     &
-                        yy=ref_year,                                    &
-                        mm=ref_month,                                   &
-                        dd=ref_day,                                     &
-                        h=ref_hour,                                     &
-                        m=ref_minute,                                   &
-                        s=ref_second,                                   &
-                        calendar=cal,                                   &
-                        rc=rc)
+        call ESMF_TimeSet(cmpRefTime,                                   &
+                          yy=ref_year,                                  &
+                          mm=ref_month,                                 &
+                          dd=ref_day,                                   &
+                          h=ref_hour,                                   &
+                          m=ref_minute,                                 &
+                          s=ref_second,                                 &
+                          calendar=cal,                                 &
+                          rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Set start time
@@ -487,10 +487,17 @@
       fac2 = maxval(connectors(:,Iwavee)%divDT,mask=models(:)%modActive)
       maxdiv = max(fac1, fac2)
 !
-      call ESMF_ClockSet(cmpClock, name='wav_clock',                    &
-                         refTime=cmpRefTime, timeStep=timeStep/maxdiv,  &
-                         startTime=cmpStartTime, stopTime=cmpStopTime,  &
-                         rc=rc)
+      if (coldstart) then
+        call ESMF_ClockSet(cmpClock, name='wav_clock',                  &
+                           refTime=cmpRefTime, timeStep=timeStep/maxdiv,&
+                           startTime=cmpStartTime, stopTime=cmpStopTime,&
+                           rc=rc)
+      else
+        call ESMF_ClockSet(cmpClock, name='wav_clock',                  &
+                           timeStep=timeStep/maxdiv,                    &
+                           startTime=cmpStartTime, stopTime=cmpStopTime,&
+                           rc=rc)
+      end if
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
