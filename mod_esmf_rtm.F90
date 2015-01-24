@@ -529,8 +529,8 @@
         ptrY(i,:) = lat1d
       end do
       ptrM = hd_lsm
-      do i = 1, nl
-        ptrA(i,:) = area(i)
+      do i = 1, nb
+        ptrA(:,i) = area(i)
       end do
 !
       if (allocated(lon1d)) deallocate(lon1d)

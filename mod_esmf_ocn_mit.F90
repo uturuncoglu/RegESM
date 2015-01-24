@@ -1107,7 +1107,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 20   format(" RIVER(",I2.2,") - ",I4,3F6.2," [",I3.3,":",I3.3,"] - ",I2," ",A)
+ 20   format(" RIVER(",I2.2,") - ",I4,3F8.2," [",I3.3,":",I3.3,"] - ",I2," ",A)
  30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine OCN_SetGridArrays
@@ -1461,15 +1461,14 @@
         end if
       end if
 !
-      if ((currTime /= startTime) .or. restarted) then
-!
 !-----------------------------------------------------------------------
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      call OCN_Get(gcomp, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+      if ((currTime /= startTime) .or. restarted) then
+        call OCN_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       end if
 !
 !-----------------------------------------------------------------------
@@ -1615,15 +1614,6 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Perform halo region update 
-!-----------------------------------------------------------------------
-!
-!      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
-!                          checkflag=.false., rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Loop over decomposition elements (DEs) 
 !-----------------------------------------------------------------------
 !
@@ -1663,6 +1653,8 @@
       bj = 1
       imax = Nx+1
       jmax = Ny+1
+!
+      where (isnan(ptr)) ptr = MISSING_R8
 !
       select case (trim(adjustl(itemNameList(i))))
       case ('taux')
@@ -2316,13 +2308,13 @@
       bj = 1
       bi = 1
 !
-      do k = 0, petCount-1
+      do k = 1, petCount
         do n = 1, sNy
           do m = 1, sNx
             iG = mpi_myXGlobalLo(k)-1+(bi-1)*sNx+m
             jG = mpi_myYGlobalLo(k)-1+(bj-1)*sNy+n
             if (iG == i .and. jG == j) then
-              rootPet = k
+              rootPet = k-1
               exit
             end if
           end do

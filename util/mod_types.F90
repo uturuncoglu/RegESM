@@ -53,10 +53,10 @@
       real*8, parameter :: R2D = 1.0d0/D2R
       real*8, parameter :: RADIUS = 6371.0d3
 !
-      real*8, parameter :: MISSING_R8 = 1.0d20
-      real  , parameter :: MISSING_R4 = 1.0e20
-      real*8, parameter :: TOL_R8 = MISSING_R8/2.0d0
-      real  , parameter :: TOL_R4 = MISSING_R4/2.0
+      real(ESMF_KIND_R8), parameter :: MISSING_R8 = 1.0d20
+      real(ESMF_KIND_R4), parameter :: MISSING_R4 = 1.0e20
+      real(ESMF_KIND_R8), parameter :: TOL_R8 = MISSING_R8/2.0d0
+      real(ESMF_KIND_R4), parameter :: TOL_R4 = MISSING_R4/2.0
 !
       real(ESMF_KIND_I4), parameter :: ZERO_I4 = 0
       real(ESMF_KIND_R8), parameter :: ZERO_R8 = 0.0d0

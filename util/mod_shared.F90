@@ -367,6 +367,14 @@
           pos = minloc(distance, mask=(models(Iocean)%mesh(k)%gmsk ==   &
                        models(Iocean)%isOcean))
 !
+          ! check position indices and skip loop
+          if (any(pos == 0)) then
+            rivers(r)%mapSize = ZERO_I4
+            rivers(r)%mapArea = ZERO_R8
+            rivers(r)%mapTable(:,:) = MISSING_R8
+            cycle 
+          end if
+!
           ! calculate distance to closest ocean model grid
           distance = ZERO_R8
           call gc_latlon(models(Iocean)%mesh(k)%glon(pos(1),pos(2)),    &
@@ -379,6 +387,7 @@
           np = ZERO_I4
           totalArea = ZERO_R8
           rivers(r)%mapTable(:,:) = MISSING_R8
+!
           do i = imin, imax
             do j = jmin, jmax
               if ((distance(i,j) <= rivers(r)%eRadius .and.             &

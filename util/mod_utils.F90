@@ -630,6 +630,11 @@
 !     Calculate total area of matched region 
 !-----------------------------------------------------------------------
 !
+      cLbnd(1) = lbound(ptrMask, dim=1)
+      cUbnd(1) = ubound(ptrMask, dim=1)
+      cLbnd(2) = lbound(ptrMask, dim=2)
+      cUbnd(2) = ubound(ptrMask, dim=2)
+!
       do i = cLbnd(1), cUbnd(1)
       do j = cLbnd(2), cUbnd(2)      
         if (any(ptrMask(i,j) == maskval)) then
