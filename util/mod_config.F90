@@ -547,12 +547,14 @@
             end do
             ! check field is already added to the list or not?
             flag = .true.
-            do l = 1, ubound(models(i)%exportField, dim=1)
-              if (trim(dum(1)) ==                                       &
-                  trim(models(i)%exportField(l)%short_name)) then
-                flag = .false.
-              end if
-            end do
+            if (allocated(models(i)%exportField)) then
+              do l = 1, ubound(models(i)%exportField, dim=1)
+                if (trim(dum(1)) ==                                     &
+                    trim(models(i)%exportField(l)%short_name)) then
+                  flag = .false.
+                end if
+              end do
+            end if
             ! add export field to the list
             if (flag) then
               call add_field(models(i)%exportField, dum, .true.)
@@ -574,12 +576,14 @@
             end if
             ! check field is already added to the list or not?
             flag = .true.
-            do l = 1, ubound(models(j)%importField, dim=1)
-              if (trim(dum(1)) ==                                       &
-                  trim(models(j)%importField(l)%short_name)) then
-                flag = .false.
-              end if
-            end do
+            if (allocated(models(j)%importField)) then
+              do l = 1, ubound(models(j)%importField, dim=1)
+                if (trim(dum(1)) ==                                     &
+                    trim(models(j)%importField(l)%short_name)) then
+                  flag = .false.
+                end if
+              end do
+            end if 
             ! add import field to the list
             if (flag) then
               call add_field(models(j)%importField, dum, .false.)
