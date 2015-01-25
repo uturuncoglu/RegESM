@@ -483,6 +483,7 @@
          line=__LINE__, file=FILENAME)) return
 !
       rh1Exist = .true.
+      rh2Exist = .false.
       if (itemCount <= 0) rh1Exist = .false.
 !
       if (.not. rh1Exist) then
