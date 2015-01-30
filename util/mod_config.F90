@@ -215,6 +215,10 @@
                                 rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+      else
+        write(*,*) "[error] -- Config file '"//trim(config_fname)//"'"//&
+                   " is not available! exiting ..."
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
 !
 !-----------------------------------------------------------------------
@@ -606,8 +610,8 @@
           end do
         end do
       else
-        write(*,*) '[error] -- Exchange field table ['//trim(ifile)//   &
-                   '] not available'
+        write(*,*) "[error] -- Exchange field table '"//trim(ifile)//   &
+                   "' is not available! exiting ..."
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
 !
