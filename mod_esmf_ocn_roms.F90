@@ -1184,6 +1184,9 @@
 !
           rivers(i)%rootPet = findPet(vm, rivers(i)%iindex,             &
                                       rivers(i)%jindex, rc)
+          if (ESMF_LogFoundError(rcToCheck=rc,                          &
+                                 msg=ESMF_LOGERR_PASSTHRU,              &
+                                 line=__LINE__, file=FILENAME)) return
 !
           if (localPet == 0) then
             write(*,20) i, rivers(i)%dir, rivers(i)%eRadius,            &
