@@ -175,6 +175,7 @@
 !
       if (.not. allocated(distance)) then
         allocate(distance(imin:imax,jmin:jmax))
+        distance = ZERO_R8
       end if
 !
 !-----------------------------------------------------------------------
@@ -196,7 +197,6 @@
       j = 0
       do jj = jmin, jmax
         do ii = imin, imax
-!          write(*,fmt='(A,3I5,2F10.4)') "turuncu - ", localPet, ii, jj, models(Iocean)%mesh(k)%glon(ii,jj),models(Iocean)%mesh(k)%glat(ii,jj) 
           if (distance(ii,jj) == mdistance) then
             i = ii
             j = jj
@@ -204,7 +204,6 @@
           end if
         end do
       end do
-!      print*, "turuncu 2 - ", i, j
 !
 !-----------------------------------------------------------------------
 !     Broadcast grid indices of grid point that has the mininum distance
@@ -320,145 +319,174 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, j, k, r, np, localPet, petCount, nRiver
-      integer :: imin, imax, jmin, jmax, sendData2(1)
+      integer :: imin, imax, jmin, jmax, pos(2), ibuffer(1)
       real*8, dimension(:,:), allocatable :: distance
-      real*8, dimension(:), allocatable :: sendData1 
-      integer :: pos(2)
-      real*8 :: totalArea
+      real*8, dimension(:), allocatable :: dbuffer2 
+      real*8 :: totalArea, dbuffer1(1)
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
+!     Query VM 
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
 !     Map closest ocean grids to the river points
 !     The effective radius is used to find the set of ocean grids 
+!     The algorithm runs on PET = 0 beacuse only root PET 
+!     has global view of grid coordinates 
 !-----------------------------------------------------------------------
 !
       ! get number of specified rivers
       nRiver = size(rivers, dim=1)
 !
-      ! get index of used grid stencile (algorithm uses cross points)
-      k = minloc(models(Iocean)%mesh(:)%gtype, dim=1,                   &
-                 mask=(models(Iocean)%mesh(:)%gtype == Icross))
+      if (localPet == 0) then
+        ! get index of used grid stencile (algorithm uses cross points)
+        k = minloc(models(Iocean)%mesh(:)%gtype, dim=1,                 &
+                   mask=(models(Iocean)%mesh(:)%gtype == Icross))
 !
-      ! get limits 
-      imin = lbound(models(Iocean)%mesh(k)%glon, dim=1)
-      imax = ubound(models(Iocean)%mesh(k)%glon, dim=1)
-      jmin = lbound(models(Iocean)%mesh(k)%glon, dim=2)
-      jmax = ubound(models(Iocean)%mesh(k)%glon, dim=2)
+        ! get limits 
+        imin = lbound(models(Iocean)%mesh(k)%glon, dim=1)
+        imax = ubound(models(Iocean)%mesh(k)%glon, dim=1)
+        jmin = lbound(models(Iocean)%mesh(k)%glon, dim=2)
+        jmax = ubound(models(Iocean)%mesh(k)%glon, dim=2)
 !
-      if (.not. allocated(distance)) then
-        allocate(distance(imin:imax,jmin:jmax))
-      end if 
+        ! allocate temporary distance array
+        if (.not. allocated(distance)) then
+          allocate(distance(imin:imax,jmin:jmax))
+        end if 
 !
-      if (.not. allocated(sendData1)) then
-        allocate(sendData1(MAX_MAPPED_GRID))
-      end if
+        do r = 1, nRiver 
+          if (rivers(r)%isActive > 0) then
+            ! calculate distance to river point
+            distance = ZERO_R8
+            call gc_latlon(rivers(r)%lon, rivers(r)%lat,                &
+                           imin, imax, jmin, jmax,                      &
+                           models(Iocean)%mesh(k)%glon,                 &
+                           models(Iocean)%mesh(k)%glat, distance)
 !
-      do r = 1, nRiver 
-        if (rivers(r)%isActive > 0) then
-          ! calculate distance to river point
-          distance = ZERO_R8
-          call gc_latlon(rivers(r)%lon, rivers(r)%lat,                  &
-                         imin, imax, jmin, jmax,                        &
-                         models(Iocean)%mesh(k)%glon,                   &
-                         models(Iocean)%mesh(k)%glat, distance)
+            ! find closest ocean model grid
+            pos = minloc(distance, mask=(models(Iocean)%mesh(k)%gmsk == &
+                         models(Iocean)%isOcean))
 !
-          ! find closest ocean model grid
-          pos = minloc(distance, mask=(models(Iocean)%mesh(k)%gmsk ==   &
-                       models(Iocean)%isOcean))
+            ! check position indices and skip loop
+            if (any(pos == 0)) then
+              rivers(r)%mapSize = ZERO_I4
+              rivers(r)%mapArea = ZERO_R8
+              rivers(r)%mapTable(:,:) = MISSING_R8
+              cycle 
+            end if
 !
-          ! check position indices and skip loop
-          if (any(pos == 0)) then
-            rivers(r)%mapSize = ZERO_I4
-            rivers(r)%mapArea = ZERO_R8
+            ! calculate distance to closest ocean model grid
+            distance = ZERO_R8
+            call gc_latlon(models(Iocean)%mesh(k)%glon(pos(1),pos(2)),  &
+                           models(Iocean)%mesh(k)%glat(pos(1),pos(2)),  &
+                           imin, imax, jmin, jmax,                      &
+                           models(Iocean)%mesh(k)%glon,                 &
+                           models(Iocean)%mesh(k)%glat, distance)
+!
+            ! find list of grid indices
+            np = ZERO_I4
+            totalArea = ZERO_R8
             rivers(r)%mapTable(:,:) = MISSING_R8
-            cycle 
-          end if
 !
-          ! calculate distance to closest ocean model grid
-          distance = ZERO_R8
-          call gc_latlon(models(Iocean)%mesh(k)%glon(pos(1),pos(2)),    &
-                         models(Iocean)%mesh(k)%glat(pos(1),pos(2)),    &
-                         imin, imax, jmin, jmax,                        &
-                         models(Iocean)%mesh(k)%glon,                   &
-                         models(Iocean)%mesh(k)%glat, distance)
+            do i = imin, imax
+              do j = jmin, jmax
+                if ((distance(i,j) <= rivers(r)%eRadius .and.           &
+                    (models(Iocean)%mesh(k)%gmsk(i,j) ==                &
+                     models(Iocean)%isOcean))) then
+                  np = np+1
 !
-          ! find list of grid indices
-          np = ZERO_I4
-          totalArea = ZERO_R8
-          rivers(r)%mapTable(:,:) = MISSING_R8
+                  ! check for size
+                  if (np > MAX_MAPPED_GRID) then 
+                    write(*,fmt='(A,I5,A)') "[error] - Try to reduce "//&
+                          "effective radius for river [", r, "]"
+                    write(*,fmt='(A)') "[error] - Number of effected "//&
+                          "ocean grid points greater than ",            &
+                          MAX_MAPPED_GRID 
+                    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+                  end if
 !
-          do i = imin, imax
-            do j = jmin, jmax
-              if ((distance(i,j) <= rivers(r)%eRadius .and.             &
-                  (models(Iocean)%mesh(k)%gmsk(i,j) ==                  &
-                   models(Iocean)%isOcean))) then
-                np = np+1
+                  ! calculate total area of mapped ocean grid points
+                  totalArea = totalArea+models(Iocean)%mesh(k)%gare(i,j)
 !
-                ! check for size
-                if (np > MAX_MAPPED_GRID) then 
-                  write(*,fmt='(A,I5,A)') "[error] - Try to reduce "//  &
-                        "effective radius for river [", r, "]"
-                  write(*,fmt='(A)') "[error] - Number of effected "//  &
-                        "ocean grid points greater than ",              &
-                        MAX_MAPPED_GRID 
-                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
+                  rivers(r)%mapTable(1,np) = i
+                  rivers(r)%mapTable(2,np) = j
+                  rivers(r)%mapTable(3,np) =                            &
+                                        models(Iocean)%mesh(k)%gare(i,j)
                 end if
-!
-                ! calculate total area of mapped ocean grid points
-                totalArea = totalArea+models(Iocean)%mesh(k)%gare(i,j)
-!
-                rivers(r)%mapSize = np
-                rivers(r)%mapArea = totalArea
-                rivers(r)%mapTable(1,np) = i
-                rivers(r)%mapTable(2,np) = j
-                rivers(r)%mapTable(3,np) = models(Iocean)%mesh(k)%gare(i,j)
-              end if
+              end do
             end do
-          end do
 !
-          where (rivers(r)%mapTable(3,:) /= MISSING_R8)
-            rivers(r)%mapTable(3,:) = rivers(r)%mapTable(3,:)/totalArea
-          end where
+            rivers(r)%mapSize = np
+            rivers(r)%mapArea = totalArea
+!
+            ! calculate weights
+            do i = 1, np
+              rivers(r)%mapTable(3,i) = rivers(r)%mapTable(3,i)/totalArea
+            end do
+          end if
+        end do 
+!
+        ! deallocate temporary distance array
+        if (allocated(distance)) then
+          deallocate(distance)
         end if
+      else
+        do r = 1, nRiver 
+          rivers(r)%mapSize = ZERO_I4
+          rivers(r)%mapArea = ZERO_R8
+          rivers(r)%mapTable(:,:) = MISSING_R8
+        end do
+      end if
 !
 !-----------------------------------------------------------------------
 !     Broadcast map data 
 !-----------------------------------------------------------------------
 !
-        do i = 1, 3
-          sendData1(:) = rivers(r)%mapTable(i,:)
-          call ESMF_VMBroadcast(vm, bcstData=sendData1,                 &
-                                count=MAX_MAPPED_GRID, rootPet=0, rc=rc)
+      do r = 1, nRiver 
+        if (rivers(r)%isActive > 0) then
+          ! broadcast number of grid effected by each river 
+          ibuffer(1) = rivers(r)%mapSize
+          call ESMF_VMBroadcast(vm, bcstData=ibuffer, count=1,          &
+                                rootPet=0, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
                                  line=__LINE__, file=FILENAME)) return
-          rivers(r)%mapTable(i,:) = sendData1(:)
-        end do
+          rivers(r)%mapSize = ibuffer(1)
 !
-        sendData2(1) = rivers(r)%mapSize
-        call ESMF_VMBroadcast(vm, bcstData=sendData2, count=1,          &
-                              rootPet=0, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-        rivers(r)%mapSize = sendData2(1)
+          ! broadcast total surface area effected by each river
+          dbuffer1(1) = rivers(r)%mapArea
+          call ESMF_VMBroadcast(vm, bcstData=dbuffer1, count=1,         &
+                                rootPet=0, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+          rivers(r)%mapArea = dbuffer1(1)
 !
-        sendData1(1) = rivers(r)%mapArea
-        call ESMF_VMBroadcast(vm, bcstData=sendData1, count=1,          &
-                              rootPet=0, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-        rivers(r)%mapArea = sendData1(1)
+          ! allocate send buffer for river
+          np = rivers(r)%mapSize
+          if (.not. allocated(dbuffer2)) then
+            allocate(dbuffer2(np))
+          end if
 !
+          ! broadcast info of effected grid points (i, j and weight)
+          do i = 1, 3
+            dbuffer2 = rivers(r)%mapTable(i,1:np)
+            call ESMF_VMBroadcast(vm, bcstData=dbuffer2,                &
+                                  count=np, rootPet=0, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc,                        &
+                                   msg=ESMF_LOGERR_PASSTHRU,            &
+                                   line=__LINE__, file=FILENAME)) return
+            rivers(r)%mapTable(i,1:np) = dbuffer2
+          end do
+!
+          ! deallocate buffer
+          if (allocated(dbuffer2)) deallocate(dbuffer2)
+        end if
       end do
-!
-!-----------------------------------------------------------------------
-!     Deallocate temporary arrays. 
-!-----------------------------------------------------------------------
-!
-      if (allocated(distance)) then
-        deallocate(distance)
-        deallocate(sendData1)
-      end if
 !
       end subroutine map_rivers
 !
