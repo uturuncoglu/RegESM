@@ -763,6 +763,8 @@
 !
       do i = 1, nModels
         nf = size(models(i)%exportField)
+        if (.not. models(i)%modActive) cycle
+!
         do j = 1, nf
           lname = trim(models(i)%exportField(j)%long_name)
           sname = trim(models(i)%exportField(j)%short_name)
