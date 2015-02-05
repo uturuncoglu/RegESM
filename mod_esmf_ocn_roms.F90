@@ -641,21 +641,6 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get list of import fields 
-!-----------------------------------------------------------------------
-!
-      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      if (.not. allocated(itemNameList)) then
-        allocate(itemNameList(itemCount))
-      end if
-      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Check fields in the importState (fast time step) 
 !-----------------------------------------------------------------------
 !
