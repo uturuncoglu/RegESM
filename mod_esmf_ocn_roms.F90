@@ -30,12 +30,10 @@
 !
       use ESMF
       use NUOPC
-      use NUOPC_Model, only :                                           &
-          NUOPC_SetServices          => routine_SetServices,            &
+      use NUOPC_Model,                                                  &
+          NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
-          NUOPC_Model_Type_IS        => type_InternalState,             &
-          NUOPC_Model_Label_IS       => label_InternalState,            &
           NUOPC_Label_SetClock       => label_SetClock,                 &
           NUOPC_Label_CheckImport    => label_CheckImport
 !
@@ -593,22 +591,18 @@
       logical :: atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
-      type(NUOPC_Model_Type_IS) :: is
-      type(ESMF_Time) :: startTime, currTime
-      type(ESMF_Clock) :: clock
+      type(ESMF_Time)  :: startTime, currTime
+      type(ESMF_Clock) :: driverClock
       type(ESMF_Field) :: field
       type(ESMF_State) :: importState
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Get component for its internal state 
+!     Query component for the driverClock
 !-----------------------------------------------------------------------
 !
-      nullify(is%wrap)
-!
-      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Model_Label_IS,   &
-                                         is, rc)
+      call NUOPC_ModelGet(gcomp, driverClock=driverClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -616,10 +610,14 @@
 !     Get the start time and current time out of the clock
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(is%wrap%driverClock, startTime=startTime,      &
+      call ESMF_ClockGet(driverClock, startTime=startTime,              &
                          currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query component for its clock and importState
+!-----------------------------------------------------------------------
 !
       call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -636,6 +634,7 @@
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
       end if
+!
       call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -662,7 +661,6 @@
                               rcToReturn=rc)
         return
       end if
-!
       end if
 !
 !-----------------------------------------------------------------------
@@ -2450,15 +2448,15 @@
             ! print debug info
             if (localPet == 0) then
               if (rdis(1) < TOL_R8) then
-                write(*,110) r, trim(str), rdis(1)
+                write(*,110) r, trim(str), rdis(1), rivers(r)%mapArea
               else
-                write(*,110) r, trim(str), ZERO_R8
+                write(*,110) r, trim(str), ZERO_R8, ZERO_R8
               end if 
             end if
           else
             ! print debug info
             if (localPet == 0) then
-              write(*,110) r, trim(str), ZERO_R8
+              write(*,110) r, trim(str), ZERO_R8, ZERO_R8
             end if
           end if
         end do
@@ -2468,7 +2466,7 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 110  format(' River (',I2.2,') Discharge [',A,'] : ',F15.6)
+ 110  format(' River (',I2.2,') Discharge [',A,'] : ',F15.6, E15.6)
 !
       end subroutine put_river
 !

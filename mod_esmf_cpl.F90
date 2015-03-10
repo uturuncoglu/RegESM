@@ -31,12 +31,11 @@
       use ESMF
       use NUOPC
       use NUOPC_Connector, only :                                       &
-          NUOPC_SetServices     => routine_SetServices,                 &
-          NUOPC_Type_IS         => type_InternalState,                  &
-          NUOPC_Label_IS        => label_InternalState,                 &
+          NUOPC_SetServices     => SetServices,                         &
           NUOPC_Label_ComputeRH => label_ComputeRouteHandle,            &
           NUOPC_Label_ExecuteRH => label_ExecuteRouteHandle,            &
-          NUOPC_Label_ReleaseRH => label_ReleaseRouteHandle
+          NUOPC_Label_ReleaseRH => label_ReleaseRouteHandle,            &
+          NUOPC_ConnectorGet, NUOPC_ConnectorSet
 !
       use mod_types
       use mod_utils
@@ -110,7 +109,7 @@
       logical :: enableExtp, rh1Exist, rh2Exist
       integer :: i, j, localPet, petCount, localDECount
       integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
-      integer :: cplCount, srcCount, dstCount, itemCount, lsmsk(1)
+      integer :: srcCount, dstCount, itemCount, lsmsk(1)
       integer :: srcMaskVal, dstMaskVal
       integer(ESMF_KIND_I4), allocatable, dimension(:,:) :: tlw, tuw
       character(ESMF_MAXSTR) :: cname, fname, rname, msgString
@@ -118,6 +117,7 @@
       character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
 !
       type(ESMF_VM) :: vm
+      type(ESMF_State) :: state
       type(ESMF_DistGrid) :: distgrid 
       type(ESMF_Grid) :: srcGrid, dstGrid
       type(ESMF_StaggerLoc) :: srcSLoc, dstSLoc
@@ -125,8 +125,7 @@
       type(ESMF_RegridMethod_Flag) :: regridMethod
       type(ESMF_RouteHandle) :: routeHandle
       type(ESMF_Field) :: srcField, dstField, tmpField
-!
-      type(NUOPC_Type_IS) :: genIS
+      type(ESMF_FieldBundle) :: dstFields, srcFields
 !
       rc = ESMF_SUCCESS
 !
@@ -194,69 +193,44 @@
       models(iDst)%isOcean = lsmsk(1)      
 !
 !-----------------------------------------------------------------------
-!     Get internal state 
-!-----------------------------------------------------------------------
-!
-      nullify(genIS%wrap)
-      call ESMF_UserCompGetInternalState(ccomp, NUOPC_Label_IS,         &
-                                         genIS, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Get size of source and destination field list
 !-----------------------------------------------------------------------
 !
-      call NUOPC_CplCompAttributeGet(ccomp, cplListSize=cplCount, rc=rc)
+      call NUOPC_ConnectorGet(ccomp, srcFields=srcFields,               &
+                              dstFields=dstFields, state=state, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldCount=srcCount, rc=rc)
+      call ESMF_FieldBundleGet(srcFields, fieldCount=srcCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
-                               fieldCount=dstCount, rc=rc)
+      call ESMF_FieldBundleGet(dstFields, fieldCount=dstCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
-!
-      if (cplCount /= srcCount .or. cplCount /= dstCount) then
-        write(msgString,'(a)') trim(cname)//                            &
-              ': cplList count does not agree with FieldBundle counts!'
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        return
-      end if
 !
 !-----------------------------------------------------------------------
 !     Get source and destination fields
 !-----------------------------------------------------------------------
 !
-      if (cplCount > 0) then
+      if (srcCount == dstCount .and. dstCount > 0) then
 !
 !-----------------------------------------------------------------------
 !     Allocate list arrays and routehandle 
 !-----------------------------------------------------------------------
 !
-      allocate(cplList(cplCount))
-      allocate(srcList(cplCount))
-      allocate(dstList(cplCount))
+      allocate(srcList(srcCount))
+      allocate(dstList(dstCount))
 !
 !-----------------------------------------------------------------------
 !     Query field lists
 !-----------------------------------------------------------------------
 !
-      call NUOPC_CplCompAttributeGet(ccomp, cplList=cplList, rc=rc)
+      call ESMF_FieldBundleGet(srcFields, fieldNameList=srcList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldNameList=srcList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
-                               fieldNameList=dstList, rc=rc)
+      call ESMF_FieldBundleGet(dstFields, fieldNameList=dstList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -264,7 +238,7 @@
 !     Loop over exchange fields 
 !-----------------------------------------------------------------------
 !
-      do i = 1, cplCount 
+      do i = 1, srcCount
 !
 !-----------------------------------------------------------------------
 !     Get source and destination field index 
@@ -300,12 +274,12 @@
 !
       fname = trim(models(iSrc)%exportField(idSrc)%short_name)
 !
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields, trim(fname),       &
+      call ESMF_FieldBundleGet(srcFields, trim(fname),                  &
                                field=srcField, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields, trim(fname),       &
+      call ESMF_FieldBundleGet(dstFields, trim(fname),                  &
                                field=dstField, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -340,7 +314,7 @@
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
               trim(INTPDES(Ibilin))//'_'//trim(cname)//'_ext'
 !
-      call ESMF_StateGet(genIS%wrap%state,itemSearch='rh_'//trim(rname),&
+      call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
                          itemCount=itemCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
@@ -381,7 +355,7 @@
 !     Add 1st routehandle to the state    
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateAdd(genIS%wrap%state, (/ routeHandle /), rc=rc)
+      call ESMF_StateAdd(state, (/ routeHandle /), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -394,7 +368,7 @@
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
               trim(INTPDES(Instod))//'_'//trim(cname)//'_ext'
 !
-      call ESMF_StateGet(genIS%wrap%state,itemSearch='rh_'//trim(rname),&
+      call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
                          itemCount=itemCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
@@ -454,7 +428,7 @@
 !     Add 2nd routehandle to the state    
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateAdd(genIS%wrap%state, (/ routeHandle /), rc=rc)
+      call ESMF_StateAdd(state, (/ routeHandle /), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -477,7 +451,7 @@
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
               trim(INTPDES(itSrc))//'_'//trim(cname)
 !
-      call ESMF_StateGet(genIS%wrap%state,itemSearch='rh_'//trim(rname),&
+      call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
                          itemCount=itemCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
@@ -534,7 +508,7 @@
 !     Add routehandle to the state    
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateAdd(genIS%wrap%state, (/ routeHandle /), rc=rc)
+      call ESMF_StateAdd(state, (/ routeHandle /), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -591,12 +565,13 @@
       character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
       character(ESMF_MAXSTR) :: msgString, cname, fname, rname
 !
-      type(NUOPC_Type_IS) :: genIS
       type(ESMF_VM) :: vm
+      type(ESMF_State) :: state
       type(ESMF_Grid) :: srcGrid, dstGrid
       type(ESMF_RouteHandle) :: routeHandle
       type(ESMF_StaggerLoc) :: srcSLoc, dstSLoc
       type(ESMF_Field) :: srcField, dstField, tmpField
+      type(ESMF_FieldBundle) :: dstFields, srcFields
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d
 !
       rc = ESMF_SUCCESS
@@ -608,6 +583,7 @@
       call ESMF_CplCompGet(ccomp, name=cname, vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -625,26 +601,19 @@
       enableExtp = connectors(iSrc,iDst)%modExtrapolation
 !
 !-----------------------------------------------------------------------
-!     Get internal state 
-!-----------------------------------------------------------------------
-!
-      nullify(genIS%wrap)
-      call ESMF_UserCompGetInternalState(ccomp, NUOPC_Label_IS,         &
-                                         genIS, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Get size of field list
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldCount=srcCount, rc=rc)
+      call NUOPC_ConnectorGet(ccomp, srcFields=srcFields,               &
+                              dstFields=dstFields, state=state, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
-                               fieldCount=dstCount, rc=rc)
+      call ESMF_FieldBundleGet(srcFields, fieldCount=srcCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldBundleGet(dstFields, fieldCount=dstCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -653,14 +622,12 @@
 !-----------------------------------------------------------------------
 !
       allocate(srcList(srcCount))
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldNameList=srcList, rc=rc)
+      call ESMF_FieldBundleGet(srcFields, fieldNameList=srcList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
       allocate(dstList(dstCount))
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields,                    &
-                               fieldNameList=dstList, rc=rc)
+      call ESMF_FieldBundleGet(dstFields, fieldNameList=dstList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -704,12 +671,12 @@
 !
       fname = trim(models(iSrc)%exportField(idSrc)%short_name)
 !
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields, trim(fname),       &
+      call ESMF_FieldBundleGet(srcFields, trim(fname),                  &
                                field=srcField, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_FieldBundleGet(genIS%wrap%dstFields, trim(fname),       &
+      call ESMF_FieldBundleGet(dstFields, trim(fname),                  &
                                field=dstField, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -730,8 +697,7 @@
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
               trim(INTPDES(itSrc))//'_'//trim(cname)//'_ext'
 !
-      call ESMF_StateGet(genIS%wrap%state, 'rh_'//trim(rname),          &
-                         routeHandle, rc=rc)
+      call ESMF_StateGet(state, 'rh_'//trim(rname), routeHandle, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -767,8 +733,7 @@
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
               'NS2D_'//trim(cname)//'_ext'
 !
-      call ESMF_StateGet(genIS%wrap%state, 'rh_'//trim(rname),          &
-                         routeHandle, rc=rc)
+      call ESMF_StateGet(state, 'rh_'//trim(rname), routeHandle, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -860,8 +825,7 @@
       rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
               trim(INTPDES(itSrc))//'_'//trim(cname)
 !
-      call ESMF_StateGet(genIS%wrap%state, 'rh_'//trim(rname),          &
-                         routeHandle, rc=rc)
+      call ESMF_StateGet(state, 'rh_'//trim(rname), routeHandle, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -972,7 +936,8 @@
       character(ESMF_MAXSTR) :: cname
 !
       type(ESMF_VM) :: vm
-      type(NUOPC_Type_IS) :: genIS
+      type(ESMF_State) :: state
+      type(ESMF_FieldBundle) :: srcFields
       type(ESMF_RouteHandle) :: routeHandle
 !
       rc = ESMF_SUCCESS
@@ -984,6 +949,7 @@
       call ESMF_CplCompGet(ccomp, name=cname, vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -999,21 +965,15 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Get internal state 
-!-----------------------------------------------------------------------
-!
-      nullify(genIS%wrap)
-      call ESMF_UserCompGetInternalState(ccomp, NUOPC_Label_IS,         &
-                                         genIS, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Get size of field list
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldCount=srcCount, rc=rc)
+      call NUOPC_ConnectorGet(ccomp, srcFields=srcFields,               &
+                              state=state, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldBundleGet(srcFields, fieldCount=srcCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -1022,8 +982,7 @@
 !-----------------------------------------------------------------------
 !
       allocate(srcList(srcCount))
-      call ESMF_FieldBundleGet(genIS%wrap%srcFields,                    &
-                               fieldNameList=srcList, rc=rc)
+      call ESMF_FieldBundleGet(srcFields, fieldNameList=srcList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -1043,7 +1002,7 @@
 !     Get routehandle from state 
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateGet(genIS%wrap%state, 'rh_'//                      &
+      call ESMF_StateGet(state, 'rh_'//                                 &
                          trim(models(isrc)%exportField(sid)%short_name),&
                          routeHandle, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &

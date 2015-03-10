@@ -776,8 +776,7 @@
 !
           if (.not. isExist) then
           call NUOPC_FieldDictionaryAddEntry(trim(lname),               &
-               canonicalUnits=trim(units), defaultLongName='N/A',       &
-               defaultShortName=trim(sname), rc=rc)
+               canonicalUnits=trim(units), rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
           if (localPet == 0) then
@@ -798,8 +797,7 @@
 !
           if (.not. isExist) then
           call NUOPC_FieldDictionaryAddEntry(trim(lname),               &
-               canonicalUnits=trim(units), defaultLongName='N/A',       &
-               defaultShortName=trim(sname), rc=rc)
+               canonicalUnits=trim(units), rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
           if (localPet == 0) then

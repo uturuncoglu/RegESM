@@ -31,7 +31,7 @@
       use ESMF
       use NUOPC
       use NUOPC_Model, only :                                           &
-          NUOPC_SetServices          => routine_SetServices,            &
+          NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
           NUOPC_Label_SetClock       => label_SetClock
