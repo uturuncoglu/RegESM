@@ -354,8 +354,8 @@
 !-----------------------------------------------------------------------
 !
       use mod_dynparam , only : calendar
-      use mod_runparams, only : idate0, idate1, idate2,                 &
-                                dtsec, split_idate
+      use mod_runparams, only : idate0, idate1, idate2, dtsec
+      use mod_date, only : split_idate
 !
       implicit none
 !
@@ -583,7 +583,6 @@
 !
       integer :: i, j, ii, jj, i0, j0, localDECount
       integer :: cpus_per_dim(2)
-      type(ESMF_Decomp_Flag) :: decompflag(2)
       type(ESMF_DistGrid) :: distGrid
       type(ESMF_StaggerLoc) :: staggerLoc
       real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
@@ -628,12 +627,9 @@
 !     because of this limitation. 
 !-----------------------------------------------------------------------
 !
-      decompflag = (/ ESMF_DECOMP_RESTLAST, ESMF_DECOMP_RESTLAST /)
-!
       distGrid = ESMF_DistGridCreate(minIndex=(/ 1, 1 /),               &
                                      maxIndex=(/ iy, jx /),             &
                                      regDecomp=cpus_per_dim,            &
-                                     decompflag=decompflag,             &
                                      rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return

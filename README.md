@@ -7,7 +7,7 @@ Supported Components
 ====================
 
 * ATM
-    * RegCM 4.4.5 - http://gforge.ictp.it/gf/project/regcm/
+    * RegCM (4.4.5.4) - http://gforge.ictp.it/gf/project/regcm/
 * OCN: 
     * ROMS (3.7) - http://www.myroms.org or for ice branch https://github.com/kshedstrom/roms
     * MIT-gcm (MITgcm_c63s) - http://mitgcm.org/download/
