@@ -30,12 +30,10 @@
 !
       use ESMF
       use NUOPC
-      use NUOPC_Model, only :                                           &
-          NUOPC_SetServices          => routine_SetServices,            &
+      use NUOPC_Model,                                                  &
+          NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
-          NUOPC_Model_Type_IS        => type_InternalState,             &
-          NUOPC_Model_Label_IS       => label_InternalState,            &
           NUOPC_Label_SetClock       => label_SetClock,                 &
           NUOPC_Label_CheckImport    => label_CheckImport
 !
@@ -136,12 +134,12 @@
 !     Register finalize routine    
 !-----------------------------------------------------------------------
 ! 
-!      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-!                                      methodflag=ESMF_METHOD_FINALIZE,  &
-!                                      userRoutine=OCN_SetFinalize,      &
-!                                      rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_FINALIZE,  &
+                                      userRoutine=OCN_SetFinalize,      &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
       end subroutine OCN_SetServices
 !
@@ -540,22 +538,18 @@
       logical :: atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
-      type(NUOPC_Model_Type_IS) :: is
       type(ESMF_Time) :: startTime, currTime
-      type(ESMF_Clock) :: clock
+      type(ESMF_Clock) :: driverClock
       type(ESMF_Field) :: field
       type(ESMF_State) :: importState
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Get component for its internal state 
+!     Query component for the driverClock
 !-----------------------------------------------------------------------
 !
-      nullify(is%wrap)
-!
-      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Model_Label_IS,   &
-                                         is, rc)
+      call NUOPC_ModelGet(gcomp, driverClock=driverClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -563,10 +557,14 @@
 !     Get the start time and current time out of the clock
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(is%wrap%driverClock, startTime=startTime,      &
+      call ESMF_ClockGet(driverClock, startTime=startTime,              &
                          currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query component for its importState
+!-----------------------------------------------------------------------
 !
       call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -583,6 +581,7 @@
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
       end if
+!
       call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -609,7 +608,31 @@
                               rcToReturn=rc)
         return
       end if
+      end if
 !
+!-----------------------------------------------------------------------
+!     Check fields in the importState (slow time step) 
+!-----------------------------------------------------------------------
+!
+      if (models(Iriver)%modActive) then
+!
+      call ESMF_StateGet(importState, itemName="rdis",                  &
+                         field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      atCorrectTime = NUOPC_FieldIsAtTime(field, startTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (.not. atCorrectTime) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD,&
+                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
+                              "Import Fields not at correct time",      &
+                              line=__LINE__, file=FILENAME,             &
+                              rcToReturn=rc)
+        return
+      end if
       end if
 !
       end subroutine OCN_CheckImport
@@ -1494,6 +1517,50 @@
              ' [', E12.2, ']')
 !
       end subroutine OCN_ModelAdvance
+!
+      subroutine OCN_SetFinalize(gcomp, importState, exportState,       &
+                                 clock, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Call model finalize routines
+!-----------------------------------------------------------------------
+!
+      call MIT_FINALIZE()
+!
+!-----------------------------------------------------------------------
+!     Destroy ESMF objects 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockDestroy(clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(importState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(exportState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end subroutine OCN_SetFinalize
 !
       subroutine OCN_Get(gcomp, rc)
 !
