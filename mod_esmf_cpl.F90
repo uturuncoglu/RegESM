@@ -67,7 +67,7 @@
 !     Register generic methods 
 !-----------------------------------------------------------------------
 !
-      call NUOPC_SetServices(ccomp, rc=rc)
+      call NUOPC_CompDerive(ccomp, NUOPC_SetServices, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -75,18 +75,18 @@
 !     Attach specializing methods 
 !-----------------------------------------------------------------------
 !
-      call ESMF_MethodAdd(ccomp, label=NUOPC_Label_ComputeRH,           &
-                          userRoutine=CPL_ComputeRH, rc=rc)
+      call NUOPC_CompSpecialize(ccomp, specLabel=NUOPC_Label_ComputeRH, &
+                                specRoutine=CPL_ComputeRH, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(ccomp, label=NUOPC_Label_ExecuteRH,           &
-                          userRoutine=CPL_ExecuteRH, rc=rc)
+      call NUOPC_CompSpecialize(ccomp, specLabel=NUOPC_Label_ExecuteRH, &
+                                specRoutine=CPL_ExecuteRH, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(ccomp, label=NUOPC_Label_ReleaseRH,           &
-                          userRoutine=CPL_ReleaseRH, rc=rc)
+      call NUOPC_CompSpecialize(ccomp, specLabel=NUOPC_Label_ReleaseRH, &
+                                specRoutine=CPL_ReleaseRH, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -109,7 +109,7 @@
       logical :: enableExtp, rh1Exist, rh2Exist
       integer :: i, j, localPet, petCount, localDECount
       integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
-      integer :: srcCount, dstCount, itemCount, lsmsk(1)
+      integer :: srcCount, dstCount, itemCount
       integer :: srcMaskVal, dstMaskVal
       integer(ESMF_KIND_I4), allocatable, dimension(:,:) :: tlw, tuw
       character(ESMF_MAXSTR) :: cname, fname, rname, msgString
@@ -136,21 +136,50 @@
       call ESMF_CplCompGet(ccomp, name=cname, vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
       call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
       do i = 1, nModels
-      do j = 1, nModels
-        if (connectors(i,j)%modActive .and.                             &
-            trim(connectors(i,j)%name) == trim(cname)) then       
-          iSrc = i
-          iDst = j
-        end if
-      end do
+        do j = 1, nModels
+          if (connectors(i,j)%modActive .and.                           &
+              trim(connectors(i,j)%name) == trim(cname)) then       
+            iSrc = i
+            iDst = j
+          end if
+        end do
       end do
 !
       enableExtp = connectors(iSrc,iDst)%modExtrapolation
+!
+!-----------------------------------------------------------------------
+!     Exchange land-sea mask information 
+!-----------------------------------------------------------------------
+!
+      call UTIL_VMGlobalBroadcast(models(iSrc)%isLand,                  &
+                                  models(iSrc)%petList(1), rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call UTIL_VMGlobalBroadcast(models(iDst)%isLand,                  &
+                                  models(iDst)%petList(1), rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call UTIL_VMGlobalBroadcast(models(iSrc)%isOcean,                 &
+                                  models(iSrc)%petList(1), rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call UTIL_VMGlobalBroadcast(models(iDst)%isOcean,                 &
+                                  models(iDst)%petList(1), rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set source and destination masks for connector 
+!-----------------------------------------------------------------------
 !
       if (connectors(iSrc,iDst)%modInteraction == Ioverocn) then
         srcMaskVal = models(iSrc)%isLand
@@ -159,38 +188,6 @@
         srcMaskVal = models(iSrc)%isOcean
         dstMaskVal = models(iDst)%isOcean
       end if
-!
-!-----------------------------------------------------------------------
-!     Exchange land-sea mask information 
-!-----------------------------------------------------------------------
-!
-      lsmsk(1) = models(iSrc)%isLand
-      call ESMF_VMBroadcast(vm, bcstData=lsmsk, count=1,                &
-                            rootPet=models(iSrc)%petList(1), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      models(iSrc)%isLand = lsmsk(1)
-!
-      lsmsk(1) = models(iDst)%isLand
-      call ESMF_VMBroadcast(vm, bcstData=lsmsk, count=1,                &
-                            rootPet=models(iDst)%petList(1), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      models(iDst)%isLand = lsmsk(1)      
-!
-      lsmsk(1) = models(iSrc)%isOcean
-      call ESMF_VMBroadcast(vm, bcstData=lsmsk, count=1,                &
-                            rootPet=models(iSrc)%petList(1), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      models(iSrc)%isOcean = lsmsk(1)
-!
-      lsmsk(1) = models(iDst)%isOcean
-      call ESMF_VMBroadcast(vm, bcstData=lsmsk, count=1,                &
-                            rootPet=models(iDst)%petList(1), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
-      models(iDst)%isOcean = lsmsk(1)      
 !
 !-----------------------------------------------------------------------
 !     Get size of source and destination field list
@@ -537,7 +534,7 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 40   format(A8,': routehandle ',A4,'[',A,'] to ',A4,'[',A,']',         &
+ 40   format(A10,': routehandle ',A4,'[',A,'] to ',A4,'[',A,']',        &
              ' >> ',A, ' - ',L1,' - ',L1)
 !
       end subroutine CPL_ComputeRH
@@ -908,11 +905,11 @@
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 50   format(A8,': tstamp ',A4,' [',I4,'-',I2.2,'-',                    &
+ 50   format(A10,': tstamp ',A4,' [',I4,'-',I2.2,'-',                   &
              I2.2,'_',I2.2,'_',I2.2,'] to ',A4,' [',I4,'-',I2.2,'-',    &
              I2.2,'_',I2.2,'_',I2.2,']')
- 60   format(A8,': regrid ',A4,' [',A,'] to ',A4,' [',A,']',' >> ',A)
- 70   format(" PET(",I3.3,") - ",A," = ",E12.5," (",A,")")
+ 60   format(A10,': regrid ',A4,' [',A,'] to ',A4,' [',A,']',' >> ',A)
+ 70   format(" PET(",I3.3,") - ",A," = ",E14.5," (",A,")")
 !
       end subroutine CPL_ExecuteRH
 !

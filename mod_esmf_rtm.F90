@@ -70,27 +70,27 @@
 !     Register NUOPC generic routines    
 !-----------------------------------------------------------------------
 !
-      call NUOPC_SetServices(gcomp, rc=rc)
+      call NUOPC_CompDerive(gcomp, NUOPC_SetServices, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Register initialize routines (Phase 1 and Phase 2)
+!     Register initialize routine (P 1/2) for specific implementation   
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=RTM_SetInitializeP1,  &
-                                      phase=1,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p1"/),       &
+                                   userRoutine=RTM_SetInitializeP1,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=RTM_SetInitializeP2,  &
-                                      phase=2,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p2"/),       &
+                                   userRoutine=RTM_SetInitializeP2,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -99,13 +99,14 @@
 !     Setting the slow and fast model clocks  
 !-----------------------------------------------------------------------
 ! 
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
-                          userRoutine=RTM_DataInit, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_DataInitialize,   &
+                                specRoutine=RTM_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
-                          userRoutine=RTM_ModelAdvance, rc=rc)
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_Advance,   &
+                                specRoutine=RTM_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -456,6 +457,8 @@
                             staggerLoc=staggerLoc,                      &
                             itemflag=ESMF_GRIDITEM_AREA,                &
                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get pointers and set coordinates for the grid 

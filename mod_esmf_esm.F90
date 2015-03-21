@@ -35,9 +35,6 @@
           NUOPC_Label_SetModelServices => label_SetModelServices,       &
           NUOPC_Label_SetRunSequence   => label_SetRunSequence
 !
-      use NUOPC_Connector, only:                                        &
-          NUOPC_CplSetServices         => SetServices
-!
       use mod_types
       use mod_esmf_atm, only: ATM_SetServices
       use mod_esmf_ocn, only: OCN_SetServices
@@ -124,18 +121,18 @@
           if (i == Iatmos) then
             call NUOPC_DriverAddComp(gcomp, trim(models(i)%name),       &
                                      ATM_SetServices,                   &
-                                     models(i)%petList(:),              &
-                                     child, rc)
+                                     petList=models(i)%petList(:),      &
+                                     comp=child, rc=rc)
           else if (i == Iocean) then
             call NUOPC_DriverAddComp(gcomp, trim(models(i)%name),       &
                                      OCN_SetServices,                   &
-                                     models(i)%petList(:),              &
-                                     child,  rc)
+                                     petList=models(i)%petList(:),      &
+                                     comp=child, rc=rc)
           else if (i == Iriver) then
             call NUOPC_DriverAddComp(gcomp, trim(models(i)%name),       &
                                      RTM_SetServices,                   &
-                                     models(i)%petList(:),              &
-                                     child,  rc)
+                                     petList=models(i)%petList(:),      &
+                                     comp=child, rc=rc)
           end if
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
               line=__LINE__, file=FILENAME)) return
@@ -159,12 +156,12 @@
             call NUOPC_DriverAddComp(gcomp,                             &
                            srcCompLabel=trim(models(i)%name),           &
                            dstCompLabel=trim(models(j)%name),           &
-                           compSetServicesRoutine=NUOPC_CplSetServices, &
+                           compSetServicesRoutine=CPL_SetServices,      &
                            comp=connector, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc,                        &
                                    msg=ESMF_LOGERR_PASSTHRU,            &
                                    line=__LINE__, file=FILENAME)) return
-!
+
             if (debugLevel > 0) then
               call ESMF_AttributeSet(connector, name="Verbosity",       &
                                      value="high", rc=rc)
@@ -177,7 +174,7 @@
       end do
 !
 !-----------------------------------------------------------------------
-!     Set internal clock for application (driver). The time step must be 
+!     Set internal clock for application (gcomp). The time step must be 
 !     set to the slowest time interval of the connector components
 !-----------------------------------------------------------------------
 !
@@ -250,6 +247,36 @@
       end do 
 !
       if (runid == 110) then      ! ATM-OCN
+        call NUOPC_DriverNewRunSequence(gcomp, slotCount=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                 srcCompLabel=trim(models(Iatmos)%name),&
+                                 dstCompLabel=trim(models(Iocean)%name),&
+                                 rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                 srcCompLabel=trim(models(Iocean)%name),&
+                                 dstCompLabel=trim(models(Iatmos)%name),&
+                                 rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                    compLabel=trim(models(Iatmos)%name),&
+                                    rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                    compLabel=trim(models(Iocean)%name),&
+                                    rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
       else if (runid == 121) then ! ATM-OCN-RTM
         call NUOPC_DriverNewRunSequence(gcomp, slotCount=2, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -335,12 +362,14 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Print internal driver information
+!     Print internal gcomp information
 !-----------------------------------------------------------------------
 !
-      call NUOPC_DriverPrint(gcomp, orderflag=.true.)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-         line=__LINE__, file=FILENAME)) return
+      if (debugLevel > 1) then
+        call NUOPC_DriverPrint(gcomp, orderflag=.true.)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+      end if
 !
       end subroutine ESM_SetRunSequence
 !

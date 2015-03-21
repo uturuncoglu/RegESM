@@ -51,8 +51,9 @@
 !-----------------------------------------------------------------------
 !
       integer :: time(6)
-      integer :: i, j, k, dumm
+      integer :: i, j, k, p, np, dumm
       integer :: localPet, petCount, lineCount, columnCount
+      integer, allocatable :: petList(:)
       logical :: file_exists
       character(100) :: fmt_123, str
 !
@@ -129,7 +130,7 @@
             line=__LINE__, file=FILENAME)) return
 !
         ! check: force river routing model will use single PET      
-        if (i == Iriver .and. models(i)%nPets > 0) models(i)%nPets = 1
+        if (i == Iriver .and. models(i)%nPets /= 0) models(i)%nPets = -1
 !
         if (i == Iatmos) then
           models(i)%name = "ATM"
@@ -140,7 +141,7 @@
         end if
 !
         models(i)%modActive = .false.
-        if (models(i)%nPets > 0) models(i)%modActive = .true.
+        if (models(i)%nPets /= 0) models(i)%modActive = .true.
       end do
 !
 !-----------------------------------------------------------------------
@@ -246,20 +247,29 @@
           end if
         end do 
       case (ipar) ! concurent
+        k = -1
         do i = 1, nModels
+          p = models(i)%nPets
+          if (p < 0) p = -p
+!
           if (.not. allocated(models(i)%petList)) then
-            allocate(models(i)%petList(models(i)%nPets))
+            allocate(models(i)%petList(p))
           end if
 !
-          do j = 1, models(i)%nPets
+          do j = 1, p 
+            k = k+1
             if (i .eq. Iatmos) then
-              models(i)%petList(j) = j-1
+              models(i)%petList(j) = k 
             else if (i .eq. Iocean) then
-              k = ubound(models(Iatmos)%petList, dim=1)
-              models(i)%petList(j) = models(Iatmos)%petList(k)+j
+              models(i)%petList(j) = k 
             else if (i .eq. Iriver) then
-              k = ubound(models(Iocean)%petList, dim=1)
-              models(i)%petList(j) = models(Iocean)%petList(k)+j
+              ! assign last PET, if negative value given
+              if (models(i)%nPets < 0) then
+                models(i)%petList(j) = k-1
+              ! otherwise the component has its own PET
+              else
+                models(i)%petList(j) = k
+              end if
             end if
           end do
         end do
@@ -278,7 +288,7 @@
         do i = 1, nModels
           if (models(i)%modActive) then
             k = ubound(models(i)%petList, dim=1)
-            write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
+            write(fmt_123, fmt="('(A10, L, ', I3, 'I4)')") k
             write(*, fmt=trim(fmt_123)) trim(models(i)%name)//'    ',   &
                   models(i)%modActive, models(i)%petList
           end if
@@ -298,14 +308,28 @@
           connectors(i,j)%modActive = .false.
           if (models(i)%modActive .and.                                 &
               models(j)%modActive .and. (i /= j)) then
-            connectors(i,j)%name = trim(models(i)%name)//"-"//          &
+            ! set name of connector component
+            connectors(i,j)%name = trim(models(i)%name)//"-TO-"//       &
                                    trim(models(j)%name)
+!
+            ! activate connector
             connectors(i,j)%modActive = .true.
-            connectors(i,j)%nPets = petCount
+!
+            ! allocate temporary variable to store PET list
+            np = size(models(i)%petList)+size(models(j)%petList) 
+            if (.not. allocated(petList)) allocate(petList(np))
+            petList(1:size(models(i)%petList)) = models(i)%petList
+            petList(size(models(i)%petList)+1:) = models(j)%petList
+!            
+            ! assign PETs to connector
+            connectors(i,j)%nPets = np
             if (.not. allocated(connectors(i,j)%petList)) then
-              allocate(connectors(i,j)%petList(petCount))
+              allocate(connectors(i,j)%petList(np))
             end if
-            connectors(i,j)%petList = (/ (k, k = 0, petCount-1) /)
+            connectors(i,j)%petList = petList
+!
+            ! deallocate temporary variables
+            if (allocated(petList)) deallocate(petList)
           end if
         end do
       end do
@@ -344,7 +368,7 @@
           do j = 1, nModels
             if (connectors(i,j)%modActive) then
               k = ubound(connectors(i,j)%petList, dim=1)
-              write(fmt_123, fmt="('(A7, L, ', I3, 'I4)')") k
+              write(fmt_123, fmt="('(A10, L, ', I3, 'I4)')") k
               write(*, fmt=trim(fmt_123)) connectors(i,j)%name,         &
                     connectors(i,j)%modActive, connectors(i,j)%petList
             end if
@@ -463,7 +487,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 20   format(A7,1X,'DT DIVIDER: ',I3)
+ 20   format(A10,1X,'DT DIVIDER: ',I3)
 !
       end subroutine read_config
 !

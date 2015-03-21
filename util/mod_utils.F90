@@ -33,6 +33,15 @@
       use mod_types
 !
       implicit none
+!
+!-----------------------------------------------------------------------
+!     Interfaces 
+!-----------------------------------------------------------------------
+!
+      interface UTIL_VMGlobalBroadcast 
+        module procedure UTIL_VMGlobalBroadcastI4
+      end interface UTIL_VMGlobalBroadcast
+!
       contains
 !
       subroutine UTIL_FindUnmapped(srcField, dstField,                  &
@@ -549,8 +558,8 @@
 !-----------------------------------------------------------------------
 !
  20   format(" PET(",I3.3,") - DE(",I2.2,                               &
-             ") - INTEGRAL = ",E12.5," (",A,")")
- 30   format(" PET(",I3.3,") - GLOBAL INTEGRAL   = ",E12.5," (",A,")")
+             ") - INTEGRAL = ",E14.5," (",A,")")
+ 30   format(" PET(",I3.3,") - GLOBAL INTEGRAL = ",E14.5," (",A,")")
 !
       end function UTIL_CalcIntegral
 !
@@ -731,8 +740,49 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 40   format(" PET(",I3.3,") - AVGERAGE DIFF     = ",2E12.5," (",A,")")
+ 40   format(" PET(",I3.3,") - AVGERAGE DIFF = ",2E14.5," (",A,")")
 !
       end subroutine UTIL_AdjustField
+!
+      subroutine UTIL_VMGlobalBroadcastI4(var, rootPet, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer, intent(inout) :: var
+      integer, intent(in) :: rootPet
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_VM) :: vm
+      integer :: var_local(1)
+!
+!-----------------------------------------------------------------------
+!     Get global VM 
+!-----------------------------------------------------------------------
+! 
+      call ESMF_VMGetGlobal(vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Broadcast data 
+!-----------------------------------------------------------------------
+!
+      var_local(1) = var
+!
+      call ESMF_VMBroadcast(vm, bcstData=var_local, count=1,            &
+                            rootPet=rootPet, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      var = var_local(1)
+!
+      end subroutine UTIL_VMGlobalBroadcastI4
 !
       end module mod_utils

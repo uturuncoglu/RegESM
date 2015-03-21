@@ -13,33 +13,41 @@
 #     defined on all available PETs
 #-----------------------------------------------------------------------
 #
-#PETLayoutOption: concurrent 
-PETLayoutOption: sequential 
+PETLayoutOption: concurrent 
 #
 #-----------------------------------------------------------------------
 #     PET distribution of model components (ordered in ATM, OCN, RTM)
-#     when 'concurrent' mode activated. i.e. 36 24 0
 #
-#     RTM component runs on last PET of the ATM component
+#     - Put zero to deactivate the model component. It works on both
+#       'sequential' and 'concurrent' mode. 
+#     - In 'sequential' mode RTM component runs on the last PET
+#     - In 'concurrent' mode there are two option. If PET number is
+#       assigned to -1 then RTM component runs on the last PET, if
+#       it is assigned to 1 then RTM component will have its own PET
+#     - Usage examples: 
+#       60 60 1 - three components are actived and 121 core is needed 
+#                 in total when 'concurrent' mode is selected. 
+#                 Otherwise 60 core is used by coupler.
+#       60 60 -1- three components are actived and 120 core is needed
+#                 in total when 'concurrent' mode is selected.
+#                 Otherwise 60 core is used by coupler.
+#       60 60 0 - only ATM and OCN components are active. 120 core is 
+#                 needed in total when 'concurrent' mode is selected.
 #
-#     Put zero to deactivate the model component. It works on both
-#     'sequential' and 'concurrent' mode. 
 #-----------------------------------------------------------------------
 #
-#PETs: 72 72 0 
-#PETs: 8 120 1 
-#PETs: 120 120 0 
 PETs: 60 60 1
 #
 #-----------------------------------------------------------------------
 #     Activate extrapolation for unmapped grid cells
+#     It aims to handle unaligned land-sea mask among the model components
 #     
 #     Based on two step interpolation: (1) bilinear -> (2) nearest
 #     0   : deactivate (default option)
 #     > 0 : activate (i.e. 1)
 #-----------------------------------------------------------------------
 #
-UnmappedFill: 1 
+UnmappedFill: 1
 #
 #-----------------------------------------------------------------------
 #     Debug mode
@@ -51,7 +59,6 @@ UnmappedFill: 1
 #-----------------------------------------------------------------------
 #
 DebugLevel: 1 
-#DebugLevel: 3 
 #
 #-----------------------------------------------------------------------
 #     Coupled model run information
@@ -98,7 +105,7 @@ DividerForTStep::
 #         The algorithm finds the closest OCN grid point to river
 #         The number of effective OCN grids is used to distribute 
 #         freshwater flux. The effective radius for each individual river
-#          can be set by RiverList option  
+#         can be set by RiverList option  
 #-----------------------------------------------------------------------
 #
 RiverOpt: 2
@@ -124,12 +131,11 @@ RiverOpt: 2
 #-----------------------------------------------------------------------
 #
 RiverList::
-1 2 50.0 31.11 31.65  1 5 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 # Nile
-1 2 50.0 26.23 39.90  1 5 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 30000.0 # Dardanelles 
-1 1 50.0  4.82 43.63 -1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Rhone
-1 1 40.0 12.39 44.86  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Po
-1 1 45.0  0.67 40.83  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ebro
-1 1 45.0 35.31 36.80  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ceyhan
-1 1 40.0 12.44 45.23  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Adige
-1 1 40.0 12.33 41.86 -1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Tiber
+1 2 20.0 31.31 31.65  1 5 838.6 655.9 727.4 858.9 1000.4 1291.0 1700.2 2126.8 1662.7 1134.5 922.5 771.4 # Nile
+1 1 20.0  4.82 43.63 -1 2 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Rhone
+1 1 20.0 12.39 44.86  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Po
+1 1 20.0  0.67 40.83  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ebro
+1 1 20.0 35.31 36.80  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Ceyhan
+1 1 20.0 12.44 45.23  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Adige
+1 1 20.0 12.33 41.86 -1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Tiber
 ::

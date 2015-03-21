@@ -71,7 +71,7 @@
 !     Register NUOPC generic routines    
 !-----------------------------------------------------------------------
 !
-      call NUOPC_SetServices(gcomp, rc=rc)
+      call NUOPC_CompDerive(gcomp, NUOPC_SetServices, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -79,19 +79,19 @@
 !     Register initialize routines (Phase 1 and Phase 2)  
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=ATM_SetInitializeP1,  &
-                                      phase=1,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p1"/),       &
+                                   userRoutine=ATM_SetInitializeP1,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=ATM_SetInitializeP2,  &
-                                      phase=2,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p2"/),       &
+                                   userRoutine=ATM_SetInitializeP2,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -100,18 +100,19 @@
 !     Setting the slow and fast model clocks  
 !-----------------------------------------------------------------------
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
-                          userRoutine=ATM_DataInit, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_DataInitialize,   &
+                                specRoutine=ATM_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetClock,            &
-                          userRoutine=ATM_SetClock, rc=rc)
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_SetClock,  &
+                                specRoutine=ATM_SetClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
-                          userRoutine=ATM_ModelAdvance, rc=rc)
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_Advance,   &
+                                specRoutine=ATM_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -119,12 +120,13 @@
 !     Register finalize routine    
 !-----------------------------------------------------------------------
 ! 
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_FINALIZE,  &
-                                      userRoutine=ATM_SetFinalize,      &
-                                      rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call NUOPC_CompSetEntryPoint(gcomp,                               &
+!                                   methodflag=ESMF_METHOD_FINALIZE,     &
+!                                   phaseLabelList=(/"IPDv00p2"/),       &
+!                                   specRoutine=ATM_SetFinalize,         &
+!                                   rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
       end subroutine ATM_SetServices
 !
@@ -583,6 +585,7 @@
 !
       integer :: i, j, ii, jj, i0, j0, localDECount
       integer :: cpus_per_dim(2)
+!
       type(ESMF_DistGrid) :: distGrid
       type(ESMF_StaggerLoc) :: staggerLoc
       real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
@@ -662,8 +665,6 @@
 !
       if (i == 1) then
       models(Iatmos)%grid = ESMF_GridCreate(distgrid=distGrid,          &
-!                                            gridEdgeLWidth=(/0,0/),     &
-!                                            gridEdgeUWidth=(/0,0/),     &
                                             indexflag=ESMF_INDEX_GLOBAL,&
                                             name="atm_grid",            &
                                             rc=rc)
@@ -688,7 +689,8 @@
                             staggerLoc=staggerLoc,                      &
                             itemflag=ESMF_GRIDITEM_MASK,                &
                             rc=rc)
-      if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Set mask value for land and ocean 
@@ -705,6 +707,8 @@
                             staggerLoc=staggerLoc,                      &
                             itemflag=ESMF_GRIDITEM_AREA,                &
                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
@@ -738,6 +742,7 @@
                              rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
       call ESMF_GridGetItem (models(Iatmos)%grid,                       &
                              localDE=j,                                 &
                              staggerLoc=staggerLoc,                     &

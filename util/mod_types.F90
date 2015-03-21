@@ -122,7 +122,7 @@
 !-----------------------------------------------------------------------
 !
       type ESM_Model
-        character(len=7) :: name
+        character(len=100) :: name
         integer :: nPets
         logical :: modActive
         integer, allocatable :: petList(:) 
@@ -139,7 +139,7 @@
 !-----------------------------------------------------------------------
 !
       type ESM_Conn
-        character(len=7) :: name
+        character(len=100) :: name
         integer :: divDT
         integer :: nPets
         logical :: modActive

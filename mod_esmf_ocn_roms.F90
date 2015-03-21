@@ -72,7 +72,7 @@
 !     Register NUOPC generic routines    
 !-----------------------------------------------------------------------
 !
-      call NUOPC_SetServices(gcomp, rc=rc)
+      call NUOPC_CompDerive(gcomp, NUOPC_SetServices, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -80,19 +80,19 @@
 !     Register initialize routine (P 1/2) for specific implementation   
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=OCN_SetInitializeP1,  &
-                                      phase=1,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p1"/),       &
+                                   userRoutine=OCN_SetInitializeP1,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=OCN_SetInitializeP2,  &
-                                      phase=2,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p2"/),       &
+                                   userRoutine=OCN_SetInitializeP2,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -101,23 +101,26 @@
 !     Setting the slow and fast model clocks 
 !-----------------------------------------------------------------------
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
-                          userRoutine=OCN_DataInit, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_DataInitialize,   &
+                                specRoutine=OCN_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetClock,            &
-                          userRoutine=OCN_SetClock, rc=rc)
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_SetClock,  &
+                                specRoutine=OCN_SetClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_CheckImport,         &
-                          userRoutine=OCN_CheckImport, index=1, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_CheckImport,      &
+                                specPhaseLabel="RunPhase1",             &
+                                specRoutine=OCN_CheckImport, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
-                          userRoutine=OCN_ModelAdvance, rc=rc)
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_Advance,   &
+                                specRoutine=OCN_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -125,12 +128,12 @@
 !     Register finalize routine    
 !-----------------------------------------------------------------------
 ! 
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_FINALIZE,  &
-                                      userRoutine=OCN_SetFinalize,      &
-                                      rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+!                                      methodflag=ESMF_METHOD_FINALIZE,  &
+!                                      userRoutine=OCN_SetFinalize,      &
+!                                      rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
       end subroutine OCN_SetServices
 !
@@ -871,7 +874,8 @@
                             staggerLoc=staggerLoc,                      &
                             itemflag=ESMF_GRIDITEM_MASK,                &
                             rc=rc)
-      if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Set mask value for land and ocean 
@@ -888,6 +892,8 @@
                             staggerLoc=staggerLoc,                      &
                             itemflag=ESMF_GRIDITEM_AREA,                &
                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
