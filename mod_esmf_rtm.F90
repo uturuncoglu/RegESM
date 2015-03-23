@@ -110,6 +110,17 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!-----------------------------------------------------------------------
+!     Register finalize routine    
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_FINALIZE,  &
+                                      userRoutine=RTM_SetFinalize,      &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
       end subroutine RTM_SetServices
 !
       subroutine RTM_SetInitializeP1(gcomp, importState, exportState,   &
@@ -972,6 +983,50 @@
              ' [',I5,'-',I5, ']')
 !
       end subroutine RTM_ModelAdvance
+!
+      subroutine RTM_SetFinalize(gcomp, importState, exportState,       &
+                                 clock, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Call model finalize routines
+!-----------------------------------------------------------------------
+!
+      call RTM_Finalize()
+!
+!-----------------------------------------------------------------------
+!     Destroy ESMF objects 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockDestroy(clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(importState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(exportState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end subroutine RTM_SetFinalize
 !
       subroutine RTM_Get(gcomp, rc)
 !

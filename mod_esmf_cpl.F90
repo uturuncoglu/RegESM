@@ -927,14 +927,16 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: localPet, petCount
-      integer :: i, j, sid, isrc, idst, srcCount
-      character(ESMF_MAXSTR), pointer :: srcList(:)
-      character(ESMF_MAXSTR) :: cname
+      logical :: enableExtp, rhExist, rh1Exist, rh2Exist
+      integer :: i, j, localPet, petCount
+      integer :: itemCount, srcCount, dstCount
+      integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
+      character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
+      character(ESMF_MAXSTR) :: cname, rname
 !
       type(ESMF_VM) :: vm
       type(ESMF_State) :: state
-      type(ESMF_FieldBundle) :: srcFields
+      type(ESMF_FieldBundle) :: srcFields, dstFields
       type(ESMF_RouteHandle) :: routeHandle
 !
       rc = ESMF_SUCCESS
@@ -955,8 +957,8 @@
       do j = 1, nModels
         if (connectors(i,j)%modActive .and.                             &
             trim(connectors(i,j)%name) == trim(cname)) then
-          isrc = i
-          idst = j
+          iSrc = i
+          iDst = j
         end if
       end do
       end do
@@ -966,7 +968,7 @@
 !-----------------------------------------------------------------------
 !
       call NUOPC_ConnectorGet(ccomp, srcFields=srcFields,               &
-                              state=state, rc=rc)
+                              dstFields=dstFields, state=state, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -974,12 +976,26 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
+      call ESMF_FieldBundleGet(dstFields, fieldCount=dstCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
 !-----------------------------------------------------------------------
-!     Get name of fields 
+!     Allocate list arrays and routehandle 
 !-----------------------------------------------------------------------
 !
       allocate(srcList(srcCount))
+      allocate(dstList(dstCount))
+!
+!-----------------------------------------------------------------------
+!     Query field lists
+!-----------------------------------------------------------------------
+!
       call ESMF_FieldBundleGet(srcFields, fieldNameList=srcList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldBundleGet(dstFields, fieldNameList=dstList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -990,28 +1006,125 @@
       do i = 1, srcCount
 !
 !-----------------------------------------------------------------------
-!     Get source field index 
+!     Get source and destination field index 
 !-----------------------------------------------------------------------
 !
-      sid = get_varid(models(isrc)%exportField, srcList(i))
+      idSrc = get_varid(models(iSrc)%exportField, srcList(i))
+      idDst = get_varid(models(iDst)%importField, dstList(i))
 !
 !-----------------------------------------------------------------------
-!     Get routehandle from state 
+!     Get interpolation type 
 !-----------------------------------------------------------------------
 !
-      call ESMF_StateGet(state, 'rh_'//                                 &
-                         trim(models(isrc)%exportField(sid)%short_name),&
-                         routeHandle, rc=rc)
+      itSrc = models(iSrc)%exportField(idSrc)%itype
+      itDst = models(iDst)%importField(idDst)%itype
+!
+!-----------------------------------------------------------------------
+!     Get grid type 
+!-----------------------------------------------------------------------
+!
+      grSrc = models(iSrc)%exportField(idSrc)%gtype
+      grDst = models(iDst)%importField(idDst)%gtype
+!
+!-----------------------------------------------------------------------
+!     Check for extrapolation option for field?
+!-----------------------------------------------------------------------
+!
+      if (enableExtp) then 
+!
+!-----------------------------------------------------------------------
+!     Check 1st routehandle (i.e. rh_CROSS_DOT_BLIN_ATM-OCN)
+!-----------------------------------------------------------------------
+!
+      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(INTPDES(Ibilin))//'_'//trim(cname)//'_ext'
+!
+      call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
+                         itemCount=itemCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+         line=__LINE__, file=FILENAME)) return
+!
+      rh1Exist = .true.
+      if (itemCount <= 0) rh1Exist = .false.
+!
+!-----------------------------------------------------------------------
+!     Release 1st routehandle
+!-----------------------------------------------------------------------
+!
+      if (rh1Exist) then
+        call ESMF_StateGet(state, 'rh_'//trim(rname),                   &
+                           routeHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_FieldBundleRegridRelease(routeHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Check 2nd routehandle (i.e. rh_CROSS_DOT_NS2D_ATM-OCN)
+!-----------------------------------------------------------------------
+!
+      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(INTPDES(Instod))//'_'//trim(cname)//'_ext'
+!
+      call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
+                         itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+      rh2Exist = .true.
+      if (itemCount <= 0) rh2Exist = .false.
+!
+!-----------------------------------------------------------------------
+!     Release 2nd routehandle
+!-----------------------------------------------------------------------
+!
+      if (rh2Exist) then
+        call ESMF_StateGet(state, 'rh_'//trim(rname),                   &
+                           routeHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_FieldBundleRegridRelease(routeHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end if
+!
+      else
+!
+!-----------------------------------------------------------------------
+!     Check routehandle for one step interpolation    
+!-----------------------------------------------------------------------
+!
+      rname = trim(GRIDDES(grSrc))//'_'//trim(GRIDDES(grDst))//'_'//    &
+              trim(INTPDES(itSrc))//'_'//trim(cname)
+!
+      call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
+                         itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+      rhExist = .true.
+      if (itemCount <= 0) rhExist = .false.
 !
 !-----------------------------------------------------------------------
 !     Release routehandle
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldBundleRegridRelease(routeHandle, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+      if (rhExist) then
+        call ESMF_StateGet(state, 'rh_'//trim(rname),                   &
+                           routeHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_FieldBundleRegridRelease(routeHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end if
+!
+      end if
       end do
 !
       end subroutine CPL_ReleaseRH

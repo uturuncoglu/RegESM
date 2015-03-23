@@ -137,12 +137,12 @@
 !     Register finalize routine    
 !-----------------------------------------------------------------------
 ! 
-!      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-!                                      methodflag=ESMF_METHOD_FINALIZE,  &
-!                                      userRoutine=OCN_SetFinalize,      &
-!                                      rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_FINALIZE,  &
+                                      userRoutine=OCN_SetFinalize,      &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
       end subroutine OCN_SetServices
 !
