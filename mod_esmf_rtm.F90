@@ -1010,22 +1010,6 @@
 !
       call RTM_Finalize()
 !
-!-----------------------------------------------------------------------
-!     Destroy ESMF objects 
-!-----------------------------------------------------------------------
-!
-      call ESMF_ClockDestroy(clock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_StateDestroy(importState, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_StateDestroy(exportState, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
       end subroutine RTM_SetFinalize
 !
       subroutine RTM_Get(gcomp, rc)
