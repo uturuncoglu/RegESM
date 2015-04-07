@@ -9,7 +9,7 @@
 !
 !     ITU RegESM is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
-!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See thec
 !     GNU General Public License for more details.
 !
 !     You should have received a copy of the GNU General Public License
@@ -318,10 +318,16 @@
             connectors(i,j)%modActive = .true.
 !
             ! allocate temporary variable to store PET list
-            np = size(models(i)%petList)+size(models(j)%petList) 
-            if (.not. allocated(petList)) allocate(petList(np))
-            petList(1:size(models(i)%petList)) = models(i)%petList
-            petList(size(models(i)%petList)+1:) = models(j)%petList
+            if (runMod == iseq) then
+              np = size(models(i)%petList)
+              if (.not. allocated(petList)) allocate(petList(np))
+              petList = models(i)%petList
+            else
+              np = size(models(i)%petList)+size(models(j)%petList)
+              if (.not. allocated(petList)) allocate(petList(np))
+              petList(1:size(models(i)%petList)) = models(i)%petList
+              petList(size(models(i)%petList)+1:) = models(j)%petList
+            end if
 !            
             ! assign PETs to connector
             connectors(i,j)%nPets = np
