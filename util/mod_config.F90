@@ -130,7 +130,9 @@
             line=__LINE__, file=FILENAME)) return
 !
         ! check: force river routing model will use single PET      
-        if (i == Iriver .and. models(i)%nPets /= 0) models(i)%nPets = -1
+        if (i == Iriver .and. models(i)%nPets /= 0) then
+          models(i)%nPets = models(i)%nPets/abs(models(i)%nPets)
+        end if
 !
         if (i == Iatmos) then
           models(i)%name = "ATM"
