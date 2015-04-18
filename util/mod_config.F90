@@ -148,12 +148,6 @@
         if (models(i)%nPets /= 0) models(i)%modActive = .true.
       end do
 !
-      if (models(Iriver)%modActive .and.                                &
-         (models(Iatmos)%modActive .and.                                &
-          models(Iocean)%modActive)) then
-        models(Iriver)%modActive = .false.
-      end if
-!
 !-----------------------------------------------------------------------
 !     Set debug level 
 !-----------------------------------------------------------------------
@@ -240,7 +234,7 @@
       select case (runMod)
       case (iseq) ! sequential
         do i = 1, nModels
-          if ((i == Iatmos) .or. (i == Iocean)) then
+          if ((i == Iatmos) .or. (i == Iocean) .or. (i == Iwavee)) then
             models(i)%nPets = petCount
           else if (i == Iriver) then
             models(i)%nPets = 1
@@ -250,7 +244,7 @@
             allocate(models(i)%petList(models(i)%nPets))
           end if
 !
-          if ((i == Iatmos) .or. (i == Iocean)) then
+          if ((i == Iatmos) .or. (i == Iocean) .or. (i == Iwavee)) then
             models(i)%petList = (/ (k, k = 0, petCount-1) /)
           else if (i == Iriver) then
             models(i)%petList = (/ (k, k = petCount-1, petCount-1) /)
@@ -268,11 +262,13 @@
 !
           do j = 1, p 
             k = k+1
-            if (i .eq. Iatmos) then
+            if (i == Iatmos) then
               models(i)%petList(j) = k 
-            else if (i .eq. Iocean) then
+            else if (i == Iocean) then
               models(i)%petList(j) = k 
-            else if (i .eq. Iriver) then
+            else if (i == Iwavee) then
+              models(i)%petList(j) = k 
+            else if (i == Iriver) then
               ! assign last PET, if negative value given
               if (models(i)%nPets < 0) then
                 models(i)%petList(j) = k-1
@@ -353,6 +349,7 @@
 !-----------------------------------------------------------------------
 !     Fix active connectors (put exceptions in here)
 !     - no interaction between RTM-ATM and OCN-RTM components
+!     - no interaction between RTM-WAV and WAV-RTM components
 !-----------------------------------------------------------------------
 !
       connectors(Iriver,Iatmos)%modActive = .false.

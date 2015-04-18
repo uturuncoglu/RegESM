@@ -17,22 +17,23 @@ PETLayoutOption: concurrent
 #
 #-----------------------------------------------------------------------
 #     PET distribution of model components (ordered in ATM, OCN, RTM)
+#     Order: [ATM] [OCN] [RTM] [WAV]
 #
 #     - Put zero to deactivate the model component. It works on both
 #       'sequential' and 'concurrent' mode. 
 #     - In 'sequential' mode RTM component runs on the last PET
-#     - In 'concurrent' mode there are two option. If PET number is
+#     - In 'concurrent' mode there are two options. If PET number is
 #       assigned to -1 then RTM component runs on the last PET, if
 #       it is assigned to 1 then RTM component will have its own PET
 #     - Usage examples: 
-#       60 60 1 - three components are actived and 121 core is needed 
-#                 in total when 'concurrent' mode is selected. 
-#                 Otherwise 60 core is used by coupler.
-#       60 60 -1- three components are actived and 120 core is needed
-#                 in total when 'concurrent' mode is selected.
-#                 Otherwise 60 core is used by coupler.
-#       60 60 0 - only ATM and OCN components are active. 120 core is 
-#                 needed in total when 'concurrent' mode is selected.
+#       60 60 1 0  - three components are actived and 121 core is needed 
+#                    in total when 'concurrent' mode is selected. 
+#                    Otherwise 60 core is used by coupler.
+#       60 60 -1 0 - three components are actived and 120 core is needed
+#                    in total when 'concurrent' mode is selected.
+#                    Otherwise 60 core is used by coupler.
+#       60 60 0 0  - only ATM and OCN components are active. 120 core is 
+#                    needed in total when 'concurrent' mode is selected.
 #
 #-----------------------------------------------------------------------
 #

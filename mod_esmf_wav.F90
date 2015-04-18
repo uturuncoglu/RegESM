@@ -31,17 +31,15 @@
       use ESMF
       use NUOPC
       use NUOPC_Model, only :                                           &
-          NUOPC_SetServices          => routine_SetServices,            &
+          NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
-          NUOPC_Model_Type_IS        => type_InternalState,             &
-          NUOPC_Model_Label_IS       => label_InternalState,            &
           NUOPC_Label_SetClock       => label_SetClock,                 &
           NUOPC_Label_CheckImport    => label_CheckImport
 !
 !
       use mod_types
-      use mod_utils
+      use mod_shared
 !
       use wam_user_interface, only :                                    &
           WAV_Initialize => WAM_init,                                   &
@@ -75,7 +73,7 @@
 !     Register NUOPC generic routines    
 !-----------------------------------------------------------------------
 !
-      call NUOPC_SetServices(gcomp, rc=rc)
+      call NUOPC_CompDerive(gcomp, NUOPC_SetServices, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -83,19 +81,19 @@
 !     Register initialize routine (P 1/2) for specific implementation   
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=WAV_SetInitializeP1,  &
-                                      phase=1,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p1"/),       &
+                                   userRoutine=OCN_SetInitializeP1,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridCompSetEntryPoint(gcomp,                            &
-                                      methodflag=ESMF_METHOD_INITIALIZE,&
-                                      userRoutine=WAV_SetInitializeP2,  &
-                                      phase=2,                          &
-                                      rc=rc)
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv00p2"/),       &
+                                   userRoutine=OCN_SetInitializeP2,     &
+                                   rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -104,23 +102,28 @@
 !     Setting the slow and fast model clocks 
 !-----------------------------------------------------------------------
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
-                          userRoutine=WAV_DataInit, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_DataInitialize,   &
+                                specRoutine=WAV_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetClock,            &
-                          userRoutine=WAV_SetClock, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_SetClock,         &
+                                specRoutine=WAV_SetClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_CheckImport,         &
-                          userRoutine=WAV_CheckImport, index=1, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_CheckImport,      &
+                                specPhaseLabel="RunPhase1",             &
+                                specRoutine=WAV_CheckImport, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
-                          userRoutine=WAV_ModelAdvance, rc=rc)
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_Advance,          &
+                                specRoutine=WAV_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -281,11 +284,11 @@
 !     Put export fields (only for initial and restart run)
 !-----------------------------------------------------------------------
 !
-!      if (restarted .and. currTime == esmRestartTime) then
-!        call WAV_Put(gcomp, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=FILENAME)) return
-!      end if
+      if (restarted .and. currTime == esmRestartTime) then
+        call WAV_Put(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
 !
       end subroutine WAV_DataInit
 !
@@ -521,22 +524,18 @@
       logical :: atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
-      type(NUOPC_Model_Type_IS) :: is
       type(ESMF_Time) :: startTime, currTime
-      type(ESMF_Clock) :: clock
+      type(ESMF_Clock) :: driverClock 
       type(ESMF_Field) :: field
       type(ESMF_State) :: importState
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Get component for its internal state 
+!     Query component for the driverClock
 !-----------------------------------------------------------------------
 !
-      nullify(is%wrap)
-!
-      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Model_Label_IS,   &
-                                         is, rc)
+      call NUOPC_ModelGet(gcomp, driverClock=driverClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -544,10 +543,14 @@
 !     Get the start time and current time out of the clock
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(is%wrap%driverClock, startTime=startTime,      &
+      call ESMF_ClockGet(driverClock, startTime=startTime,              &
                          currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query component for importState
+!-----------------------------------------------------------------------
 !
       call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -564,6 +567,7 @@
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
       end if
+!
       call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -590,7 +594,6 @@
                               rcToReturn=rc)
         return
       end if
-!
       end if
 !
       end subroutine WAV_CheckImport      
@@ -913,6 +916,7 @@
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
       end if
+!
       call ESMF_StateGet(exportState, itemNameList=itemNameList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1001,6 +1005,7 @@
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
       end if
+!
       call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1082,12 +1087,6 @@
       end subroutine WAV_SetStates
 !
       subroutine WAV_ModelAdvance(gcomp, rc)
-!
-!-----------------------------------------------------------------------
-!     Used module declarations 
-!-----------------------------------------------------------------------
-!
-!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -1162,7 +1161,7 @@
         if (debugLevel == 0) then
           write(*,40) trim(str1), trim(str2), phase
         else
-          write(*,50) trim(str1), trim(str2), phase, trun!-minval(dt)
+          write(*,50) trim(str1), trim(str2), phase, trun
         end if
       end if
 !
@@ -1225,22 +1224,6 @@
 !-----------------------------------------------------------------------
 !
       call WAV_Finalize()
-!
-!-----------------------------------------------------------------------
-!     Destroy ESMF objects 
-!-----------------------------------------------------------------------
-!
-      call ESMF_ClockDestroy(clock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_StateDestroy(importState, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_StateDestroy(exportState, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
 !
       end subroutine WAV_SetFinalize
 !
@@ -1325,6 +1308,7 @@
       if (.not. allocated(itemTypeList)) then
         allocate(itemTypeList(itemCount))
       end if
+!
       call ESMF_StateGet(importState, itemNameList=itemNameList,        &
                          itemTypeList=itemTypeList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1504,6 +1488,7 @@
       if (.not. allocated(itemTypeList)) then
         allocate(itemTypeList(itemCount))
       end if
+!
       call ESMF_StateGet(exportState, itemNameList=itemNameList,        &
                          itemTypeList=itemTypeList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1563,15 +1548,15 @@
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-!      if (debugLevel == 4) then
-!        iunit = localPet
-!        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
-!                        iyear, imonth, iday, ihour, localPet, j
-!        open(unit=iunit, file=trim(ofile)//'.txt') 
-!        call print_matrix(ptr, IstrR, IendR, JstrR, JendR, 1, 1,        &
-!                          localPet, iunit, "PTR/OCN/EXP")
-!        close(unit=iunit)
-!      end if         
+      if (debugLevel == 4) then
+        iunit = localPet
+        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
+                        iyear, imonth, iday, ihour, localPet, j
+        open(unit=iunit, file=trim(ofile)//'.txt') 
+        call print_matrix(ptr, IstrR, IendR, JstrR, JendR, 1, 1,        &
+                          localPet, iunit, "PTR/OCN/EXP")
+        close(unit=iunit)
+      end if         
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
@@ -1739,4 +1724,3 @@
       end subroutine WAV_Unpack
 !
       end module mod_esmf_wav
-

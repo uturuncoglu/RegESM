@@ -1424,6 +1424,7 @@
       addo = models(Iatmos)%importField(id)%add_offset
 !
       select case (trim(adjustl(itemNameList(i))))
+!     Import from OCN 
       case ('sst')
         do m = ici1, ici2
           do n = jci1, jci2
