@@ -36,7 +36,7 @@ PETLayoutOption: concurrent
 #
 #-----------------------------------------------------------------------
 #
-PETs: 60 60 1
+PETs: 16 0 0 16 
 #
 #-----------------------------------------------------------------------
 #     Activate extrapolation for unmapped grid cells
@@ -82,16 +82,18 @@ TimeStep:    0000 00 01 00 00 00
 #     Matrix of divider for driver TimeStep. Zero (0) means no 
 #     interaction between components.
 # 
-#          ATM  OCN  RTM
-#     ATM   0    8    1         i.e  if driver TimeStep = 1-day then
-#     OCN   8    0    0              3-hr  for ATM-OCN and OCN-ATM
-#     RTM   0    1    0              1-day for ATM-RTM and RTM-OCN
+#          ATM  OCN  RTM  WAV
+#     ATM   0    8    1    0     i.e  if driver TimeStep = 1-day then
+#     OCN   8    0    0    0          3-hr  for ATM-OCN and OCN-ATM
+#     RTM   0    1    0    0          1-day for ATM-RTM and RTM-OCN
+#     WAV   0    0    0    0
 #-----------------------------------------------------------------------
 #
 DividerForTStep::
-0  24  1
-24  0  0
-0   1  0
+0 0 0 1
+0 0 0 0
+0 0 0 0
+0 0 0 0
 :: 
 #
 #-----------------------------------------------------------------------

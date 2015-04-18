@@ -70,6 +70,20 @@ skip_files = $(RTM_PREFIX)/hdmain.o
 librtm_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(RTM_PREFIX)/*.o))
 endif
 
+if DO_COMPILE_LIBWAV
+LIBS += ${PWD}/libwav.a
+CPPFLAGS += -I$(WAV_PREFIX)
+noinst_LIBRARIES += libwav.a
+libwav_a_SOURCES =
+skip_files = $(WAV_PREFIX)/chief.o \
+             $(WAV_PREFIX)/preproc.o \
+             $(WAV_PREFIX)/print_grid_file.o \
+             $(WAV_PREFIX)/print_radiation_file.o \
+             $(WAV_PREFIX)/print_time.o \
+             $(WAV_PREFIX)/print_spectra_file.o
+libwav_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(WAV_PREFIX)/*.o))
+endif
+
 bin_PROGRAMS = regesm.x
 
 regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_cpl.F90
@@ -95,6 +109,12 @@ if DO_COMPILE_LIBRTM
 regesm_x_SOURCES += mod_esmf_rtm.F90
 else
 regesm_x_SOURCES += mod_esmf_rtm_void.F90
+endif
+
+if DO_COMPILE_LIBWAV
+regesm_x_SOURCES += mod_esmf_wav.F90
+else
+regesm_x_SOURCES += mod_esmf_wav_void.F90
 endif
 
 FCLD = $(MPIFC)
@@ -151,6 +171,14 @@ OBJ+=mod_esmf_rtm.o
 else
 mod_esmf_rtm_void.o: mod_esmf_rtm_void.F90
 OBJ+=mod_esmf_rtm_void.o
+endif
+
+if DO_COMPILE_LIBWAV
+mod_esmf_wav.o: mod_esmf_wav.F90 mod_types.o
+OBJ+=mod_esmf_wav.o
+else
+mod_esmf_wav_void.o: mod_esmf_wav_void.F90 mod_types.o
+OBJ+=mod_esmf_wav_void.o
 endif
 
 mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o mod_utils.o

@@ -140,11 +140,19 @@
           models(i)%name = "OCN"
         else if (i == Iriver) then
           models(i)%name = "RTM"
+        else if (i == Iwavee) then
+          models(i)%name = "WAV"
         end if
 !
         models(i)%modActive = .false.
         if (models(i)%nPets /= 0) models(i)%modActive = .true.
       end do
+!
+      if (models(Iriver)%modActive .and.                                &
+         (models(Iatmos)%modActive .and.                                &
+          models(Iocean)%modActive)) then
+        models(Iriver)%modActive = .false.
+      end if
 !
 !-----------------------------------------------------------------------
 !     Set debug level 
@@ -349,6 +357,8 @@
 !
       connectors(Iriver,Iatmos)%modActive = .false.
       connectors(Iocean,Iriver)%modActive = .false.
+      connectors(Iriver,Iwavee)%modActive = .false.
+      connectors(Iwavee,Iriver)%modActive = .false.
 !
 !-----------------------------------------------------------------------
 !     Set interface for connector
@@ -360,6 +370,10 @@
       connectors(Iocean,Iatmos)%modInteraction = Ioverocn      
       connectors(Iatmos,Iriver)%modInteraction = Ioverlnd
       connectors(Iriver,Iocean)%modInteraction = Ioverlnd
+      connectors(Iocean,Iwavee)%modInteraction = Ioverocn
+      connectors(Iwavee,Iocean)%modInteraction = Ioverocn      
+      connectors(Iatmos,Iwavee)%modInteraction = Ioverocn
+      connectors(Iwavee,Iatmos)%modInteraction = Ioverocn      
 !
 !-----------------------------------------------------------------------
 !     Initialize extrapolation option
@@ -549,6 +563,18 @@
               j = Iriver
             case('rtm2ocn')
               i = Iriver
+              j = Iocean
+            case('atm2wav')
+              i = Iatmos
+              j = Iwavee
+            case('wav2atm')
+              i = Iwavee
+              j = Iatmos
+            case('ocn2wav')
+              i = Iocean
+              j = Iwavee
+            case('wav2ocn')
+              i = Iwavee
               j = Iocean
             case default
               write(*,*) '[error] -- Undefined components: '//trim(str)

@@ -1,28 +1,28 @@
 !-----------------------------------------------------------------------
 !
-!     This file is part of ITU RegESM.
+!     This file is part of ICTP RegESM.
 !
-!     ITU RegESM is free software: you can redistribute it and/or modify
+!     ICTP RegESM is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
 !     the Free Software Foundation, either version 3 of the License, or
 !     (at your option) any later version.
 !
-!     ITU RegESM is distributed in the hope that it will be useful,
+!     ICTP RegESM is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !     GNU General Public License for more details.
 !
 !     You should have received a copy of the GNU General Public License
-!     along with ITU RegESM.  If not, see <http://www.gnu.org/licenses/>.
+!     along with ICTP RegESM.  If not, see <http://www.gnu.org/licenses/>.
 !
 !-----------------------------------------------------------------------
-#define FILENAME "mod_esmf_atm.F90"
+#define FILENAME "mod_esmf_wav.F90"
 !
 !-----------------------------------------------------------------------
-!     ATM gridded component code 
+!     WAV gridded component code 
 !-----------------------------------------------------------------------
 !
-      module mod_esmf_atm
+      module mod_esmf_wav
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
@@ -31,18 +31,22 @@
       use ESMF
       use NUOPC
       use NUOPC_Model, only :                                           &
-          NUOPC_SetServices          => SetServices,                    &
+          NUOPC_SetServices          => routine_SetServices,            &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
-          NUOPC_Label_SetClock       => label_SetClock
+          NUOPC_Model_Type_IS        => type_InternalState,             &
+          NUOPC_Model_Label_IS       => label_InternalState,            &
+          NUOPC_Label_SetClock       => label_SetClock,                 &
+          NUOPC_Label_CheckImport    => label_CheckImport
+!
 !
       use mod_types
-      use mod_shared
+      use mod_utils
 !
-      use mod_regcm_interface, only :                                   &
-          ATM_Initialize => RCM_initialize,                             &
-          ATM_Run        => RCM_run,                                    &
-          ATM_Finalize   => RCM_finalize
+      use wam_user_interface, only :                                    &
+          WAV_Initialize => WAM_init,                                   &
+          WAV_Run        => WAM_run,                                    &
+          WAV_Finalize   => WAM_finalize
 !
       implicit none
       private
@@ -51,11 +55,11 @@
 !     Public subroutines 
 !-----------------------------------------------------------------------
 !
-      public :: ATM_SetServices
+      public :: WAV_SetServices
 !
       contains
 !
-      subroutine ATM_SetServices(gcomp, rc)
+      subroutine WAV_SetServices(gcomp, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -71,65 +75,69 @@
 !     Register NUOPC generic routines    
 !-----------------------------------------------------------------------
 !
-      call NUOPC_CompDerive(gcomp, NUOPC_SetServices, rc=rc)
+      call NUOPC_SetServices(gcomp, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Register initialize routines (Phase 1 and Phase 2)  
+!     Register initialize routine (P 1/2) for specific implementation   
 !-----------------------------------------------------------------------
 !
-      call NUOPC_CompSetEntryPoint(gcomp,                               &
-                                   methodflag=ESMF_METHOD_INITIALIZE,   &
-                                   phaseLabelList=(/"IPDv00p1"/),       &
-                                   userRoutine=ATM_SetInitializeP1,     &
-                                   rc=rc)
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_INITIALIZE,&
+                                      userRoutine=WAV_SetInitializeP1,  &
+                                      phase=1,                          &
+                                      rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call NUOPC_CompSetEntryPoint(gcomp,                               &
-                                   methodflag=ESMF_METHOD_INITIALIZE,   &
-                                   phaseLabelList=(/"IPDv00p2"/),       &
-                                   userRoutine=ATM_SetInitializeP2,     &
-                                   rc=rc)
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_INITIALIZE,&
+                                      userRoutine=WAV_SetInitializeP2,  &
+                                      phase=2,                          &
+                                      rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Attach phase independent specializing methods
-!     Setting the slow and fast model clocks  
+!     Setting the slow and fast model clocks 
 !-----------------------------------------------------------------------
 !
-      call NUOPC_CompSpecialize(gcomp,                                  &
-                                specLabel=NUOPC_Label_DataInitialize,   &
-                                specRoutine=ATM_DataInit, rc=rc)
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_DataInitialize,      &
+                          userRoutine=WAV_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_SetClock,  &
-                                specRoutine=ATM_SetClock, rc=rc)
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_SetClock,            &
+                          userRoutine=WAV_SetClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_Advance,   &
-                                specRoutine=ATM_ModelAdvance, rc=rc)
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_CheckImport,         &
+                          userRoutine=WAV_CheckImport, index=1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_MethodAdd(gcomp, label=NUOPC_Label_Advance,             &
+                          userRoutine=WAV_ModelAdvance, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Register finalize routine    
 !-----------------------------------------------------------------------
-! 
+!
       call ESMF_GridCompSetEntryPoint(gcomp,                            &
                                       methodflag=ESMF_METHOD_FINALIZE,  &
-                                      userRoutine=ATM_SetFinalize,      &
+                                      userRoutine=WAV_SetFinalize,      &
                                       rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      end subroutine ATM_SetServices
+      end subroutine WAV_SetServices
 !
-      subroutine ATM_SetInitializeP1(gcomp, importState, exportState,   &
+      subroutine WAV_SetInitializeP1(gcomp, importState, exportState,   &
                                      clock, rc)
       implicit none
 !
@@ -155,10 +163,10 @@
 !     Set import fields 
 !-----------------------------------------------------------------------
 !
-      do i = 1, ubound(models(Iatmos)%importField, dim=1)
+      do i = 1, ubound(models(Iwavee)%importField, dim=1)
         call NUOPC_StateAdvertiseField(importState,                     &
-             StandardName=trim(models(Iatmos)%importField(i)%long_name),&
-             name=trim(models(Iatmos)%importField(i)%short_name), rc=rc)
+             StandardName=trim(models(Iwavee)%importField(i)%long_name),&
+             name=trim(models(Iwavee)%importField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end do 
@@ -167,26 +175,18 @@
 !     Set export fields 
 !-----------------------------------------------------------------------
 !
-      do i = 1, ubound(models(Iatmos)%exportField, dim=1)
+      do i = 1, ubound(models(Iwavee)%exportField, dim=1)
         call NUOPC_StateAdvertiseField(exportState,                     &
-             StandardName=trim(models(Iatmos)%exportField(i)%long_name),&
-             name=trim(models(Iatmos)%exportField(i)%short_name), rc=rc)
+             StandardName=trim(models(Iwavee)%exportField(i)%long_name),&
+             name=trim(models(Iwavee)%exportField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end do
 !
-      end subroutine ATM_SetInitializeP1
+      end subroutine WAV_SetInitializeP1
 !
-      subroutine ATM_SetInitializeP2(gcomp, importState, exportState,   &
+      subroutine WAV_SetInitializeP2(gcomp, importState, exportState,   &
                                      clock, rc)
-!
-!-----------------------------------------------------------------------
-!     Used module declarations 
-!-----------------------------------------------------------------------
-!
-      use mod_update, only : ATM_Allocate => RCM_Allocate
-      use mod_runparams, only : dtsrf
-!
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -203,10 +203,130 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8 :: tstr
+      logical :: flag
       integer :: comm, localPet, petCount
+      character(ESMF_MAXSTR) :: gname
+!
       type(ESMF_VM) :: vm
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, name=gname, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount,         &
+                      mpiCommunicator=comm, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize the gridded component 
+!-----------------------------------------------------------------------
+!
+      call WAV_Initialize(comm)  
+!
+!-----------------------------------------------------------------------
+!     Set-up grid and load coordinate data 
+!-----------------------------------------------------------------------
+!
+      call WAV_SetGridArrays(gcomp, localPet, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set-up fields and register to import/export states
+!-----------------------------------------------------------------------
+!
+      call WAV_SetStates(gcomp, rc)
+!
+      end subroutine WAV_SetInitializeP2
+!
+      subroutine WAV_DataInit(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: localPet, petCount
+!
+      type(ESMF_Clock) :: clock
+      type(ESMF_Time) :: currTime
+!
+!-----------------------------------------------------------------------
+!     Get gridded component clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put export fields (only for initial and restart run)
+!-----------------------------------------------------------------------
+!
+!      if (restarted .and. currTime == esmRestartTime) then
+!        call WAV_Put(gcomp, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!      end if
+!
+      end subroutine WAV_DataInit
+!
+      subroutine WAV_SetClock(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use wam_timopt_module, only : cdatea, cdatee, coldstart  
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: ng, fac1, fac2, maxdiv
+      integer, save :: ref_year,   str_year,   end_year
+      integer, save :: ref_month,  str_month,  end_month
+      integer, save :: ref_day,    str_day,    end_day
+      integer, save :: ref_hour,   str_hour,   end_hour
+      integer, save :: ref_minute, str_minute, end_minute
+      integer, save :: ref_second, str_second, end_second
+      integer :: localPet, petCount
+      real*8 :: stime, etime, hour, minute, yday
+      character (len=80) :: calendar
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: cmpClock
+      type(ESMF_TimeInterval) :: timeStep
+      type(ESMF_Time) :: cmpRefTime, cmpStartTime, cmpStopTime
       type(ESMF_Time) :: startTime, currTime
+      type(ESMF_Calendar) :: cal   
 !
       rc = ESMF_SUCCESS
 !
@@ -218,197 +338,17 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount,         &
-                      mpiCommunicator=comm, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Initialize the gridded component 
-!-----------------------------------------------------------------------
-!
-      call ATM_Initialize(mpiCommunicator=comm)
-      call ATM_Allocate()
-!
-!-----------------------------------------------------------------------
-!     Set-up grid and load coordinate data 
-!-----------------------------------------------------------------------
-!
-      call ATM_SetGridArrays(gcomp, localPet, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Set-up fields and register to import/export states
-!-----------------------------------------------------------------------
-!
-      call ATM_SetStates(gcomp, rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      end subroutine ATM_SetInitializeP2
-!
-      subroutine ATM_DataInit(gcomp, rc)
-!
-!-----------------------------------------------------------------------
-!     Used module declarations 
-!-----------------------------------------------------------------------
-!
-      use mod_runparams, only : dtsrf
-!
-      implicit none
-!
-!-----------------------------------------------------------------------
-!     Imported variable declarations 
-!-----------------------------------------------------------------------
-!
-      type(ESMF_GridComp) :: gcomp
-      integer, intent(out) :: rc
-!
-!-----------------------------------------------------------------------
-!     Local variable declarations 
-!-----------------------------------------------------------------------
-!
-      integer :: localPet, petCount, phase
-      real(ESMF_KIND_R8) :: tstr
-      character(ESMF_MAXSTR) :: str1, str2
-!
-      type(ESMF_VM) :: vm
-      type(ESMF_Clock) :: clock
-      type(ESMF_Time) :: currTime
-      type(ESMF_TimeInterval) :: timeStep
-!
-!-----------------------------------------------------------------------
-!     Get gridded component clock
-!-----------------------------------------------------------------------
-!
-      call ESMF_GridCompGet(gcomp, vm=vm, clock=clock,                  &
-                            currentPhase=phase, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
       call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_ClockGet(clock, currTime=currTime,                      &
-                         timeStep=timeStep, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
 !-----------------------------------------------------------------------
-!     Put export fields (only for initial and restart run)
+!     Set calendar 
 !-----------------------------------------------------------------------
 !
-      if (restarted .and. currTime == esmRestartTime) then
-!
-!-----------------------------------------------------------------------
-!     Debug: write time information 
-!-----------------------------------------------------------------------
-!
-      if (debugLevel >= 0 .and. localPet == 0) then
-        call ESMF_TimeGet(currTime,                                     &
-                          timeStringISOFrac=str1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-!
-        call ESMF_TimeGet(currTime+timeStep,                            &
-                          timeStringISOFrac=str2, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-!
-        if (debugLevel == 0) then
-          write(*,10) trim(str1), trim(str2), phase
-        else
-          write(*,20) trim(str1), trim(str2), phase, 0.0d0, dtsrf
-        end if
-      end if
-!
-!-----------------------------------------------------------------------
-!     Run ATM component (run only one time step to fill variables)
-!-----------------------------------------------------------------------
-!
-      call ATM_Run(0.0d0, dtsrf)
-!
-!-----------------------------------------------------------------------
-!     Put export fields
-!-----------------------------------------------------------------------
-!
-      call ATM_Put(gcomp, rc=rc)
-!
-      end if
-!
-!-----------------------------------------------------------------------
-!     Format definition 
-!-----------------------------------------------------------------------
-!
- 10   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1,' +')
- 20   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1,      &
-             ' [',F15.2, '-', F15.2, '] +')
-!
-      end subroutine ATM_DataInit
-!
-      subroutine ATM_SetClock(gcomp, rc)
-!
-!-----------------------------------------------------------------------
-!     Used module declarations 
-!-----------------------------------------------------------------------
-!
-      use mod_dynparam , only : calendar
-      use mod_runparams, only : idate0, idate1, idate2, dtsec
-      use mod_date, only : split_idate
-!
-      implicit none
-!
-!-----------------------------------------------------------------------
-!     Imported variable declarations 
-!-----------------------------------------------------------------------
-!
-      type(ESMF_GridComp) :: gcomp
-      integer, intent(out) :: rc
-!
-!-----------------------------------------------------------------------
-!     Local variable declarations 
-!-----------------------------------------------------------------------
-!
-      integer :: fac1, fac2, maxdiv
-      integer :: ref_year,   str_year,   end_year
-      integer :: ref_month,  str_month,  end_month
-      integer :: ref_day,    str_day,    end_day
-      integer :: ref_hour,   str_hour,   end_hour
-      integer :: ref_minute, str_minute, end_minute
-      integer :: ref_second, str_second, end_second
-      real*8 :: tstr
-!
-      type(ESMF_Clock) :: cmpClock 
-      type(ESMF_TimeInterval) :: timeStep
-      type(ESMF_Time) :: currTime, startTime
-      type(ESMF_Time) :: cmpRefTime, cmpStartTime, cmpStopTime
-      type(ESMF_Calendar) :: cal
-!
-      rc = ESMF_SUCCESS
-!
-!-----------------------------------------------------------------------
-!     Create gridded component clock 
-!-----------------------------------------------------------------------
-!
-      if (calendar == 'gregorian') then
-        cal = ESMF_CalendarCreate(ESMF_CALKIND_GREGORIAN,               &
-                                  name=trim(calendar),                  &
-                                  rc=rc)
-      else if (calendar == 'noleap' .or. calendar == '365_day') then
-        cal = ESMF_CalendarCreate(ESMF_CALKIND_NOLEAP,                  &
-                                  name=trim(calendar),                  &
-                                  rc=rc)
-      else if (calendar == '360_day') then
-        cal = ESMF_CalendarCreate(ESMF_CALKIND_360DAY,                  &
-                                  name=trim(calendar),                  &
-                                  rc=rc)
-      else
-        cal = ESMF_CalendarCreate(ESMF_CALKIND_GREGORIAN,               &
-                                  name=trim(calendar),                  &
-                                  rc=rc)
-      end if
+      calendar='gregorian'
+      cal = ESMF_CalendarCreate(ESMF_CALKIND_GREGORIAN,                 &
+                                  name=trim(calendar), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -416,39 +356,39 @@
 !     Set reference time
 !-----------------------------------------------------------------------
 !
-      call split_idate(idate0, ref_year, ref_month, ref_day, ref_hour)
-      ref_minute = 0
-      ref_second = 0
+      if (coldstart) then
+        read(cdatea,'(I4,5I2)') ref_year, ref_month, ref_day,           &
+                                ref_hour, ref_minute, ref_second
 !
-      call ESMF_TimeSet(cmpRefTime,                                     &
-                        yy=ref_year,                                    &
-                        mm=ref_month,                                   &
-                        dd=ref_day,                                     &
-                        h=ref_hour,                                     &
-                        m=ref_minute,                                   &
-                        s=ref_second,                                   &
-                        calendar=cal,                                   &
-                        rc=rc)
+        call ESMF_TimeSet(cmpRefTime,                                   &
+                          yy=ref_year,                                  &
+                          mm=ref_month,                                 &
+                          dd=ref_day,                                   &
+                          h=ref_hour,                                   &
+                          m=ref_minute,                                 &
+                          s=ref_second,                                 &
+                          calendar=cal,                                 &
+                          rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Set start time
 !-----------------------------------------------------------------------
 !
-      call split_idate(idate1, str_year, str_month, str_day, str_hour)
-      str_minute = 0
-      str_second = 0
+      read(cdatea,'(I4,5I2)') str_year, str_month, str_day,             &
+                              str_hour, str_minute, str_second
 !
-      call ESMF_TimeSet (cmpStartTime,                                  &
-                         yy=str_year,                                   &
-                         mm=str_month,                                  &
-                         dd=str_day,                                    &
-                         h=str_hour,                                    &
-                         m=str_minute,                                  &
-                         s=str_second,                                  &
-                         calendar=cal,                                  &
-                         rc=rc)
+      call ESMF_TimeSet(cmpStartTime,                                   &
+                        yy=str_year,                                    &
+                        mm=str_month,                                   &
+                        dd=str_day,                                     &
+                        h=str_hour,                                     &
+                        m=str_minute,                                   &
+                        s=str_second,                                   &
+                        calendar=cal,                                   &
+                        rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -456,9 +396,8 @@
 !     Set stop time
 !-----------------------------------------------------------------------
 !
-      call split_idate(idate2, end_year, end_month, end_day, end_hour)
-      end_minute = 0
-      end_second = 0
+      read(cdatee,'(I4,5I2)') end_year, end_month, end_day,             &
+                              end_hour, end_minute, end_second
 !
       call ESMF_TimeSet(cmpStopTime,                                    &
                         yy=end_year,                                    &
@@ -505,7 +444,7 @@
                                line=__LINE__, file=FILENAME)) return
 !
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and ATM start times do not match: '//             &
+             msg='ESM and WAV start times do not match: '//             &
              'please check the config files')
         return
       end if
@@ -520,7 +459,7 @@
                                line=__LINE__, file=FILENAME)) return
 !
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and ATM stop times do not match: '//              &
+             msg='ESM and WAV stop times do not match: '//              &
              'please check the config files')
         return
       end if
@@ -535,7 +474,7 @@
                                line=__LINE__, file=FILENAME)) return
 !
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and ATM calendars do not match: '//               &
+             msg='ESM and WAV calendars do not match: '//               &
              'please check the config files')
         return
       end if
@@ -544,29 +483,127 @@
 !     Modify component clock time step 
 !-----------------------------------------------------------------------
 !
-      fac1 = maxval(connectors(Iatmos,:)%divDT,mask=models(:)%modActive)
-      fac2 = maxval(connectors(:,Iatmos)%divDT,mask=models(:)%modActive)
+      fac1 = maxval(connectors(Iwavee,:)%divDT,mask=models(:)%modActive)
+      fac2 = maxval(connectors(:,Iwavee)%divDT,mask=models(:)%modActive)
       maxdiv = max(fac1, fac2)
 !
-      call ESMF_ClockSet(cmpClock, name='atm_clock',                    &
-                         timeStep=timeStep/maxdiv, rc=rc)
+      if (coldstart) then
+        call ESMF_ClockSet(cmpClock, name='wav_clock',                  &
+                           refTime=cmpRefTime, timeStep=timeStep/maxdiv,&
+                           startTime=cmpStartTime, stopTime=cmpStopTime,&
+                           rc=rc)
+      else
+        call ESMF_ClockSet(cmpClock, name='wav_clock',                  &
+                           timeStep=timeStep/maxdiv,                    &
+                           startTime=cmpStartTime, stopTime=cmpStopTime,&
+                           rc=rc)
+      end if
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      end subroutine ATM_SetClock
+      end subroutine WAV_SetClock
 !
-      subroutine ATM_SetGridArrays(gcomp, localPet, rc)
+      subroutine WAV_CheckImport(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: itemCount
+      logical :: atCorrectTime
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+!
+      type(NUOPC_Model_Type_IS) :: is
+      type(ESMF_Time) :: startTime, currTime
+      type(ESMF_Clock) :: clock
+      type(ESMF_Field) :: field
+      type(ESMF_State) :: importState
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get component for its internal state 
+!-----------------------------------------------------------------------
+!
+      nullify(is%wrap)
+!
+      call ESMF_UserCompGetInternalState(gcomp, NUOPC_Model_Label_IS,   &
+                                         is, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get the start time and current time out of the clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(is%wrap%driverClock, startTime=startTime,      &
+                         currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridCompGet(gcomp, importState=importState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Check fields in the importState (fast time step) 
+!-----------------------------------------------------------------------
+!
+      if (itemCount > 0) then
+      call ESMF_StateGet(importState, itemName=trim(itemNameList(1)),   &
+                         field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      atCorrectTime = NUOPC_FieldIsAtTime(field, currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (.not. atCorrectTime) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
+                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
+                              "Import Fields not at correct time - WAV",&
+                              line=__LINE__, file=FILENAME,             &
+                              rcToReturn=rc)
+        return
+      end if
+!
+      end if
+!
+      end subroutine WAV_CheckImport      
+!
+      subroutine WAV_SetGridArrays(gcomp, localPet, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_mppparam, only : ma
-      use mod_runparams, only : dxsq
-      use mod_atm_interface, only : mddom
-      use mod_dynparam, only : iy, jx, nproc, ide1, ide2, jde1, jde2,   &
-                               idi1, idi2, jdi1, jdi2, &
-                               global_dot_istart, global_dot_jstart
+      use wam_grid_module, only : nx, amowep, amoeap, xdello
+      use wam_grid_module, only : ny, amosop, amonop, xdella, l_s_mask
+      use wam_mpi_module , only : petotal, irank, nstart, nend
 !
       implicit none
 !
@@ -582,90 +619,76 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, ii, jj, i0, j0, localDECount
-      integer :: cpus_per_dim(2)
+      integer :: i, j, ii, jj, p, localDECount, tile
+      integer :: imin, imax, jmin, jmax
+      character(ESMF_MAXSTR) :: name
 !
-      type(ESMF_DistGrid) :: distGrid
+      integer(ESMF_KIND_I4), pointer :: ptrM(:,:)
+      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptr(:)
+      type(ESMF_VM) :: vm
       type(ESMF_StaggerLoc) :: staggerLoc
-      real(ESMF_KIND_R8), pointer :: ptrX(:,:), ptrY(:,:), ptrA(:,:)
-      integer, pointer :: ptrM(:,:)
-      character (len=40) :: name
+      type(ESMF_DistGrid) :: distGrid1, distGrid2
+      integer, allocatable :: deBlockList(:,:,:)
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Calculate number of CPUs in each direction 
+!     Get limits of the grid arrays (based on PET and nest level)
 !-----------------------------------------------------------------------
 !
-      if ( nproc < 4 ) then
-        cpus_per_dim(2) = 1
-        cpus_per_dim(1) = nproc
-      else if ( nproc >= 4 ) then
-        cpus_per_dim(2) = (nint(sqrt(dble(nproc)))/2)*2
-        if ( iy > int(1.5*dble(jx)) ) then
-          cpus_per_dim(2) = cpus_per_dim(2) - 1
-          do while ( mod(nproc,cpus_per_dim(2)) /= 0 )
-            cpus_per_dim(2) = cpus_per_dim(2) - 1
-          end do
-        else if ( jx > int(1.5*dble(iy)) ) then
-          cpus_per_dim(2) = cpus_per_dim(2) + 1
-          do while ( mod(nproc,cpus_per_dim(2)) /= 0 )
-            cpus_per_dim(2) = cpus_per_dim(2) + 1
-          end do
-        else
-          do while ( mod(nproc,cpus_per_dim(2)) /= 0 )
-            cpus_per_dim(2) = cpus_per_dim(2) + 1
-          end do
-        end if
-        cpus_per_dim(1) = nproc/cpus_per_dim(2)
+      if (.not. allocated(deBlockList)) then
+        allocate(deBlockList(1,2,petotal))
       end if
 !
-!-----------------------------------------------------------------------
-!     Create DistGrid based on model domain decomposition
+      do tile = 1, petotal
+        deBlockList(1,1,tile) = nstart(tile)
+        deBlockList(1,2,tile) = nend(tile)
+      end do
 !
-!     ESMF is basically using a right handed coordinate system, and 
-!     using the Fortran way of using the smallest stride to the first 
-!     dimension but RegCM not. The order of dimension is reversed
-!     because of this limitation. 
+!-----------------------------------------------------------------------
+!     Create ESMF DistGrid based on model domain decomposition
 !-----------------------------------------------------------------------
 !
-      distGrid = ESMF_DistGridCreate(minIndex=(/ 1, 1 /),               &
-                                     maxIndex=(/ iy, jx /),             &
-                                     regDecomp=cpus_per_dim,            &
-                                     rc=rc)
+      distGrid1 = ESMF_DistGridCreate(minIndex=(/ 1 /),                 &
+                                      maxIndex=(/ nend(petotal) /),     &
+                                      deBlockList=deBlockList,          &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      distGrid2 = ESMF_DistGridCreate(minIndex=(/ 1, 1 /),              &
+                                      maxIndex=(/ nx, ny /),            &
+                                      rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Define component grid (dot and cross points)
+!     Define data structure for component grid
 !-----------------------------------------------------------------------
 !
-      if (.not. allocated(models(Iatmos)%mesh)) then
-        allocate(models(Iatmos)%mesh(2))
-        models(Iatmos)%mesh(1)%gtype = Icross
-        models(Iatmos)%mesh(2)%gtype = Idot
+      if (.not. allocated(models(Iwavee)%mesh)) then
+        allocate(models(Iwavee)%mesh(1))
+        models(Iwavee)%mesh(1)%gtype = Icross
       end if
-!
-      do i = 1, 2 
 !
 !-----------------------------------------------------------------------
 !     Set staggering type 
 !-----------------------------------------------------------------------
 !
-      if (models(Iatmos)%mesh(i)%gtype == Icross) then
+      do p = 1, ubound(models(Iwavee)%mesh, dim=1) 
+!
+      if (models(Iwavee)%mesh(p)%gtype == Icross) then
         staggerLoc = ESMF_STAGGERLOC_CENTER
-      else if (models(Iatmos)%mesh(i)%gtype == Idot) then
-        staggerLoc = ESMF_STAGGERLOC_CORNER
       end if
 !
 !-----------------------------------------------------------------------
 !     Create ESMF Grid
 !-----------------------------------------------------------------------
 !
-      if (i == 1) then
-      models(Iatmos)%grid = ESMF_GridCreate(distgrid=distGrid,          &
+      if (p == 1) then
+      models(Iwavee)%grid = ESMF_GridCreate(distgrid=distGrid2,         &
                                             indexflag=ESMF_INDEX_GLOBAL,&
-                                            name="atm_grid",            &
+                                            name="wav_grid",            &
                                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -675,8 +698,9 @@
 !     Allocate coordinates 
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridAddCoord(models(Iatmos)%grid,                       &
-                             staggerLoc=staggerLoc, rc=rc)
+      call ESMF_GridAddCoord(models(Iwavee)%grid,                       &
+                             staggerLoc=staggerLoc,                     &
+                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -684,36 +708,24 @@
 !     Allocate items for masking
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridAddItem(models(Iatmos)%grid,                        &
+      call ESMF_GridAddItem(models(Iwavee)%grid,                        &
                             staggerLoc=staggerLoc,                      &
                             itemflag=ESMF_GRIDITEM_MASK,                &
                             rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+      if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !
 !-----------------------------------------------------------------------
 !     Set mask value for land and ocean 
 !-----------------------------------------------------------------------
 !
-      models(Iatmos)%isLand = 2
-      models(Iatmos)%isOcean = 0
-!
-!-----------------------------------------------------------------------
-!     Allocate items for grid area 
-!-----------------------------------------------------------------------
-!
-      call ESMF_GridAddItem(models(Iatmos)%grid,                        &
-                            staggerLoc=staggerLoc,                      &
-                            itemflag=ESMF_GRIDITEM_AREA,                &
-                            rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+      models(Iwavee)%isLand = 0
+      models(Iwavee)%isOcean = 1
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
 !-----------------------------------------------------------------------
 ! 
-      call ESMF_GridGet(models(Iatmos)%grid,                            &
+      call ESMF_GridGet(models(Iwavee)%grid,                            &
                         localDECount=localDECount,                      &
                         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -724,7 +736,7 @@
 !-----------------------------------------------------------------------
 ! 
       do j = 0, localDECount-1
-      call ESMF_GridGetCoord(models(Iatmos)%grid,                       &
+      call ESMF_GridGetCoord(models(Iwavee)%grid,                       &
                              localDE=j,                                 &
                              staggerLoc=staggerLoc,                     &
                              coordDim=1,                                &
@@ -733,7 +745,7 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridGetCoord(models(Iatmos)%grid,                       &
+      call ESMF_GridGetCoord(models(Iwavee)%grid,                       &
                              localDE=j,                                 &
                              staggerLoc=staggerLoc,                     &
                              coordDim=2,                                &
@@ -742,21 +754,12 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_GridGetItem (models(Iatmos)%grid,                       &
-                             localDE=j,                                 &
-                             staggerLoc=staggerLoc,                     &
-                             itemflag=ESMF_GRIDITEM_MASK,               &
-                             farrayPtr=ptrM,                            &
-                             rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_GridGetItem (models(Iatmos)%grid,                       &
-                             localDE=j,                                 &
-                             staggerLoc=staggerLoc,                     &
-                             itemflag=ESMF_GRIDITEM_AREA,               &
-                             farrayPtr=ptrA,                            &
-                             rc=rc)
+      call ESMF_GridGetItem(models(Iwavee)%grid,                        &
+                            localDE=j,                                  &
+                            staggerLoc=staggerLoc,                      &
+                            itemflag=ESMF_GRIDITEM_MASK,                &
+                            farrayPtr=ptrM,                             &
+                            rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -764,93 +767,60 @@
 !     Debug: write size of pointers    
 !-----------------------------------------------------------------------
 !
-      name = GRIDDES(models(Iatmos)%mesh(i)%gtype)
+      name = GRIDDES(models(Iwavee)%mesh(p)%gtype)
+!
+      imin = lbound(ptrX, dim=1)
+      imax = ubound(ptrX, dim=1)
+      jmin = lbound(ptrX, dim=2)
+      jmax = ubound(ptrX, dim=2)
 !
       if (debugLevel > 0) then
-        write(*,30) localPet, j, adjustl("PTR/ATM/GRD/"//name),         &
-                    lbound(ptrX, dim=1), ubound(ptrX, dim=1),           &
-                    lbound(ptrX, dim=2), ubound(ptrX, dim=2),           &
-                    ma%has_bdybottom, ma%has_bdyright,                  &
-                    ma%has_bdytop, ma%has_bdyleft
+        write(*,30) localPet, 0, adjustl("PTR/WAV/GRD/"//name),         &
+                    imin, imax, jmin, jmax
       end if
 !
 !-----------------------------------------------------------------------
 !     Fill the pointers    
 !-----------------------------------------------------------------------
 !
-      if (models(Iatmos)%mesh(i)%gtype == Idot) then
-        if (debugLevel > 0) then
-          write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
-                    global_dot_istart+ide1-1, global_dot_istart+ide2-1, &
-                    global_dot_jstart+jde1-1, global_dot_jstart+jde2-1, &
-!                   lbound(mddom%dlon, dim=1), ubound(mddom%dlon, dim=1),&
-!                   lbound(mddom%dlon, dim=2), ubound(mddom%dlon, dim=2),&
-                   ma%has_bdybottom, ma%has_bdyright,                   &
-                   ma%has_bdytop, ma%has_bdyleft
-        end if
-!
-        do i0 = ide1, ide2
-        do j0 = jde1, jde2
-          ii = global_dot_istart+i0-1
-          jj = global_dot_jstart+j0-1
-          ptrX(ii,jj) = mddom%dlon(j0,i0)
-          ptrY(ii,jj) = mddom%dlat(j0,i0)
+      if (models(Iwavee)%mesh(p)%gtype == Icross) then
+        do ii = imin, imax
+           ptrX(ii,jmin:jmax) = DBLE(ii-1)*XDELLO+AMOWEP
         end do
+        do jj = jmin, jmax
+           ptrY(imin:imax,jj) = DBLE(jj-1)*XDELLA+AMOSOP
         end do
-!
-        if (ma%has_bdyright) then
-          jj = global_dot_jstart+jde2-1
-          ptrX(:,jj+1) = ptrX(:,jj)+(ptrX(:,jj)-ptrX(:,jj-1))
-          ptrY(:,jj+1) = ptrY(:,jj)+(ptrY(:,jj)-ptrY(:,jj-1))
-        end if
-!
-        if (ma%has_bdytop) then
-          ii = global_dot_istart+ide2-1
-          ptrX(ii+1,:) = ptrX(ii,:)+(ptrX(ii,:)-ptrX(ii-1,:))
-          ptrY(ii+1,:) = ptrY(ii,:)+(ptrY(ii,:)-ptrY(ii-1,:))
-        end if
-!
-        ptrA = dxsq
-      else if (models(Iatmos)%mesh(i)%gtype == Icross) then
-        if (debugLevel > 0) then
-          write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
-                   lbound(mddom%xlon, dim=1), ubound(mddom%xlon, dim=1),&
-                   lbound(mddom%xlon, dim=2), ubound(mddom%xlon, dim=2),&
-                   ma%has_bdybottom, ma%has_bdyright,                   &
-                   ma%has_bdytop, ma%has_bdyleft
-        end if
-!
-        ptrX = transpose(mddom%xlon)
-        ptrY = transpose(mddom%xlat)
-        ptrM = int(transpose(mddom%mask))
-        ptrA = dxsq
+        do ii = imin, imax
+          do jj = jmin, jmax
+            if (l_s_mask(ii,jj)) then
+              ptrM(ii,jj) = models(Iwavee)%isOcean
+            else
+              ptrM(ii,jj) = models(Iwavee)%isLand
+            end if
+          end do
+        end do
       end if
 !
 !-----------------------------------------------------------------------
-!     Nullify pointer to make sure that it does not point on a random 
-!     part in the memory 
+!     Nullify pointers 
 !-----------------------------------------------------------------------
 !
-      if (associated(ptrY)) then
-        nullify(ptrY)
-      end if
       if (associated(ptrX)) then
         nullify(ptrX)
+      end if
+      if (associated(ptrY)) then
+        nullify(ptrY)
       end if
       if (associated(ptrM)) then
         nullify(ptrM)
       end if
-      if (associated(ptrA)) then
-        nullify(ptrA)
-      end if
-!
       end do
 !
 !-----------------------------------------------------------------------
 !     Assign grid to gridded component 
 !-----------------------------------------------------------------------
 !
-      call ESMF_GridCompSet(gcomp, grid=models(Iatmos)%grid, rc=rc)
+      call ESMF_GridCompSet(gcomp, grid=models(Iwavee)%grid, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -859,62 +829,57 @@
 !-----------------------------------------------------------------------
 !
       if (debugLevel > 1) then
-      call ESMF_GridWriteVTK(models(Iatmos)%grid,                       &
-                         filename="atmos_"//                            &
-                         trim(GRIDDES(models(Iatmos)%mesh(i)%gtype))//  &
+      call ESMF_GridWriteVTK(models(Iwavee)%grid,                       &
+                         filename="wavee_"//                            &
+                         trim(GRIDDES(models(Iwavee)%mesh(p)%gtype))//  &
                          "point",                                       &
                          staggerLoc=staggerLoc,                         &
                          rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end if
-      end do
+      end do 
 !
 !-----------------------------------------------------------------------
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(" PET(",I3.3,") - DE(",I2.2,") - ",A20," : ",              &
-             4I8," ",L," ",L," ",L," ",L)
+ 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
-      end subroutine ATM_SetGridArrays     
+      end subroutine WAV_SetGridArrays
 !
-      subroutine ATM_SetStates(gcomp, rc)
+      subroutine WAV_SetStates(gcomp, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
 !     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-      type(ESMF_GridComp) :: gcomp
+      type(ESMF_GridComp), intent(in) :: gcomp
       integer, intent(out) :: rc
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, k, localPet, petCount, itemCount, localDECount
-      real*8, dimension(:,:), pointer :: ptr
+      integer :: i, j, k, itemCount, localDECount, localPet, petCount
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      real*8, dimension(:,:), pointer :: ptr2d
 !
       type(ESMF_VM) :: vm
       type(ESMF_Field) :: field
       type(ESMF_ArraySpec) :: arraySpec
-      type(ESMF_StaggerLoc) :: staggerLoc 
+      type(ESMF_StaggerLoc) :: staggerLoc
       type(ESMF_State) :: importState, exportState
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Get gridded component 
+!     Query gridded component. 
 !-----------------------------------------------------------------------
 !
       call ESMF_GridCompGet(gcomp, importState=importState,             &
                             exportState=exportState, vm=vm, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -931,7 +896,7 @@
 !     Get number of local DEs
 !-----------------------------------------------------------------------
 ! 
-      call ESMF_GridGet(models(Iatmos)%grid,                            &
+      call ESMF_GridGet(models(Iwavee)%grid,                            &
                         localDECount=localDECount,                      &
                         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -957,23 +922,21 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, itemCount
-      k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
+      k = get_varid(models(Iwavee)%exportField, trim(itemNameList(i)))
 !
 !-----------------------------------------------------------------------
 !     Set staggering type 
 !-----------------------------------------------------------------------
 !
-      if (models(Iatmos)%exportField(k)%gtype == Icross) then
+      if (models(Iwavee)%exportField(k)%gtype == Icross) then
         staggerLoc = ESMF_STAGGERLOC_CENTER
-      else if (models(Iatmos)%exportField(k)%gtype == Idot) then
-        staggerLoc = ESMF_STAGGERLOC_CORNER
       end if
 !
 !-----------------------------------------------------------------------
 !     Create field 
 !-----------------------------------------------------------------------
 !
-      field = ESMF_FieldCreate(models(Iatmos)%grid,                     &
+      field = ESMF_FieldCreate(models(Iwavee)%grid,                     &
                                arraySpec,                               &
                                staggerloc=staggerLoc,                   &
                                name=trim(itemNameList(i)),              &
@@ -991,7 +954,7 @@
 !     Get pointer from field 
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr2d, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -999,15 +962,15 @@
 !     Initialize pointer 
 !-----------------------------------------------------------------------
 !
-      ptr = MISSING_R8
+      ptr2d = MISSING_R8
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
 !     part in the memory 
 !-----------------------------------------------------------------------
 !
-      if (associated(ptr)) then
-        nullify(ptr)
+      if (associated(ptr2d)) then
+        nullify(ptr2d)
       end if
 !
       end do
@@ -1025,7 +988,7 @@
 !     Deallocate arrays    
 !-----------------------------------------------------------------------
 !
-      if (allocated(itemNameList)) deallocate(itemNameList) 
+      if (allocated(itemNameList)) deallocate(itemNameList)
 !
 !-----------------------------------------------------------------------
 !     Get list of import fields 
@@ -1047,28 +1010,27 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, itemCount
-      k = get_varid(models(Iatmos)%importField, trim(itemNameList(i)))
+      k = get_varid(models(Iwavee)%importField, trim(itemNameList(i)))
 !
 !-----------------------------------------------------------------------
 !     Set staggering type 
 !-----------------------------------------------------------------------
 !
-      if (models(Iatmos)%importField(k)%gtype == Icross) then
+      if (models(Iwavee)%importField(k)%gtype == Icross) then
         staggerLoc = ESMF_STAGGERLOC_CENTER
-      else if (models(Iatmos)%importField(k)%gtype == Idot) then
-        staggerLoc = ESMF_STAGGERLOC_CORNER
       end if
 !
 !-----------------------------------------------------------------------
-!     Create field 
+!     Create field
 !-----------------------------------------------------------------------
 !
-      field = ESMF_FieldCreate(models(Iatmos)%grid,                     &
+      field = ESMF_FieldCreate(models(Iwavee)%grid,                     &
                                arraySpec,                               &
                                staggerloc=staggerLoc,                   &
+                               indexflag=ESMF_INDEX_GLOBAL,             &
                                name=trim(itemNameList(i)),              &
                                rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
@@ -1081,7 +1043,7 @@
 !     Get pointer from field 
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr2d, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1089,15 +1051,15 @@
 !     Initialize pointer 
 !-----------------------------------------------------------------------
 !
-      ptr = MISSING_R8
+      ptr2d = MISSING_R8
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
 !     part in the memory 
 !-----------------------------------------------------------------------
 !
-      if (associated(ptr)) then
-        nullify(ptr)
+      if (associated(ptr2d)) then
+        nullify(ptr2d)
       end if
 !
       end do
@@ -1117,15 +1079,14 @@
 !
       if (allocated(itemNameList)) deallocate(itemNameList)
 !
-      end subroutine ATM_SetStates
+      end subroutine WAV_SetStates
 !
-      subroutine ATM_ModelAdvance(gcomp, rc)
+      subroutine WAV_ModelAdvance(gcomp, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_runparams, only : ifrest, ktau, dtsrf
 !
       implicit none
 !
@@ -1140,14 +1101,14 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8 :: tstr, tend
+      real*8 :: trun
       integer :: localPet, petCount, phase
       character(ESMF_MAXSTR) :: str1, str2
 !     
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
-      type(ESMF_TimeInterval) :: timeStep, timeFrom, timeTo
-      type(ESMF_Time) :: refTime, startTime, stopTime, currTime
+      type(ESMF_TimeInterval) :: timeStep
+      type(ESMF_Time) :: refTime, stopTime, currTime
       type(ESMF_State) :: importState, exportState
 !
       rc = ESMF_SUCCESS
@@ -1170,32 +1131,18 @@
 !     Get start, stop and current time and time step
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(clock, timeStep=timeStep, refTime=refTime,     &
-                         startTime=startTime, stopTime=stopTime,        &
-                         currTime=currTime, rc=rc) 
+      call ESMF_ClockGet(clock, timeStep=timeStep, refTime=refTime, &
+                         stopTime=stopTime, currTime=currTime, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Calculate run time
+!     Get time interval 
 !-----------------------------------------------------------------------
 !
-      if (restarted) then
-        timeFrom = currTime-esmRestartTime
-      else
-        timeFrom = currTime-esmStartTime
-      end if
-!
-      call ESMF_TimeIntervalGet(timeFrom, s_r8=tstr, rc=rc)
+      call ESMF_TimeIntervalGet(timeStep, s_r8=trun, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-!
-      timeTo = timeFrom+timeStep
-      call ESMF_TimeIntervalGet(timeTo, s_r8=tend, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      if (restarted .and. startTime == currTime) tstr = tstr+dtsrf
 !
 !-----------------------------------------------------------------------
 !     Debug: write time information 
@@ -1215,7 +1162,7 @@
         if (debugLevel == 0) then
           write(*,40) trim(str1), trim(str2), phase
         else
-          write(*,50) trim(str1), trim(str2), phase, tstr, tend
+          write(*,50) trim(str1), trim(str2), phase, trun!-minval(dt)
         end if
       end if
 !
@@ -1224,32 +1171,36 @@
 !-----------------------------------------------------------------------
 !
       if ((currTime /= refTime) .or. restarted) then
-        call ATM_Get(gcomp, rc=rc)
+        call WAV_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       end if
 !
 !-----------------------------------------------------------------------
-!     Run ATM component
+!     Run WAV component
 !-----------------------------------------------------------------------
 !
-      call ATM_Run(tstr, tend)
+      call WAV_Run()
 !
 !-----------------------------------------------------------------------
 !     Put export fields 
 !-----------------------------------------------------------------------
 !
-      call ATM_Put(gcomp, rc=rc)
+      call WAV_Put(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return      
 !
 !-----------------------------------------------------------------------
 !     Formats 
 !-----------------------------------------------------------------------
 !
- 40   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1)
- 50   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1,      &
-             ' [',F15.2, '-', F15.2, ']')
+ 40   format(' Running WAV Component: ',A,' --> ',A,' Phase: ',I1)
+ 50   format(' Running WAV Component: ',A,' --> ',A,' Phase: ',I1,      &
+             ' [', F15.2, ']')    
 !
-      end subroutine ATM_ModelAdvance
+      end subroutine WAV_ModelAdvance
 !
-      subroutine ATM_SetFinalize(gcomp, importState, exportState,       &
+      subroutine WAV_SetFinalize(gcomp, importState, exportState,       &
                                  clock, rc)
       implicit none
 !
@@ -1273,21 +1224,36 @@
 !     Call model finalize routines
 !-----------------------------------------------------------------------
 !
-      call ATM_Finalize()
+      call WAV_Finalize()
 !
-      end subroutine ATM_SetFinalize
+!-----------------------------------------------------------------------
+!     Destroy ESMF objects 
+!-----------------------------------------------------------------------
 !
-      subroutine ATM_Get(gcomp, rc)
+      call ESMF_ClockDestroy(clock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(importState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_StateDestroy(exportState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end subroutine WAV_SetFinalize
+!
+      subroutine WAV_Get(gcomp, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_update, only : importFields 
-      use mod_dynparam, only : ici1, ici2, jci1, jci2
-      use mod_dynparam, only : global_cross_istart, global_cross_jstart
+      use wam_grid_module, only : nx, ny, nsea, l_s_mask
+      use wam_user_interface, only : us_esmf, vs_esmf
 !
-      implicit none
+      implicit none   
 !
 !-----------------------------------------------------------------------
 !     Imported variable declarations 
@@ -1300,13 +1266,13 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, ii, jj, n, m, id, imin, imax, jmin, jmax
-      integer :: iyear, iday, imonth, ihour, iunit
+      integer :: i, j, ii, jj
+      integer :: id, iyear, iday, imonth, ihour, iunit
       integer :: localPet, petCount, itemCount, localDECount
-      character(ESMF_MAXSTR) :: cname, ofile
+      character(ESMF_MAXSTR) :: cname, msgString, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8) :: sfac, addo
-      real(ESMF_KIND_R8), pointer :: ptr(:,:)
+      real(ESMF_KIND_R8), allocatable :: arr2d(:,:)
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
@@ -1346,21 +1312,12 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Get number of local DEs
-!-----------------------------------------------------------------------
-! 
-      call ESMF_GridGet(models(Iatmos)%grid,                            &
-                        localDECount=localDECount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Get list of import fields 
 !-----------------------------------------------------------------------
 !
       call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+                             line=__LINE__, file=FILENAME)) return 
 !
       if (.not. allocated(itemNameList)) then
         allocate(itemNameList(itemCount))
@@ -1379,7 +1336,7 @@
 !
       do i = 1, itemCount
 !
-      id = get_varid(models(Iatmos)%importField, itemNameList(i))
+      id = get_varid(models(Iwavee)%importField, itemNameList(i)) 
 !
 !-----------------------------------------------------------------------
 !     Get field
@@ -1391,119 +1348,48 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Loop over decomposition elements (DEs) 
+!     Gather field 
 !-----------------------------------------------------------------------
 !
-      do j = 0, localDECount-1
+      if (.not. allocated(arr2d)) allocate(arr2d(nx,ny))
 !
-!-----------------------------------------------------------------------
-!     Get pointer from field
-!-----------------------------------------------------------------------
-!
-      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+      do j = 0, petCount-1
+        call ESMF_FieldGather(field, arr2d, rootPet=j, vm=vm, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do
 !
 !-----------------------------------------------------------------------
 !     Debug: write size of pointers    
 !-----------------------------------------------------------------------
 !
       if (debugLevel > 1) then
-      write(*,60) localPet, j, adjustl("PTR/ATM/IMP/"//itemNameList(i)),&
-                  lbound(ptr, dim=1), ubound(ptr, dim=1),               &
-                  lbound(ptr, dim=2), ubound(ptr, dim=2)
-      write(*,60) localPet, j, adjustl("IND/ATM/IMP/"//itemNameList(i)),&
-                  ici1, ici2, jci1, jci2
-      end if
+      write(*,60) localPet, j, adjustl("IND/WAV/IMP/"//itemNameList(i)),&
+                  1, nx, 1, ny
+      end if 
 !
 !-----------------------------------------------------------------------
-!     Put data to ATM component variable
+!     Put data to WAV component variable
 !-----------------------------------------------------------------------
 !
-      sfac = models(Iatmos)%importField(id)%scale_factor
-      addo = models(Iatmos)%importField(id)%add_offset
+      sfac = models(Iwavee)%importField(id)%scale_factor
+      addo = models(Iwavee)%importField(id)%add_offset
 !
       select case (trim(adjustl(itemNameList(i))))
-      case ('sst')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%sst(n,m) = (ptr(ii,jj)*sfac)+addo
-          end do
-        end do 
-#ifdef OCNICE
-      case ('sit')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%sit(n,m) = (ptr(ii,jj)*sfac)+addo
-          end do
-        end do
-#endif
-      case ('msk')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%msk(n,m) = ptr(ii,jj)
-          end do
-        end do
-!     Import from WAV
-      case ('z0')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%z0(n,m) = ptr(ii,jj)
-          end do
-        end do
-      case ('ustar')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%ustar(n,m) = ptr(ii,jj)
-          end do
-        end do
+      case ('wndu')
+        us_esmf(1:nsea) = pack(arr2d, l_s_mask)
+        us_esmf(1:nsea) = (us_esmf(1:nsea)*sfac)+addo
+      case ('wndv')
+        vs_esmf(1:nsea) = pack(arr2d, l_s_mask)
+        vs_esmf(1:nsea) = (vs_esmf(1:nsea)*sfac)+addo
       end select
-!
-!-----------------------------------------------------------------------
-!     Debug: write field in ASCII format   
-!-----------------------------------------------------------------------
-!
-      if (debugLevel == 4) then
-        write(ofile,70) 'atm_import', trim(itemNameList(i)),            &
-                        iyear, imonth, iday, ihour, localPet, j
-        iunit = localPet*10
-        open(unit=iunit, file=trim(ofile)//'.txt')
-        imin = global_cross_istart+ici1-1
-        imax = global_cross_istart+ici2-1
-        jmin = global_cross_jstart+jci1-1
-        jmax = global_cross_jstart+jci2-1
-        call print_matrix(ptr, imin, imax, jmin, jmax, 1, 1,            &
-                          localPet, iunit, "PTR/ATM/IMP")
-        close(unit=iunit)
-      end if
-!
-!-----------------------------------------------------------------------
-!     Nullify pointer to make sure that it does not point on a random 
-!     part in the memory 
-!-----------------------------------------------------------------------
-!
-      if (associated(ptr)) then
-        nullify(ptr)
-      end if
-!
-      end do
 !
 !-----------------------------------------------------------------------
 !     Debug: write field in netCDF format    
 !-----------------------------------------------------------------------
 !
       if (debugLevel == 3) then
-        write(ofile,80) 'atm_import', trim(itemNameList(i)),            &
+        write(ofile,80) 'wav_import', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -1518,6 +1404,7 @@
 !
       if (allocated(itemNameList)) deallocate(itemNameList)
       if (allocated(itemTypeList)) deallocate(itemTypeList)
+      if (allocated(arr2d)) deallocate(arr2d)
 !
 !-----------------------------------------------------------------------
 !     Format definition 
@@ -1527,17 +1414,15 @@
  70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
  80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
 !
-      end subroutine ATM_Get
+      end subroutine WAV_Get
 !
-      subroutine ATM_Put(gcomp, rc)
+      subroutine WAV_Put(gcomp, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_update, only : exportFields
-      use mod_dynparam, only : ici1, ici2, jci1, jci2
-      use mod_dynparam, only : global_cross_istart, global_cross_jstart
+      use wam_model_module, only : z0, ustar
 !
       implicit none
 !
@@ -1552,13 +1437,12 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, ii, jj, m, n, imin, imax, jmin, jmax
-      integer :: iyear, iday, imonth, ihour, iunit
+      integer :: i, j, imin, imax, jmin, jmax
+      integer :: iunit, iyear, iday, imonth, ihour
       integer :: petCount, localPet, itemCount, localDECount
-      character(ESMF_MAXSTR) :: cname, ofile
+      character(ESMF_MAXSTR) :: cname, msgString, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8), pointer :: ptr(:,:)
-      integer(ESMF_KIND_I8) :: tstep
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
@@ -1587,8 +1471,7 @@
 !-----------------------------------------------------------------------
 !
       if (debugLevel > 2) then
-      call ESMF_ClockGet(clock, currTime=currTime,                      &
-                         advanceCount=tstep, rc=rc)
+      call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1602,7 +1485,7 @@
 !     Get number of local DEs
 !-----------------------------------------------------------------------
 ! 
-      call ESMF_GridGet(models(Iatmos)%grid,                            &
+      call ESMF_GridGet(models(Iwavee)%grid,                            &
                         localDECount=localDECount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1627,35 +1510,24 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Rotate wind on a rectangular north-south east-west oriented grid 
-!-----------------------------------------------------------------------
-!
-      call uvrot(exportFields%wndu, exportFields%wndv)
-      call uvrot(exportFields%taux, exportFields%tauy)
-!
-!-----------------------------------------------------------------------
 !     Loop over export fields 
 !-----------------------------------------------------------------------
 !
       do i = 1, itemCount
 !
 !-----------------------------------------------------------------------
-!     Get field from export state 
+!     Get export field 
 !-----------------------------------------------------------------------
 !
       call ESMF_StateGet(exportState, trim(itemNameList(i)),            &
-                         field, rc=rc) 
+                         field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
-!     Loop over decomposition elements (DEs) 
-!-----------------------------------------------------------------------
 !
       do j = 0, localDECount-1
 !
 !-----------------------------------------------------------------------
-!     Get pointer from field 
+!     Get pointer 
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
@@ -1668,190 +1540,38 @@
 !
       ptr = MISSING_R8
 !
+      imin = lbound(ptr, dim=1)
+      imax = ubound(ptr, dim=1)
+      jmin = lbound(ptr, dim=2)
+      jmax = ubound(ptr, dim=2)
+!
 !-----------------------------------------------------------------------
 !     Put data to export field 
 !-----------------------------------------------------------------------
 !
-      select case (trim(adjustl(itemNameList(i)))) 
-      case ('psfc')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%psfc(n,m)
-          end do
-        end do
-      case ('tsfc')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%tsfc(n,m) 
-          end do
-        end do
-      case ('qsfc')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%qsfc(n,m)
-          end do
-        end do
-      case ('lwrd')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%lwrd(n,m)
-          end do
-        end do
-      case ('dlwr')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%dlwr(n,m)
-          end do
-        end do
-      case ('lhfx')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%lhfx(n,m)
-          end do
-        end do
-      case ('shfx')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%shfx(n,m)
-          end do
-        end do
-      case ('prec')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%prec(n,m)
-          end do
-        end do
-      case ('wndu')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%wndu(n,m)
-          end do
-        end do
-      case ('wndv')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%wndv(n,m)
-          end do
-        end do
-      case ('swrd')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%swrd(n,m)
-          end do
-        end do
-      case ('dswr')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%dswr(n,m)
-          end do
-        end do
-      case ('rnof')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%rnof(n,m)
-          end do
-        end do
-      case ('snof')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%snof(n,m)
-          end do
-        end do
-      case ('taux')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%taux(n,m)
-          end do
-        end do
-      case ('tauy')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%tauy(n,m)
-          end do
-        end do
-      case ('wspd')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%wspd(n,m)
-          end do
-        end do
-      case ('nflx')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%nflx(n,m)
-          end do
-        end do
-      case ('sflx')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%sflx(n,m)
-          end do
-        end do
-      case ('snow')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%snow(n,m)
-          end do
-        end do
+      select case (trim(adjustl(itemNameList(i))))
+      case ('z0')
+        call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, z0, rc)
+      case ('ustar')
+        call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, ustar, rc)
       end select
+!
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
-      if (debugLevel == 4) then
-        iunit = localPet
-        write(ofile,90) 'atm_export', trim(itemNameList(i)),            &
-                        iyear, imonth, iday, ihour, localPet, j
-        open(unit=iunit, file=trim(ofile)//'.txt') 
-        imin = global_cross_istart+ici1-1
-        imax = global_cross_istart+ici2-1
-        jmin = global_cross_jstart+jci1-1
-        jmax = global_cross_jstart+jci2-1
-        call print_matrix(transpose(ptr), imin, imax, jmin, jmax , 1, 1,&
-                              localPet, iunit, "PTR/ATM/EXP")
-        close(unit=iunit)
-      end if 
+!      if (debugLevel == 4) then
+!        iunit = localPet
+!        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
+!                        iyear, imonth, iday, ihour, localPet, j
+!        open(unit=iunit, file=trim(ofile)//'.txt') 
+!        call print_matrix(ptr, IstrR, IendR, JstrR, JendR, 1, 1,        &
+!                          localPet, iunit, "PTR/OCN/EXP")
+!        close(unit=iunit)
+!      end if         
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
@@ -1869,16 +1589,9 @@
 !-----------------------------------------------------------------------
 !
       if (debugLevel == 3) then
-        write(ofile,100) 'atm_export', trim(itemNameList(i)),           &
+        write(ofile,100) 'wav_export', trim(itemNameList(i)),           &
                         iyear, imonth, iday, ihour, localPet
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
-!        write(ofile,100) 'atm_export', trim(itemNameList(i))
-!        if (localPet == 0) print*, tstep
-!        call ESMF_FieldWrite(field, trim(ofile)//'.nc',                 &
-!                             variableName=trim(itemNameList(i)),        &
-!                             timeslice=int(tstep),                      &
-!                             iofmt=ESMF_IOFMT_NETCDF,                   &
-!                             rc=rc) 
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end if
@@ -1898,20 +1611,17 @@
 !
  90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
  100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
-! 100  format(A10,'_',A)
 !
-      end subroutine ATM_Put
+      end subroutine WAV_Put
 !
-      subroutine uvrot(u, v)
+      subroutine WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, inp, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_constants, only : degrad
-      use mod_atm_interface, only : mddom
-      use mod_dynparam, only : clon, clat, xcone, ici1, ici2, jci1, jci2
-      use mod_dynparam, only : global_cross_istart, global_cross_jstart
+      use wam_mpi_module,   only : nstart, nend, pelocal, irank
+      use wam_grid_module,  only : nx, ny, nsea, l_s_mask
 !
       implicit none
 !
@@ -1919,63 +1629,114 @@
 !     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8, intent(inout) :: u(global_cross_jstart+jci1-1:            &
-                                 global_cross_jstart+jci2-1,            &
-                                 global_cross_istart+ici1-1:            &
-                                 global_cross_istart+ici2-1)
-      real*8, intent(inout) :: v(global_cross_jstart+jci1-1:            &
-                                 global_cross_jstart+jci2-1,            &
-                                 global_cross_istart+ici1-1:            &
-                                 global_cross_istart+ici2-1)
+      type(ESMF_VM), intent(in) :: vm
+      integer, intent(in) :: imin, imax, jmin, jmax
+      real(ESMF_KIND_R8), intent(inout) :: ptr(imin:imax,jmin:jmax)
+      real(ESMF_KIND_R4), intent(in) :: inp(1:nsea)
+      integer, intent(inout) :: rc
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer*4 :: i, j, ii, jj
-      real*8 :: x, xs, xc, d
+      integer :: localPet, petCount
+      integer :: i, j, k, ii, jj, ijs, ijl
+      integer(ESMF_KIND_I4), allocatable :: offsets_recv(:)
+      integer(ESMF_KIND_I4), allocatable :: blocksize(:) 
+      real(ESMF_KIND_R4), allocatable :: dumm1(:), dumm2(:,:)
 !
-      do i = ici1, ici2
-        do j = jci1, jci2
-          ii = global_cross_istart+i-1
-          jj = global_cross_jstart+j-1
+      rc = ESMF_SUCCESS
 !
-          if ((clon >= 0.0d0 .and. mddom%xlon(j,i) >= 0.0d0) .or.       &
-              (clon < 0.0d0 .and. mddom%xlon(j,i) < 0.0d0)) then
-            x = (clon-mddom%xlon(j,i))*degrad*xcone
-          else
-            if (clon >= 0.0d0) then
-              if (abs(clon-(mddom%xlon(j,i)+360.0d0)) <                 &
-                  abs(clon-mddom%xlon(j,i))) then
-                x = (clon-(mddom%xlon(j,i)+360.0d0))*degrad*xcone
-              else
-                x = (clon-mddom%xlon(j,i))*degrad*xcone
-              end if
-            else
-              if (abs(clon-(mddom%xlon(j,i)-360.0d0)) <                 &
-                  abs(clon-mddom%xlon(j,i))) then
-                x = (clon-(mddom%xlon(j,i)-360.0d0))*degrad*xcone
-              else
-                x = (clon-mddom%xlon(j,i))*degrad*xcone
-              end if              
-            end if
-          end if 
+!-----------------------------------------------------------------------
+!     Query VM
+!-----------------------------------------------------------------------
 !
-          xs = sin(x)
-          xc = cos(x)
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
-          if (clat >= 0.0d0) then
-            d = u(jj,ii)*xc-v(jj,ii)*xs
-            v(jj,ii) = u(jj,ii)*xs+v(jj,ii)*xc
-            u(jj,ii) = d
-          else
-            d = u(jj,ii)*xc+v(jj,ii)*xs
-            v(jj,ii) = v(jj,i)*xc-u(jj,ii)*xs
-            u(jj,ii) = d
+!-----------------------------------------------------------------------
+!     Allocate temporary arrays 
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(dumm1)) then
+        allocate(dumm1(1:nsea))
+        dumm1 = ZERO_R4
+      end if
+      if (.not. allocated(dumm2)) then
+        allocate(dumm2(nx,ny))
+        dumm2 = ZERO_R4
+      end if
+!
+      if (.not. allocated(blocksize)) then
+        allocate(blocksize(petCount))
+        blocksize = ZERO_I4
+      end if
+      if (.not. allocated(offsets_recv)) then
+        allocate (offsets_recv(petCount))
+        offsets_recv = ZERO_I4
+      end if
+!      
+!-----------------------------------------------------------------------
+!     Collect block size from each PETs 
+!-----------------------------------------------------------------------
+!
+      ijs = nstart(irank)
+      ijl = nend(irank)
+!
+      call ESMF_VMAllGatherV(vm, sendData= (/ ijl-ijs+1 /),             &
+                             sendCount=1, recvData=blocksize,           &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMAllGatherV(vm, sendData= (/ ijs-1 /),                 &
+                             sendCount=1, recvData=offsets_recv,        &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Collect data from each PETs 
+!-----------------------------------------------------------------------
+!
+      call ESMF_VMAllGatherV(vm, sendData=inp(1:blocksize(irank)),      &
+                             sendCount=blocksize(irank),                &
+                             recvData=dumm1,                            &
+                             recvCounts=blocksize,                      &
+                             recvOffsets=offsets_recv,                  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Unpack data and fill pointer 
+!-----------------------------------------------------------------------
+!
+      dumm2 = unpack(dumm1, l_s_mask, MISSING_R4)
+!
+      do ii = imin, imax
+        do jj = jmin, jmax
+          if (dumm2(ii,jj) < TOL_R4) then
+            ptr(ii,jj) = dumm2(ii,jj)
           end if
-        end do
+        end do 
       end do
 !
-      end subroutine uvrot
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays 
+!-----------------------------------------------------------------------
 !
-      end module mod_esmf_atm
+      if (allocated(dumm1)) deallocate(dumm1)
+      if (allocated(dumm2)) deallocate(dumm2)
+      if (allocated(blocksize)) deallocate(blocksize)
+      if (allocated(offsets_recv)) deallocate(offsets_recv)
+!
+      end subroutine WAV_Unpack
+!
+      end module mod_esmf_wav
+

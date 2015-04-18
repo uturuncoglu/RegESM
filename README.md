@@ -12,9 +12,11 @@ Supported Components
     * ROMS (3.7) - http://www.myroms.org or for ice branch https://github.com/kshedstrom/roms
     * MIT-gcm (MITgcm_c63s) - http://mitgcm.org/download/
 * RTM: 
-    * HD (1.0.2) - slightly modified version for coupling 
+    * HD (1.0.2) - - slightly modified version for coupling
       http://www.mpimet.mpg.de/en/science/the-land-in-the-earth-system/terrestrial-hydrology/hd-model.html
       http://www.mpimet.mpg.de/en/science/models/model-distribution.html
+* WAV:
+    * WAM (Cycle_4.5.3_MPI)
 
 Prerequisites
 =============

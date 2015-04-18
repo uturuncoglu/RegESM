@@ -39,6 +39,7 @@
       use mod_esmf_atm, only: ATM_SetServices
       use mod_esmf_ocn, only: OCN_SetServices
       use mod_esmf_rtm, only: RTM_SetServices
+      use mod_esmf_wav, only: WAV_SetServices
       use mod_esmf_cpl, only: CPL_SetServices
 !
       implicit none

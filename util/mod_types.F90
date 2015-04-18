@@ -170,10 +170,11 @@
 !     ESM model indices
 !-----------------------------------------------------------------------
 !
-      character(len=3) :: COMPDES(3) = (/'ATM','OCN','RTM'/)
+      character(len=3) :: COMPDES(4) = (/'ATM','OCN','RTM','WAV'/)
       integer, parameter :: Iatmos = 1 
       integer, parameter :: Iocean = 2
       integer, parameter :: Iriver = 3
+      integer, parameter :: Iwavee = 4
 !
 !-----------------------------------------------------------------------
 !     Interaction interfaces  
