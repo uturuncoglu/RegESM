@@ -30,7 +30,7 @@
 !
       use ESMF
       use NUOPC
-      use NUOPC_Model, only :                                           &
+      use NUOPC_Model,                                                  &
           NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
@@ -84,7 +84,7 @@
       call NUOPC_CompSetEntryPoint(gcomp,                               &
                                    methodflag=ESMF_METHOD_INITIALIZE,   &
                                    phaseLabelList=(/"IPDv00p1"/),       &
-                                   userRoutine=OCN_SetInitializeP1,     &
+                                   userRoutine=WAV_SetInitializeP1,     &
                                    rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -92,7 +92,7 @@
       call NUOPC_CompSetEntryPoint(gcomp,                               &
                                    methodflag=ESMF_METHOD_INITIALIZE,   &
                                    phaseLabelList=(/"IPDv00p2"/),       &
-                                   userRoutine=OCN_SetInitializeP2,     &
+                                   userRoutine=WAV_SetInitializeP2,     &
                                    rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1550,11 +1550,11 @@
 !
       if (debugLevel == 4) then
         iunit = localPet
-        write(ofile,90) 'ocn_export', trim(itemNameList(i)),            &
+        write(ofile,90) 'wav_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix(ptr, IstrR, IendR, JstrR, JendR, 1, 1,        &
-                          localPet, iunit, "PTR/OCN/EXP")
+        call print_matrix(ptr, imin, imax, jmin, jmax, 1, 1,            &
+                          localPet, iunit, "PTR/WAV/EXP")
         close(unit=iunit)
       end if         
 !
@@ -1605,8 +1605,8 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use wam_mpi_module,   only : nstart, nend, pelocal, irank
-      use wam_grid_module,  only : nx, ny, nsea, l_s_mask
+      use wam_mpi_module, only : nstart, nend, pelocal, irank
+      use wam_grid_module, only : nx, ny, nsea, l_s_mask
 !
       implicit none
 !

@@ -1452,20 +1452,12 @@
           end do
         end do
 !     Import from WAV
-      case ('z0')
+      case ('zo')
         do m = ici1, ici2
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            importFields%z0(n,m) = ptr(ii,jj)
-          end do
-        end do
-      case ('ustar')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%ustar(n,m) = ptr(ii,jj)
+            importFields%zo(n,m) = ptr(ii,jj)
           end do
         end do
       end select

@@ -13,7 +13,7 @@
 #     defined on all available PETs
 #-----------------------------------------------------------------------
 #
-PETLayoutOption: concurrent 
+PETLayoutOption: sequential 
 #
 #-----------------------------------------------------------------------
 #     PET distribution of model components (ordered in ATM, OCN, RTM)
@@ -72,10 +72,10 @@ DebugLevel: 1
 #-----------------------------------------------------------------------
 #
 Calendar:    gregorian
-StartTime:   1979 01 01 00 00 00
-RestartTime: 1979 01 01 00 00 00 
-StopTime:    2013 01 01 00 00 00
-TimeStep:    0000 00 01 00 00 00
+StartTime:   2008 01 01 00 00 00
+RestartTime: 2008 01 01 00 00 00 
+StopTime:    2009 01 01 00 00 00
+TimeStep:    0000 00 00 01 00 00
 #
 #-----------------------------------------------------------------------
 #     Coupling time step among components
@@ -94,7 +94,7 @@ DividerForTStep::
 0 0 0 1
 0 0 0 0
 0 0 0 0
-0 0 0 0
+1 0 0 0
 :: 
 #
 #-----------------------------------------------------------------------
