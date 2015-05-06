@@ -1535,7 +1535,7 @@
 !-----------------------------------------------------------------------
 !
       select case (trim(adjustl(itemNameList(i))))
-      case ('z0')
+      case ('zo')
         call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, z0, rc)
       case ('ustar')
         call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, ustar, rc)
