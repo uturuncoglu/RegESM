@@ -56,13 +56,15 @@
 ! Field Table
 !-----------------------------------------------------------------------
 
-  - Following short names can be used to define the field table.
+  - Following short names for exchange fields are allowed to use 
+    in the exchange field table (exfield.tbl)
+    
+  - The units between the parentheses indicates the unit in the
+    source component (ATM, OCN, RTM or WAV). In this case, the user
+    must provide the correct unit conversion parameters
+    (scale_factor and add_offset) in the exchange field table.
 
-  - Atmospheric component (ATM) 
-
-    * The units between the parentheses indicates the unit in the RegCM. So,
-      the user must provide the correct unit conversion parameters using
-      scale_factor and add_offset in the exchange field table.
+  - Atmospheric Component (ATM) 
  
     taux - zonal surface wind stress (N/m^2 or Pa)
     tauy - meridional surface wind stress (N/m^2 or Pa)
@@ -85,12 +87,16 @@
     rnof - surface runoff (m/s, just over land)
     snof - sub-surface runoff (m/s, just over land)
 
-  - Ocean component (OCN)
+  - Ocean Component (OCN)
 
     sst  - sea surface temperature (degC in ROMS and MIT-gcm)    
     sit  - sea ice thickness (m in ROMS)
     msk  - dynamic masking, wet-dry algorithm (unitless in ROMS)
 
-  - River routing component (RTM)
+  - River Routing Component (RTM)
 
     rdis - river discharge (m^3/s)
+
+  - Wave Component (WAV)
+  
+    zo   - surface roughness lenght (m)
