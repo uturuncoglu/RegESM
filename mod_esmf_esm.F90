@@ -106,7 +106,6 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, j
-      logical :: restarted
 !
       type(ESMF_GridComp) :: child
       type(ESMF_CplComp) :: connector
