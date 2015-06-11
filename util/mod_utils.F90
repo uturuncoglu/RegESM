@@ -66,7 +66,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: cLbnd(2), cUbnd(2)
-      integer :: i, j, k, localDECount
+      integer :: i, j, k, srcTermProcessing, localDECount
       character(ESMF_MAXSTR) :: fname
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d, bdy2d
       integer(ESMF_KIND_I4), dimension(:,:), pointer :: msk2d
@@ -113,6 +113,8 @@
         regridMethod = ESMF_REGRIDMETHOD_NEAREST_DTOS
       end if
 !
+      srcTermProcessing = 0
+!
       call ESMF_FieldRegridStore(srcField=aField,                       &
                                  dstField=bField,                       &
                                  srcMaskValues=(/srcLandMask/),         &
@@ -120,6 +122,7 @@
                                  unmappedaction=unmap,                  &
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
+                                 srcTermProcessing=srcTermProcessing,   &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -129,7 +132,9 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldRegrid(aField, bField, routeHandle,                &
-                            zeroregion=ESMF_REGION_EMPTY, rc=rc)
+                            zeroregion=ESMF_REGION_EMPTY,               &
+                            termorderflag=ESMF_TERMORDER_SRCSEQ,        &
+                            rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -148,6 +153,7 @@
                                  unmappedaction=unmap,                  &
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
+                                 srcTermProcessing=srcTermProcessing,   &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -157,7 +163,9 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldRegrid(aField, cField, routeHandle,                &
-                            zeroregion=ESMF_REGION_TOTAL, rc=rc)
+                            zeroregion=ESMF_REGION_TOTAL,               &
+                            termorderflag=ESMF_TERMORDER_SRCSEQ,        &
+                            rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !

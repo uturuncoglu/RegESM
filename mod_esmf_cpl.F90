@@ -109,9 +109,10 @@
       logical :: enableExtp, rh1Exist, rh2Exist
       integer :: i, j, localPet, petCount, localDECount
       integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
-      integer :: srcCount, dstCount, itemCount
+      integer :: srcCount, dstCount, itemCount, srcTermProcessing
       integer :: srcMaskVal, dstMaskVal
       integer(ESMF_KIND_I4), allocatable, dimension(:,:) :: tlw, tuw
+      character(ESMF_MAXSTR) :: ofile
       character(ESMF_MAXSTR) :: cname, fname, rname, msgString
       character(ESMF_MAXSTR), pointer :: cplList(:)
       character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
@@ -328,6 +329,8 @@
       unmap = ESMF_UNMAPPEDACTION_IGNORE
       regridMethod = ESMF_REGRIDMETHOD_BILINEAR
 !
+      srcTermProcessing = 0
+!
       call ESMF_FieldRegridStore(srcField=srcField,                     &
                                  dstField=dstField,                     &
                                  srcMaskValues=(/srcMaskVal/),          &
@@ -335,6 +338,7 @@
                                  unmappedaction=unmap,                  &
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
+                                 srcTermProcessing=srcTermProcessing,   &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -399,6 +403,8 @@
       unmap = ESMF_UNMAPPEDACTION_IGNORE
       regridMethod = ESMF_REGRIDMETHOD_NEAREST_STOD
 !
+      srcTermProcessing = 0
+!
       call ESMF_FieldRegridStore(srcField=tmpField,                     &
                                  dstField=dstField,                     &
                                  srcMaskValues=(/ dstMaskVal,           &
@@ -408,6 +414,7 @@
                                  unmappedaction=unmap,                  &
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
+                                 srcTermProcessing=srcTermProcessing,   &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -472,7 +479,9 @@
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
-!  
+!
+      srcTermProcessing = 0
+!
       if (iSrc == Iocean) then
       call ESMF_FieldRegridStore(srcField=srcField,                     &
                                  dstField=dstField,                     &
@@ -480,6 +489,7 @@
                                  unmappedaction=unmap,                  &
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
+                                 srcTermProcessing=srcTermProcessing,   &
                                  rc=rc)
       else
       call ESMF_FieldRegridStore(srcField=srcField,                     &
@@ -487,6 +497,7 @@
                                  unmappedaction=unmap,                  &
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
+                                 srcTermProcessing=srcTermProcessing,   &
                                  rc=rc)
       end if
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -711,7 +722,9 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldRegrid(srcField, tmpField, routeHandle,            &
-                            zeroregion=ESMF_REGION_SELECT, rc=rc)
+                            zeroregion=ESMF_REGION_SELECT,              &
+                            termorderflag=ESMF_TERMORDER_SRCSEQ,        &
+                            rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -739,7 +752,9 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_FieldRegrid(tmpField, dstField, routeHandle,            &
-                            zeroregion=ESMF_REGION_SELECT, rc=rc)
+                            zeroregion=ESMF_REGION_SELECT,              &
+                            termorderflag=ESMF_TERMORDER_SRCSEQ,        &
+                            rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
@@ -827,7 +842,9 @@
           line=__LINE__, file=FILENAME)) return
 !
       call ESMF_FieldRegrid(srcField, dstField, routeHandle,            &
-                            zeroregion=ESMF_REGION_SELECT, rc=rc)
+                            zeroregion=ESMF_REGION_SELECT,              &
+                            termorderflag=ESMF_TERMORDER_SRCSEQ,        &
+                            rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
