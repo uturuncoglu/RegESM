@@ -24,3 +24,12 @@ Prerequisites
 * RegESM itself (as a driver)
 * Earth System Modeling Framework (ESMF, >= esmf-7.0.0b38) Library - http://www.earthsystemmodeling.org
 * Model Components (patched and installed with coupling support)
+
+References
+=============
+
+When using the RegESM coupled modeling system in a paper, the following is the correct citation to use:
+
+* Turuncoglu, U. U., Giuliani, G., Elguindi, N., and Giorgi, F., 2013. Modelling the Caspian Sea and its catchment area using a coupled regional atmosphere-ocean model (RegCM4-ROMS): model design and preliminary results, Geosci. Model Dev., 6, 283-299, doi:10.5194/gmd-6-283-2013
+
+Also note that this referance belongs to old version of the coupled model and the new referance paper is on the way.
