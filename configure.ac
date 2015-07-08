@@ -43,60 +43,116 @@ AM_CONDITIONAL(DO_COMPILE_LIBESMF, [test -d "$ESMF_PREFIX"])
 # check ATM
 AC_ARG_WITH([atm],
   AC_HELP_STRING([--with-atm],
-            [Path to ATM model (RegCM) installation (default: yes)]),
-  [ATM_PREFIX="$withval"], [ATM_PREFIX="${PWD}/src/atm"]
+            [Path to ATM model installation (default: none)]),
+  [ATM_PREFIX="$withval"], [ATM_PREFIX="none"]
 )
 AM_CONDITIONAL(DO_COMPILE_LIBATM, [test -d "$ATM_PREFIX"])
 AC_SUBST(ATM_PREFIX)
 
+if eval "test x$ATM_PREFIX != xnone"; then
+  if eval "! test -d $ATM_PREFIX"; then
+    AC_MSG_ERROR([check atmosphere model installation path $ATM_PREFIX])
+  fi
+
+  NO_ATM_SUPPORT=1
+  AC_CHECK_FILE([$ATM_PREFIX/Main/mod_update.o],
+                [NO_ATM_SUPPORT=0; AC_MSG_NOTICE([compiling with atmosphere model - RegCM - support])])
+  if eval "test x$NO_ATM_SUPPORT = x1"; then
+    AC_MSG_ERROR([required source file 'mod_update.o' is not found! atmosphere model should be installed with coupling support.])
+  fi
+fi
+
 # check OCN
 AC_ARG_WITH([ocn],
   AC_HELP_STRING([--with-ocn],
-            [Path to OCN model (ROMS or MITgcm) installation (default: yes)]),
-  [OCN_PREFIX="$withval"], [OCN_PREFIX="${PWD}/src/ocn"]
+            [Path to OCN model installation (default: none)]),
+  [OCN_PREFIX="$withval"], [OCN_PREFIX="none"]
 )
 AM_CONDITIONAL(DO_COMPILE_LIBOCN, [test -d "$OCN_PREFIX"])
 AC_SUBST(OCN_PREFIX)
 
-# check OCN model type
-OCN_ROMS=0
-OCN_MIT=0
-AC_CHECK_FILE([$OCN_PREFIX/roms_export.f90],
-              [OCN_ROMS=1; AC_MSG_NOTICE([Compiling with support of ROMS ocean model])],
-              AC_MSG_WARN([Required source file is not found! Do not activate ROMS ocean model ...]))
-if eval "test x$OCN_ROMS = x1"; then
-  AC_CHECK_FILE([$OCN_PREFIX/seaice.o],
-                [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_NOTICE([Compiling with support of ICE model])],
-                 AC_MSG_WARN([Compiling without support of ICE model]))
-  strlib="`nm $OCN_PREFIX/libNLM.a | grep wetdry_tile`"
-#  AM_CONDITIONAL([DEF_WETDRY], [test -n "$strlib"])
-#  AM_COND_IF([DEF_WETDRY],
-#             [AM_CPPFLAGS="-DOCNWETDRY $AM_CPPFLAGS"; AC_MSG_NOTICE([Compiling with support of WET-DRY])],
-#             AC_MSG_WARN([Compiling without support of WET-DRY]))
+if eval "test x$OCN_PREFIX != xnone"; then
+  # check installation path exist or not?  
+  if eval "! test -d $OCN_PREFIX"; then
+    AC_MSG_ERROR([check ocean model installation path $RTM_PREFIX])
+  fi
+
+  # check ROMS model is installed with coupling support or not?
+  NO_ROMS_SUPPORT=1
+  AC_CHECK_FILE([$OCN_PREFIX/roms_export.f90],
+                [NO_ROMS_SUPPORT=0; AC_MSG_NOTICE([compiling with ocean model - ROMS - support])])
+
+  if eval "test x$NO_ROMS_SUPPORT = x1"; then
+    AC_MSG_ERROR([required source file 'roms_export.f90' is not found! ocean model should be installed with coupling support.])
+  else
+    # check ice model support
+    AC_CHECK_FILE([$OCN_PREFIX/seaice.o],
+                  [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_NOTICE([compiling ocean model with ice model])],
+                   AC_MSG_WARN([compiling ocean model without ice model support !!!]))
+
+    # check wetting-drying support
+    #strlib="`nm $OCN_PREFIX/libNLM.a | grep wetdry_tile`"
+    #AM_CONDITIONAL([DEF_WETDRY], [test -n "$strlib"])
+    #AM_COND_IF([DEF_WETDRY],
+    #           [AM_CPPFLAGS="-DOCNWETDRY $AM_CPPFLAGS"; AC_MSG_NOTICE([compiling ocean model with wetting-drying support])],
+    #            AC_MSG_WARN([compiling ocean model without wetting-drying support !!!]))
+  fi
+
+  # check MITgcm model is installed with coupling support or not?
+  AC_CHECK_FILE([$OCN_PREFIX/MOM_COMMON_OPTIONS.h],
+                [NO_MIT_SUPPORT=0; AC_MSG_NOTICE([compiling with ocean model - MITgcm - support])],
+                 AC_MSG_WARN([required source file 'MOM_COMMON_OPTIONS.h' is not found! ocean model should be installed with coupling support.]))
+
+  if eval "test x$NO_MIT_SUPPORT = x1"; then
+    AC_MSG_ERROR([required source file 'MOM_COMMON_OPTIONS.h' is not found! ocean model should be installed with coupling support.])
+  fi
 fi
-AC_CHECK_FILE([$OCN_PREFIX/MOM_COMMON_OPTIONS.h],
-              [OCN_MIT=1; AC_MSG_NOTICE([Compiling with support of MITgcm ocean model])],
-              AC_MSG_WARN([Required source file is not found! Do not activate MITgcm ocean model ...]))
-AM_CONDITIONAL(DO_COMPILE_ROMS, [test x"$OCN_ROMS" = x1])
-AM_CONDITIONAL(DO_COMPILE_MIT, [test x"$OCN_MIT" = x1])
+AM_CONDITIONAL(DO_COMPILE_MIT, [test x"$NO_MIT_SUPPORT" = x0])  
+AM_CONDITIONAL(DO_COMPILE_ROMS, [test x"$NO_ROMS_SUPPORT" = x0])
 
 # check RTM
 AC_ARG_WITH([rtm],
   AC_HELP_STRING([--with-rtm],
-            [Path to RTM model (HD) installation (default: yes)]),
-  [RTM_PREFIX="$withval"], [RTM_PREFIX="${PWD}/src/rtm"]
+            [Path to RTM model installation (default: none)]),
+  [RTM_PREFIX="$withval"], [RTM_PREFIX="none"]
 )
 AM_CONDITIONAL(DO_COMPILE_LIBRTM, [test -d "$RTM_PREFIX"])
 AC_SUBST(RTM_PREFIX)
 
+if eval "test x$RTM_PREFIX != xnone"; then
+  if eval "! test -d $RTM_PREFIX"; then
+    AC_MSG_ERROR([check river routing model installation path $RTM_PREFIX])
+  fi
+
+  NO_RTM_SUPPORT=1
+  AC_CHECK_FILE([$RTM_PREFIX/hdmain.o],
+                [NO_RTM_SUPPORT=0; AC_MSG_NOTICE([compiling with river routing model - HD - support])])
+  if eval "test x$NO_RTM_SUPPORT = x1"; then
+    AC_MSG_ERROR([required source file 'hdmain.o' is not found! river routing model should be installed with coupling support.])
+  fi
+fi
+
 # check WAV
 AC_ARG_WITH([wav],
   AC_HELP_STRING([--with-wav],
-            [Path to WAV model installation (default: yes)]),
-  [WAV_PREFIX="$withval"], [WAV_PREFIX="${PWD}/src/wav"]
+            [Path to WAV model installation (default: none)]),
+  [WAV_PREFIX="$withval"], [WAV_PREFIX="none"]
 )
 AM_CONDITIONAL(DO_COMPILE_LIBWAV, [test -d "$WAV_PREFIX"])
 AC_SUBST(WAV_PREFIX)
+
+if eval "test x$WAV_PREFIX != xnone"; then
+  if eval "! test -d $WAV_PREFIX"; then
+    AC_MSG_ERROR([check wave model installation path $WAV_PREFIX])
+  fi
+
+  NO_WAV_SUPPORT=1
+  AC_CHECK_FILE([$WAV_PREFIX/wam_user_interface.o],
+                [NO_WAV_SUPPORT=0; AC_MSG_NOTICE([compiling with wave model - WAM - support])])
+  if eval "test x$NO_WAV_SUPPORT = x1"; then
+  AC_MSG_ERROR([required source file 'wam_user_interface.o' is not found! wave model should be installed with coupling support.])
+  fi
+fi
 
 # check DEBUG
 DEBUG="0"
