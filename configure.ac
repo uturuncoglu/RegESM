@@ -82,30 +82,28 @@ if eval "test x$OCN_PREFIX != xnone"; then
   AC_CHECK_FILE([$OCN_PREFIX/roms_export.f90],
                 [NO_ROMS_SUPPORT=0; AC_MSG_NOTICE([compiling with ocean model - ROMS - support])])
 
-  if eval "test x$NO_ROMS_SUPPORT = x1"; then
-    AC_MSG_ERROR([required source file 'roms_export.f90' is not found! ocean model should be installed with coupling support.])
-  else
-    # check ice model support
+  # check MITgcm model is installed with coupling support or not?
+  NO_MIT_SUPPORT=1
+  AC_CHECK_FILE([$OCN_PREFIX/MOM_COMMON_OPTIONS.h],
+                [NO_MIT_SUPPORT=0; AC_MSG_NOTICE([compiling with ocean model - MITgcm - support])])
+
+  if eval "test x$NO_ROMS_SUPPORT = x1 -a x$NO_MIT_SUPPORT = x1"; then
+    AC_MSG_ERROR([required source files 'roms_export.f90' or 'MOM_COMMON_OPTIONS.h' are not found! ocean model should be installed with coupling support.])
+  fi
+
+  # check ice model support
+  if eval "test x$NO_ROMS_SUPPORT = x0"; then
     AC_CHECK_FILE([$OCN_PREFIX/seaice.o],
                   [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_NOTICE([compiling ocean model with ice model])],
                    AC_MSG_WARN([compiling ocean model without ice model support !!!]))
-
-    # check wetting-drying support
-    #strlib="`nm $OCN_PREFIX/libNLM.a | grep wetdry_tile`"
-    #AM_CONDITIONAL([DEF_WETDRY], [test -n "$strlib"])
-    #AM_COND_IF([DEF_WETDRY],
-    #           [AM_CPPFLAGS="-DOCNWETDRY $AM_CPPFLAGS"; AC_MSG_NOTICE([compiling ocean model with wetting-drying support])],
-    #            AC_MSG_WARN([compiling ocean model without wetting-drying support !!!]))
   fi
 
-  # check MITgcm model is installed with coupling support or not?
-  AC_CHECK_FILE([$OCN_PREFIX/MOM_COMMON_OPTIONS.h],
-                [NO_MIT_SUPPORT=0; AC_MSG_NOTICE([compiling with ocean model - MITgcm - support])],
-                 AC_MSG_WARN([required source file 'MOM_COMMON_OPTIONS.h' is not found! ocean model should be installed with coupling support.]))
-
-  if eval "test x$NO_MIT_SUPPORT = x1"; then
-    AC_MSG_ERROR([required source file 'MOM_COMMON_OPTIONS.h' is not found! ocean model should be installed with coupling support.])
-  fi
+  # check wetting-drying support
+  #strlib="`nm $OCN_PREFIX/libNLM.a | grep wetdry_tile`"
+  #AM_CONDITIONAL([DEF_WETDRY], [test -n "$strlib"])
+  #AM_COND_IF([DEF_WETDRY],
+  #           [AM_CPPFLAGS="-DOCNWETDRY $AM_CPPFLAGS"; AC_MSG_NOTICE([compiling ocean model with wetting-drying support])],
+  #            AC_MSG_WARN([compiling ocean model without wetting-drying support !!!]))
 fi
 AM_CONDITIONAL(DO_COMPILE_MIT, [test x"$NO_MIT_SUPPORT" = x0])  
 AM_CONDITIONAL(DO_COMPILE_ROMS, [test x"$NO_ROMS_SUPPORT" = x0])
