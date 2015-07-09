@@ -2240,6 +2240,10 @@
 !     Fill array with river discharge data
 !-----------------------------------------------------------------------
 !
+      ! reinitialize temporary river discharge array
+      runoff_ESMF(1-OLx:sNx+OLx,1-OLy:sNy+OLy,nSx,nSy) = ZERO_R8
+!
+      ! get number of rivers
       nr = size(rivers, dim=1)
 !
       k = 0
