@@ -1406,7 +1406,7 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use wam_model_module, only : z0, tauw
+      use wam_model_module, only : z0, ustar, tauw
 !
       implicit none
 !
@@ -1537,6 +1537,8 @@
       select case (trim(adjustl(itemNameList(i))))
       case ('zo')
         call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, z0, rc)
+      case ('ustar')
+        call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, ustar, rc)
       case ('tauw')
         call WAV_Unpack(vm, ptr, imin, imax, jmin, jmax, tauw, rc)
       end select
