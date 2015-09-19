@@ -9,9 +9,10 @@
 #   ATM - 0 (None), 1 (RegCM)                               #
 #   OCN - 0 (None), 1 (ROMS), 2 (MITgcm)                    #
 #   RTM - 0 (None), 1 (HD)                                  #
+#   WAV - 0 (None), 1 (WAM)                                 #
 # - Set model parameter and stdout files                    #
-#   ATM_PARAM - RegCM configuration file                    #
-#   ATM_STOUT - RegCM stdout file, if it exists             #
+#   *_PARAM - configuration file                            #
+#   *_STOUT - stdout file, if it exists                     #
 #############################################################
 
 MPATH="/etc/profile.d"
@@ -26,6 +27,8 @@ OCN_PARAM="data"
 OCN_PARAM_ADD="data.cal"
 RTM=0
 RTM_PARAM="hdini.inp"
+WAV=1
+WAV_PARAM="WAM_User"
 
 #############################################################
 # Load modules                                              #
@@ -326,4 +329,42 @@ if [ "$RTM" -eq "1" ];then
   mv ${hdout} ${hdout/.nc/}_$dstamp.nc  
 else
   echo "[debug] -- Skip RTM component! It is not active ..."
+fi
+
+#############################################################
+# WAM                                                       #
+#############################################################
+
+if [ "$WAV" -eq "1" ];then
+  # backup parameter files
+  cp $WAV_PARAM ${WAV_PARAM}_$dstamp.in
+
+  # get atm component stop time
+  endd=`cat regcm.in_MED50km | grep mdate2 | awk -F= '{print $2}' | awk -F, '{print $1}'`
+
+  # modify parameters
+  # start time
+  val1=`cat WAM_User | grep $endd | awk '{print $1}'`
+  val2="${dstr//-/}000000"
+  if [ "$val1" == "$val2" ]; then
+    echo "[debug] -- start date is already changed. do not change it again!"
+  else
+    cat $WAV_PARAM | sed "s/$val1/$val2/g" > .tmp
+    mv .tmp $WAV_PARAM
+    echo "[debug] -- start date is changed to '$val2' in '$WAV_PARAM' file."
+  fi
+
+  # restart flag
+  lno=`cat WAM_User | grep -n "C COLDSTART" | awk -F: '{print $1}'`
+  val1=`cat WAM_User | head -n $((lno+2)) | tail -n 1`
+  val2="          F"
+  if [ "$val1" == "$val2" ]; then
+    echo "[debug] -- restart flag is already changed. do not change it again!"
+  else  
+    cat WAM_User | sed -e "$((lno+2))s/$val1/$val2/" > .tmp
+    mv .tmp $WAV_PARAM
+    echo "[debug] -- restart flag is changed to '$val2' in '$WAV_PARAM' file."
+  fi
+else
+  echo "[debug] -- Skip WAV component! It is not active ..."
 fi
