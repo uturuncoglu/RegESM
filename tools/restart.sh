@@ -262,18 +262,6 @@ if [ "$OCN" -eq "2" ]; then
   dt=${dt/.0/}
   echo "[debug] -- MITgcm : deltaT = $dt"
 
-  # get dump frequency (in sec)
-  dfreq=`cat $OCN_PARAM | grep -v "\#" | grep "pChkptFreq[^a-zA-Z0-9]"`
-  dfreq=`echo $dfreq | awk -F\= '{print $2}'`
-  dfreq=${dfreq/.,/}
-  dfreq=${dfreq/,/}
-  dfreq=${dfreq/.0/}
-  echo "[debug] -- MITgcm : dumpFreq = $dfreq"
-
-  # find time step 
-  dstep=$((dfreq/dt))
-  echo "[debug] -- MITgcm : Time Step = $dstep"
-
   # get start time
   sdate=`cat $OCN_PARAM_ADD | grep -v "\#" | grep "startDate_1[^a-zA-Z0-9]"`
   sdate=`echo $sdate | awk -F\= '{print $2}'` 
@@ -284,12 +272,12 @@ if [ "$OCN" -eq "2" ]; then
 
   # get time diference
   diff=$(dateDiff -d "$sdate2" "$dstr")
-  echo "[debug] -- MITgcm : Pickup File = '`find . -name "pickup.*$((diff*dstep)).data"`'"
+  echo "[debug] -- MITgcm : Pickup File = '`find . -name "pickup.*$((diff*86400/dt)).data"`'"
 
   # estimate restart time
   str1=`cat $OCN_PARAM | grep -v "\#" | grep "startTime[^a-zA-Z0-9]"`
   val1=`echo $str1 | awk -F\= '{print $2}'`
-  val2=$((diff*dstep*dt))
+  val2=$((diff*86400))
   str2=${str1/$val1/$val2,}
   echo "[debug] -- MITgcm : startTime = $val1"
   cp $OCN_PARAM ${OCN_PARAM}_$dstamp
