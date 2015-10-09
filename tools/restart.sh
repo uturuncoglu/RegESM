@@ -304,13 +304,13 @@ if [ "$RTM" -eq "1" ];then
 
   # find time indices to split data
   lno=`awk -v dstr=$dstr '{if($1==dstr) print NR}' .tmp`
+  if [ -z "$lno" ]; then
+    lno=`cat -n .tmp | tail -n 1 | awk '{print $1}'`
+  fi
+  echo "[debug] -- RTM component restart time index = $lno"
 
   # get data from restart file 
-  if [ $((lno-1)) -eq "0" ]; then
-    echo "[debug] -- $dstr is not in RTM restart file!"
-  else
-    ncks -O -d time,$((lno-2)),$((lno-2)) ${hdrst} ${hdini}
-  fi
+  ncks -O -d time,$((lno-1)),$((lno-1)) ${hdrst} ${hdini}
 
   # backup files
   mv ${hdrst} ${hdrst/.nc/}_$dstamp.nc  
