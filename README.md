@@ -24,7 +24,7 @@ Prerequisites
 * RegESM itself (as a driver)
     * The RegESM version 1.0.0 is compatible with the RegCM version < 4.5 
     * If you plan to use RegCM 4.5 then please use RegESM version 1.1.0
-* Earth System Modeling Framework (ESMF, >= esmf-7.0.0b38) Library - http://www.earthsystemmodeling.org
+* Earth System Modeling Framework (ESMF, == esmf-7.0.0b38) Library - http://www.earthsystemmodeling.org
 * Model Components (patched and installed with coupling support - see user guide under doc/ directory)
 
 References
