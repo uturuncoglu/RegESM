@@ -783,8 +783,6 @@
           write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
                     global_dot_istart+ide1-1, global_dot_istart+ide2-1, &
                     global_dot_jstart+jde1-1, global_dot_jstart+jde2-1, &
-!                   lbound(mddom%dlon, dim=1), ubound(mddom%dlon, dim=1),&
-!                   lbound(mddom%dlon, dim=2), ubound(mddom%dlon, dim=2),&
                    ma%has_bdybottom, ma%has_bdyright,                   &
                    ma%has_bdytop, ma%has_bdyleft
         end if
@@ -1460,6 +1458,14 @@
             importFields%zo(n,m) = ptr(ii,jj)
           end do
         end do
+      case ('ustar')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            importFields%ustar(n,m) = ptr(ii,jj)
+          end do
+        end do        
       end select
 !
 !-----------------------------------------------------------------------
@@ -1891,7 +1897,6 @@
 !
  90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
  100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
-! 100  format(A10,'_',A)
 !
       end subroutine ATM_Put
 !
@@ -1963,7 +1968,7 @@
             u(jj,ii) = d
           else
             d = u(jj,ii)*xc+v(jj,ii)*xs
-            v(jj,ii) = v(jj,i)*xc-u(jj,ii)*xs
+            v(jj,ii) = v(jj,ii)*xc-u(jj,ii)*xs
             u(jj,ii) = d
           end if
         end do
