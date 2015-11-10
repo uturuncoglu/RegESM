@@ -1364,7 +1364,7 @@
       ptr = ZERO_R8
 !
 !-----------------------------------------------------------------------
-!     Put data to export field 
+!     Put data to export field (only river discharge)
 !-----------------------------------------------------------------------
 !
       select case (trim(adjustl(itemNameList(i)))) 
