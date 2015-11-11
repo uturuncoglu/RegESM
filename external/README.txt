@@ -11,7 +11,57 @@
 ! application and copy or link it to the run directory by modifying
 ! its name as 'exfield.tbl'
 !-----------------------------------------------------------------------
+! Field Table
+!-----------------------------------------------------------------------
 
+  - Following short names for exchange fields are allowed to use 
+    in the exchange field table (exfield.tbl)
+    
+  - The units between the parentheses indicates the unit in the
+    source component (ATM, OCN, RTM or WAV). In this case, the user
+    must provide the correct unit conversion parameters
+    (scale_factor and add_offset) in the exchange field table.
+
+  - Atmospheric Component (ATM) 
+ 
+    taux  - zonal surface wind stress (N/m^2 or Pa)
+    tauy  - meridional surface wind stress (N/m^2 or Pa)
+    wndu  - zonal wind component (m/s)
+    wndv  - meridional wind component (m/s)
+    wspd  - wind speed (m/s)
+    psfc  - surface pressure (hPa or mb)
+    tsfc  - 2 meter surface temperature (K)
+    qsfc  - 2 meter specific humidity (kg/kg)
+    lwrd  - net longwave radiation (W/m^2)
+    swrd  - net shortwave radiation (W/m^2)
+    dlwr  - downward longwave radiation (W/m^2)
+    dswr  - downward shortwave radiation (W/m^2)
+    lhfx  - latent heat flux (W/m^2)
+    shfx  - sensible heat flux (W/m^2)
+    nflx  - net heat flux, latent+sensible+longwave-shortwave (W/m^2)
+    prec  - total precipitation, P (m/s)
+    evap  - evaporation, E (m/s)
+    sflx  - net freshwater flux, E-P (m/s)
+    rnof  - surface runoff (m/s, just over land)
+    snof  - sub-surface runoff (m/s, just over land)
+
+  - Ocean Component (OCN)
+
+    sst   - sea surface temperature (degC in ROMS and MIT-gcm)    
+    sit   - sea ice thickness (m in ROMS)
+    msk   - dynamic masking, wet-dry algorithm (unitless in ROMS)
+
+  - River Routing Component (RTM)
+
+    rdis  - river discharge (m^3/s)
+
+  - Wave Component (WAV)
+  
+    zo    - surface roughness lenght (m)
+    ustar - friction velocity (m/s)
+!-----------------------------------------------------------------------
+! Exchange Field Tables
+!-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
 ! exfield_000.tbl
 !-----------------------------------------------------------------------
@@ -51,52 +101,3 @@
 
   - 2 component configuration: RegCM4 + ROMS
   - Without using bulk flux algorithm
-
-!-----------------------------------------------------------------------
-! Field Table
-!-----------------------------------------------------------------------
-
-  - Following short names for exchange fields are allowed to use 
-    in the exchange field table (exfield.tbl)
-    
-  - The units between the parentheses indicates the unit in the
-    source component (ATM, OCN, RTM or WAV). In this case, the user
-    must provide the correct unit conversion parameters
-    (scale_factor and add_offset) in the exchange field table.
-
-  - Atmospheric Component (ATM) 
- 
-    taux - zonal surface wind stress (N/m^2 or Pa)
-    tauy - meridional surface wind stress (N/m^2 or Pa)
-    wndu - zonal wind component (m/s)
-    wndv - meridional wind component (m/s)
-    wspd - wind speed (m/s)
-    psfc - surface pressure (hPa or mb)
-    tsfc - 2 meter surface temperature (K)
-    qsfc - 2 meter specific humidity (kg/kg)
-    lwrd - net longwave radiation (W/m^2)
-    swrd - net shortwave radiation (W/m^2)
-    dlwr - downward longwave radiation (W/m^2)
-    dswr - downward shortwave radiation (W/m^2)
-    lhfx - latent heat flux (W/m^2)
-    shfx - sensible heat flux (W/m^2)
-    nflx - net heat flux, latent+sensible+longwave-shortwave (W/m^2)
-    prec - total precipitation, P (m/s)
-    evap - evaporation, E (m/s)
-    sflx - net freshwater flux, E-P (m/s)
-    rnof - surface runoff (m/s, just over land)
-    snof - sub-surface runoff (m/s, just over land)
-
-  - Ocean Component (OCN)
-
-    sst  - sea surface temperature (degC in ROMS and MIT-gcm)    
-    sit  - sea ice thickness (m in ROMS)
-    msk  - dynamic masking, wet-dry algorithm (unitless in ROMS)
-
-  - River Routing Component (RTM)
-
-    rdis - river discharge (m^3/s)
-
-  - Wave Component (WAV)
-  
-    zo   - surface roughness lenght (m)
