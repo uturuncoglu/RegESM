@@ -490,4 +490,70 @@
 !
       end subroutine map_rivers
 !
+      subroutine print_timestamp(field, ctime, localPet, str, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_Field), intent(in) :: field
+      type(ESMF_Time),  intent(in) :: ctime
+      integer, intent(in) :: localPet
+      character(*), intent(in) :: str
+      integer, intent(inout) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: vl1(9), vl2(9)
+      character(ESMF_MAXSTR) :: str1, str2
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get field TimeStamp attribute 
+!-----------------------------------------------------------------------
+!
+      call ESMF_AttributeGet(field, name="TimeStamp",                   &
+                             valueList=vl1, convention="NUOPC",         &
+                             purpose="General", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      write(str1,10) vl1(1), vl1(2), vl1(3), vl1(4), vl1(5), vl1(6)
+!
+!-----------------------------------------------------------------------
+!     Get current time 
+!-----------------------------------------------------------------------
+!
+      call ESMF_TimeGet(ctime, yy=vl2(1), mm=vl2(2), dd=vl2(3),         &
+                        h=vl2(4), m=vl2(5), s=vl2(6), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      write(str2,10) vl2(1), vl2(2), vl2(3), vl2(4), vl2(5), vl2(6)
+!
+!-----------------------------------------------------------------------
+!     Print out
+!-----------------------------------------------------------------------
+!
+      if (localPet == 0) then
+        if (trim(str1) /= trim(str2)) then
+          print*, trim(str), ": TIMESTAMP = ", trim(str1), " /= ",      &
+                  trim(str2), " ERROR !!!" 
+        else
+          print*, trim(str), ": TIMESTAMP = ", trim(str1)
+        end if
+      end if
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+10    format(I4,'-',I2.2,'-',I2.2,'_',I2.2,':',I2.2,':',I2.2)
+!
+      end subroutine print_timestamp
+!
       end module mod_shared
