@@ -16,6 +16,16 @@
 PETLayoutOption: sequential 
 #
 #-----------------------------------------------------------------------
+#     Coupling Type
+#
+#     (1) Explicit
+#     (2) Semi-implicit or leap-frog
+#         In this case, OCN->ATM is explicit, ATM->OCN is implicit
+#-----------------------------------------------------------------------
+#
+CouplingType: 1
+#
+#-----------------------------------------------------------------------
 #     PET distribution of model components (ordered in ATM, OCN, RTM)
 #     Order: [ATM] [OCN] [RTM] [WAV]
 #
