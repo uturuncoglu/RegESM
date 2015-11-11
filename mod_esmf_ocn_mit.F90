@@ -537,10 +537,11 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: itemCount
+      integer :: itemCount, localPet
       logical :: atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
+      type(ESMF_VM) :: vm
       type(ESMF_Time) :: startTime, currTime
       type(ESMF_Clock) :: driverClock
       type(ESMF_Field) :: field
@@ -555,6 +556,14 @@
       call NUOPC_ModelGet(gcomp, driverClock=driverClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get the start time and current time out of the clock
@@ -599,9 +608,25 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      atCorrectTime = NUOPC_FieldIsAtTime(field, currTime, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+      if (cplType == 1) then
+        atCorrectTime = NUOPC_FieldIsAtTime(field, currTime,            &
+                                            rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call print_timestamp(field, currTime, localPet, "OCN", rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      else
+        atCorrectTime = NUOPC_FieldIsAtTime(field, currTime+timeStep,   &
+                                            rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+!
+        call print_timestamp(field, currTime+timeStep, localPet, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end if
 !
       if (.not. atCorrectTime) then
         call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
