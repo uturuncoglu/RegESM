@@ -1455,7 +1455,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            importFields%zo(n,m) = ptr(ii,jj)
+            importFields%zo(n,m) = (ptr(ii,jj)*sfac)+addo
           end do
         end do
       case ('ustar')
@@ -1463,7 +1463,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            importFields%ustar(n,m) = ptr(ii,jj)
+            importFields%ustar(n,m) = (ptr(ii,jj)*sfac)+addo
           end do
         end do        
       end select
