@@ -252,6 +252,7 @@
       end do 
 !
       if (runid == 1100) then      ! ATM-OCN
+      if (cplType == 1) then       ! Explicit coupling
         call NUOPC_DriverNewRunSequence(gcomp, slotCount=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
            line=__LINE__, file=FILENAME)) return
@@ -281,6 +282,37 @@
                                     rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
            line=__LINE__, file=FILENAME)) return
+      else                         ! Semi-implicit coupling
+        call NUOPC_DriverNewRunSequence(gcomp, slotCount=1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                 srcCompLabel=trim(models(Iocean)%name),&
+                                 dstCompLabel=trim(models(Iatmos)%name),&
+                                 rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                    compLabel=trim(models(Iatmos)%name),&
+                                    rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                 srcCompLabel=trim(models(Iatmos)%name),&
+                                 dstCompLabel=trim(models(Iocean)%name),&
+                                 rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+!
+        call NUOPC_DriverAddRunElement(gcomp, slot=1,                   &
+                                    compLabel=trim(models(Iocean)%name),&
+                                    rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+           line=__LINE__, file=FILENAME)) return
+      end if      
 !
       else if (runid == 1001) then ! ATM-WAV
         call NUOPC_DriverNewRunSequence(gcomp, slotCount=1, rc=rc)
