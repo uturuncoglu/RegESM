@@ -524,6 +524,7 @@
       logical :: atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
+      type(ESMF_VM) :: vm
       type(ESMF_Time) :: startTime, currTime
       type(ESMF_Clock) :: driverClock 
       type(ESMF_Field) :: field
