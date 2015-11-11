@@ -105,6 +105,30 @@
       end if
 !
 !-----------------------------------------------------------------------
+!     Get coupling type 
+!-----------------------------------------------------------------------
+!        
+      cplType = 1
+! 
+      call ESMF_ConfigGetAttribute(cf, cplType,                         &
+                                     label='CouplingType:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (localPet == 0) then
+        if (cplType == 1) then
+          write(*, fmt='(A)') "Coupling Type: EXPLICIT"
+        else if (cplType == 2) then
+          write(*, fmt='(A)') "Coupling Type: SEMI-IMPLICIT"
+        else
+          write(*,*) "[error] -- Config file 'CouplingType' must be "// &
+                     "set to explicit (1) or semi-implicit (2)! "//     &
+                     "exiting ..."
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+        end if 
+      end if
+!
+!-----------------------------------------------------------------------
 !     Get number of component (or model) 
 !-----------------------------------------------------------------------
 !        
