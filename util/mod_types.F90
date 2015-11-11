@@ -244,6 +244,7 @@
       type(ESMF_Clock) :: esmClock
 !
       integer :: runMod
+      integer :: cplType
       integer :: debugLevel
       logical :: restarted
       integer :: riverOpt
