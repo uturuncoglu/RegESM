@@ -2400,13 +2400,13 @@
 !     Fill array with river discharge data
 !-----------------------------------------------------------------------
 !
-      ! reinitialize temporary river discharge array
-      rdata(ng)%R2dis(LBi:UBi,LBj:UBj) = ZERO_R8
-!
       ! get number of rivers
       nr = size(rivers, dim=1)
 !
       do ng = 1, Ngrids
+        ! reinitialize temporary river discharge array
+        rdata(ng)%R2dis(LBi:UBi,LBj:UBj) = ZERO_R8
+        
         k = 0
         do r = 1, nr
           if (rivers(r)%isActive > 0) then
