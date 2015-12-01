@@ -374,12 +374,15 @@
 !     Fix active connectors (put exceptions in here)
 !     - no interaction between RTM-ATM and OCN-RTM components
 !     - no interaction between RTM-WAV and WAV-RTM components
+!     - OCN-WAV and WAV-OCN coupling is not implemented yet !!!
 !-----------------------------------------------------------------------
 !
       connectors(Iriver,Iatmos)%modActive = .false.
       connectors(Iocean,Iriver)%modActive = .false.
       connectors(Iriver,Iwavee)%modActive = .false.
       connectors(Iwavee,Iriver)%modActive = .false.
+      connectors(Iocean,Iwavee)%modActive = .false.
+      connectors(Iwavee,Iocean)%modActive = .false.      
 !
 !-----------------------------------------------------------------------
 !     Set interface for connector
