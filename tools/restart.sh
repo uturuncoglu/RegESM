@@ -150,7 +150,7 @@ if [ "$OCN" -eq "1" ]; then
   cp $OCN_PARAM ${OCN_PARAM/.in/}_$dstamp.in
 
   # get name of ROMS restart file
-  ocnrst=`cat cas.in | grep "RSTNAME ==" | awk '{print $3}'`
+  ocnrst=`cat ${OCN_PARAM} | grep "RSTNAME ==" | awk '{print $3}'`
 
   # get list of dates from the ROMS restart file
   cdo -s showdate $ocnrst | tr " " "\n" | grep - >&.tmp
