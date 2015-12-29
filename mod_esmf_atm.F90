@@ -1926,7 +1926,9 @@
 !
       use mod_constants, only : degrad
       use mod_atm_interface, only : mddom
-      use mod_dynparam, only : clon, clat, xcone, ici1, ici2, jci1, jci2
+      use mod_dynparam, only : iproj
+      use mod_dynparam, only : clon, clat, plon, plat, xcone
+      use mod_dynparam, only : ici1, ici2, jci1, jci2
       use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
@@ -1949,48 +1951,86 @@
 !-----------------------------------------------------------------------
 !
       integer*4 :: i, j, ii, jj
-      real*8 :: x, xs, xc, d
+      real*8 :: x, xs, xc, d, us, vs, sindel, cosdel
+      real*8 :: pollam, polphi, polcphi, polsphi
+      real*8 :: zarg1, zarg2, znorm, zphi, zrla, zrlap
 !
-      do i = ici1, ici2
+      if (iproj == 'ROTMER' .or. iproj == 'NORMER') then ! ROTMER, Rotated Mercator: NORMER, Normal  Mercator
+        if (plat > 0.0d0) then
+          pollam = plon+180.0d0
+          polphi = 90.0d0-plat
+        else
+          polphi = 90.0d0+plat
+          pollam = plon
+        end if
+        if (pollam > 180.0d0) pollam = pollam-360.0d0
+!
+        polcphi = dcos(degrad*polphi)
+        polsphi = dsin(degrad*polphi)
+!
         do j = jci1, jci2
-          ii = global_cross_istart+i-1
-          jj = global_cross_jstart+j-1
+          do i = ici1, ici2
+            ii = global_cross_istart+i-1
+            jj = global_cross_jstart+j-1
 !
-          if ((clon >= 0.0d0 .and. mddom%xlon(j,i) >= 0.0d0) .or.       &
-              (clon < 0.0d0 .and. mddom%xlon(j,i) < 0.0d0)) then
-            x = (clon-mddom%xlon(j,i))*degrad*xcone
-          else
-            if (clon >= 0.0d0) then
-              if (abs(clon-(mddom%xlon(j,i)+360.0d0)) <                 &
-                  abs(clon-mddom%xlon(j,i))) then
-                x = (clon-(mddom%xlon(j,i)+360.0d0))*degrad*xcone
-              else
-                x = (clon-mddom%xlon(j,i))*degrad*xcone
-              end if
-            else
-              if (abs(clon-(mddom%xlon(j,i)-360.0d0)) <                 &
-                  abs(clon-mddom%xlon(j,i))) then
-                x = (clon-(mddom%xlon(j,i)-360.0d0))*degrad*xcone
-              else
-                x = (clon-mddom%xlon(j,i))*degrad*xcone
-              end if              
-            end if
-          end if 
+            zphi = mddom%dlat(ii,jj)*degrad
+            zrla = mddom%dlon(ii,jj)*degrad
+            if (mddom%dlat(ii,jj) > 89.999999D0) zrla = 0.0d0
+            zrlap = pollam*degrad-zrla
+            zarg1 = polcphi*dsin(zrlap)
+            zarg2 = polsphi*dcos(zphi)-polcphi*dsin(zphi)*dcos(zrlap)
+            znorm = 1.0d0/dsqrt(zarg1**2+zarg2**2)
+            sindel = zarg1*znorm
+            cosdel = zarg2*znorm
 !
-          xs = sin(x)
-          xc = cos(x)
-!
-          if (clat >= 0.0d0) then
-            d = u(jj,ii)*xc-v(jj,ii)*xs
-            v(jj,ii) = u(jj,ii)*xs+v(jj,ii)*xc
-            u(jj,ii) = d
-          else
-            d = u(jj,ii)*xc+v(jj,ii)*xs
-            v(jj,ii) = v(jj,ii)*xc-u(jj,ii)*xs
-            u(jj,ii) = d
-          end if
+            us = u(ii,jj)*cosdel+v(ii,jj)*sindel
+            vs = -u(ii,jj)*sindel+v(ii,jj)*cosdel
+            u(ii,jj) = us
+            v(ii,jj) = vs
+          end do
         end do
-      end do
+      else ! LAMCON, Lambert conformal
+        do i = ici1, ici2
+          do j = jci1, jci2
+            ii = global_cross_istart+i-1
+            jj = global_cross_jstart+j-1
+!
+            if ((clon >= 0.0d0 .and. mddom%xlon(j,i) >= 0.0d0) .or.     &
+                (clon < 0.0d0 .and. mddom%xlon(j,i) < 0.0d0)) then
+              x = (clon-mddom%xlon(j,i))*degrad*xcone
+            else
+              if (clon >= 0.0d0) then
+                if (abs(clon-(mddom%xlon(j,i)+360.0d0)) <               &
+                    abs(clon-mddom%xlon(j,i))) then
+                  x = (clon-(mddom%xlon(j,i)+360.0d0))*degrad*xcone
+                else
+                  x = (clon-mddom%xlon(j,i))*degrad*xcone
+                end if
+              else
+                if (abs(clon-(mddom%xlon(j,i)-360.0d0)) <               &
+                    abs(clon-mddom%xlon(j,i))) then
+                  x = (clon-(mddom%xlon(j,i)-360.0d0))*degrad*xcone
+                else
+                  x = (clon-mddom%xlon(j,i))*degrad*xcone
+                end if              
+              end if
+            end if 
+!
+            xs = sin(x)
+            xc = cos(x)
+!
+            if (clat >= 0.0d0) then
+              d = u(jj,ii)*xc-v(jj,ii)*xs
+              v(jj,ii) = u(jj,ii)*xs+v(jj,ii)*xc
+              u(jj,ii) = d
+            else
+              d = u(jj,ii)*xc+v(jj,ii)*xs
+              v(jj,ii) = v(jj,ii)*xc-u(jj,ii)*xs
+              u(jj,ii) = d
+            end if
+          end do
+        end do
+      end if
 !
       end subroutine uvrot
 !
