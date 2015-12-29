@@ -1551,7 +1551,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, ii, jj, m, n, imin, imax, jmin, jmax
+      integer :: i, j, ii, jj, dd, m, n, imin, imax, jmin, jmax
       integer :: iyear, iday, imonth, ihour, iunit
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
@@ -1806,6 +1806,24 @@
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
             ptr(ii,jj) = exportFields%wspd(n,m)
+          end do
+        end do
+      case ('wdir')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            dd = atan2(exportFields%wndu(n,m), exportFields%wndv(n,m))
+            if (dd < ZERO_R8) dd = dd+pi2
+            ptr(ii,jj) = dd
+          end do
+        end do
+      case ('ustr')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ii = global_cross_istart+m-1
+            jj = global_cross_jstart+n-1
+            ptr(ii,jj) = exportFields%ustr(n,m)
           end do
         end do
       case ('nflx')

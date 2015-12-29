@@ -1379,6 +1379,12 @@
       case ('wndv')
         vs_esmf(1:nsea) = pack(arr2d, l_s_mask)
         vs_esmf(1:nsea) = (vs_esmf(1:nsea)*sfac)+addo
+      case ('ustr')
+        us_esmf(1:nsea) = pack(arr2d, l_s_mask)
+        us_esmf(1:nsea) = (us_esmf(1:nsea)*sfac)+addo
+      case ('wdir')
+        vs_esmf(1:nsea) = pack(arr2d, l_s_mask)
+        vs_esmf(1:nsea) = (vs_esmf(1:nsea)*sfac)+addo
       end select
 !
 !-----------------------------------------------------------------------
