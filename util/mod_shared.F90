@@ -518,7 +518,7 @@
 !
       call ESMF_AttributeGet(field, name="TimeStamp",                   &
                              valueList=vl1, convention="NUOPC",         &
-                             purpose="General", rc=rc)
+                             purpose="Instance", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !

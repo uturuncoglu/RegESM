@@ -156,7 +156,7 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, ubound(models(Iatmos)%importField, dim=1)
-        call NUOPC_StateAdvertiseField(importState,                     &
+        call NUOPC_Advertise(importState,                               &
              StandardName=trim(models(Iatmos)%importField(i)%long_name),&
              name=trim(models(Iatmos)%importField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -168,7 +168,7 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, ubound(models(Iatmos)%exportField, dim=1)
-        call NUOPC_StateAdvertiseField(exportState,                     &
+        call NUOPC_Advertise(exportState,                               &
              StandardName=trim(models(Iatmos)%exportField(i)%long_name),&
              name=trim(models(Iatmos)%exportField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -1014,7 +1014,7 @@
 !     Add field export state
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateRealizeField(exportState, field=field, rc=rc) 
+      call NUOPC_Realize(exportState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end do
@@ -1104,7 +1104,7 @@
 !     Add field import state
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateRealizeField(importState, field=field, rc=rc) 
+      call NUOPC_Realize(importState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end do
@@ -1823,7 +1823,7 @@
           do n = jci1, jci2
             ii = global_cross_istart+m-1
             jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%ustr(n,m)
+!            ptr(ii,jj) = exportFields%ustr(n,m)
           end do
         end do
       case ('nflx')

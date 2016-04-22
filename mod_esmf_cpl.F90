@@ -338,6 +338,7 @@
                                  unmappedaction=unmap,                  &
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
+                                 ignoreDegenerate=.true.,               &
                                  srcTermProcessing=srcTermProcessing,   &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -415,6 +416,7 @@
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
                                  srcTermProcessing=srcTermProcessing,   &
+                                 ignoreDegenerate=.true.,               &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -490,6 +492,7 @@
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
                                  srcTermProcessing=srcTermProcessing,   &
+                                 ignoreDegenerate=.true.,               &
                                  rc=rc)
       else
       call ESMF_FieldRegridStore(srcField=srcField,                     &
@@ -498,6 +501,7 @@
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
                                  srcTermProcessing=srcTermProcessing,   &
+                                 ignoreDegenerate=.true.,               &
                                  rc=rc)
       end if
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -888,14 +892,14 @@
       if ((debugLevel > 0) .and. (localPet == 0)) then
         call ESMF_AttributeGet(srcField, name="TimeStamp",              &
                                valueList=srcValueList,                  &
-                               convention="NUOPC", purpose="General",   &
+                               convention="NUOPC", purpose="Instance",  &
                                rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
         call ESMF_AttributeGet(dstField, name="TimeStamp",              &
                                valueList=dstValueList,                  &
-                               convention="NUOPC", purpose="General",   &
+                               convention="NUOPC", purpose="Instance",  &
                                rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return

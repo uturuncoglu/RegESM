@@ -123,6 +123,7 @@
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
                                  srcTermProcessing=srcTermProcessing,   &
+                                 ignoreDegenerate=.true.,               &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -154,6 +155,7 @@
                                  routeHandle=routeHandle,               &
                                  regridmethod=regridMethod,             &
                                  srcTermProcessing=srcTermProcessing,   &
+                                 ignoreDegenerate=.true.,               &
                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
