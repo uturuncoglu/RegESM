@@ -566,7 +566,9 @@
       use mod_atm_interface, only : mddom
       use mod_dynparam, only : iy, jx, nproc, ide1, ide2, jde1, jde2,   &
                                idi1, idi2, jdi1, jdi2, &
-                               global_dot_istart, global_dot_jstart
+                               global_dot_istart, global_dot_jstart, &
+                               ice1, ice2, jce1, jce2, &
+                               global_cross_istart, global_cross_jstart
 !
       implicit none
 !
@@ -676,7 +678,8 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_GridAddCoord(models(Iatmos)%grid,                       &
-                             staggerLoc=staggerLoc, rc=rc)
+                             staggerLoc=staggerLoc,                     &
+                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -783,8 +786,8 @@
           write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
                     global_dot_istart+ide1-1, global_dot_istart+ide2-1, &
                     global_dot_jstart+jde1-1, global_dot_jstart+jde2-1, &
-                   ma%has_bdybottom, ma%has_bdyright,                   &
-                   ma%has_bdytop, ma%has_bdyleft
+                    ma%has_bdybottom, ma%has_bdyright,                  &
+                    ma%has_bdytop, ma%has_bdyleft
         end if
 !
         do i0 = ide1, ide2
@@ -818,10 +821,29 @@
                    ma%has_bdytop, ma%has_bdyleft
         end if
 !
-        ptrX = transpose(mddom%xlon)
-        ptrY = transpose(mddom%xlat)
-        ptrM = int(transpose(mddom%mask))
+        do i0 = ice1, ice2
+        do j0 = jce1, jce2
+          ii = global_cross_istart+i0-1
+          jj = global_cross_jstart+j0-1
+          ptrX(ii,jj) = mddom%xlon(j0,i0)
+          ptrY(ii,jj) = mddom%xlat(j0,i0)
+          ptrM(ii,jj) = int(mddom%mask(j0,i0))
+        end do
+        end do
+!
         ptrA = dxsq
+!
+        if (ma%has_bdyright) then
+          jj = global_cross_jstart+jce2-1
+          ptrX(:,jj+1) = ptrX(:,jj)+(ptrX(:,jj)-ptrX(:,jj-1))
+          ptrY(:,jj+1) = ptrY(:,jj)+(ptrY(:,jj)-ptrY(:,jj-1))
+        end if
+!
+        if (ma%has_bdytop) then
+          ii = global_cross_istart+ice2-1
+          ptrX(ii+1,:) = ptrX(ii,:)+(ptrX(ii,:)-ptrX(ii-1,:))
+          ptrY(ii+1,:) = ptrY(ii,:)+(ptrY(ii,:)-ptrY(ii-1,:))
+        end if
       end if
 !
 !-----------------------------------------------------------------------
@@ -1450,22 +1472,22 @@
           end do
         end do
 !     Import from WAV
-      case ('zo')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%zo(n,m) = (ptr(ii,jj)*sfac)+addo
-          end do
-        end do
-      case ('ustar')
-        do m = ici1, ici2
-          do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%ustar(n,m) = (ptr(ii,jj)*sfac)+addo
-          end do
-        end do        
+!      case ('zo')
+!        do m = ici1, ici2
+!          do n = jci1, jci2
+!            ii = global_cross_istart+m-1
+!            jj = global_cross_jstart+n-1
+!            importFields%zo(n,m) = (ptr(ii,jj)*sfac)+addo
+!          end do
+!        end do
+!      case ('ustar')
+!        do m = ici1, ici2
+!          do n = jci1, jci2
+!            ii = global_cross_istart+m-1
+!            jj = global_cross_jstart+n-1
+!            importFields%ustar(n,m) = (ptr(ii,jj)*sfac)+addo
+!          end do
+!        end do        
       end select
 !
 !-----------------------------------------------------------------------

@@ -848,20 +848,20 @@
       do i = 1, 4 
       if (models(Iocean)%mesh(i)%gtype == Iupoint) then
         staggerLoc = ESMF_STAGGERLOC_EDGE1
-        staggerEdgeLWidth = (/0,1/)
-        staggerEdgeUWidth = (/1,1/)
+        staggerEdgeLWidth = (/0,1/) !(/0,1/)
+        staggerEdgeUWidth = (/0,1/) !(/1,1/)
       else if (models(Iocean)%mesh(i)%gtype == Ivpoint) then
         staggerLoc = ESMF_STAGGERLOC_EDGE2
-        staggerEdgeLWidth = (/1,0/)
-        staggerEdgeUWidth = (/1,1/)
+        staggerEdgeLWidth = (/0,0/) !(/1,0/)
+        staggerEdgeUWidth = (/0,1/) !(/1,1/)
       else if (models(Iocean)%mesh(i)%gtype == Icross) then
         staggerLoc = ESMF_STAGGERLOC_CENTER
-        staggerEdgeLWidth = (/1,1/)
-        staggerEdgeUWidth = (/1,1/)
+        staggerEdgeLWidth = (/0,1/) !(/1,1/)
+        staggerEdgeUWidth = (/0,1/) !(/1,1/)
       else if (models(Iocean)%mesh(i)%gtype == Idot) then
         staggerLoc = ESMF_STAGGERLOC_CORNER
-        staggerEdgeLWidth = (/0,0/)
-        staggerEdgeUWidth = (/1,1/)
+        staggerEdgeLWidth = (/0,0/) !(/0,0/)
+        staggerEdgeUWidth = (/0,1/) !(/1,1/)
       end if
 !
 !-----------------------------------------------------------------------
@@ -989,9 +989,8 @@
 !
       if (models(Iocean)%mesh(i)%gtype == Idot) then
         if (debugLevel > 0) then
-        write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),         &
-        lbound(GRID(ng)%lonp, dim=1), ubound(GRID(ng)%lonp, dim=1),     &
-        lbound(GRID(ng)%lonp, dim=2), ubound(GRID(ng)%lonp, dim=2)
+          write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),       &
+                      IstrU, IendR, JstrV, JendR
         end if
 !
         do jj = JstrV, JendR
@@ -1004,9 +1003,8 @@
         end do
       else if (models(Iocean)%mesh(i)%gtype == Icross) then
         if (debugLevel > 0) then
-        write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),         &
-        lbound(GRID(ng)%lonr, dim=1), ubound(GRID(ng)%lonr, dim=1),     &
-        lbound(GRID(ng)%lonr, dim=2), ubound(GRID(ng)%lonr, dim=2)
+          write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),       &
+                      IstrR, IendR, JstrR, JendR
         end if
 !
         do jj = JstrR, JendR
@@ -1019,9 +1017,8 @@
         end do
       else if (models(Iocean)%mesh(i)%gtype == Iupoint) then
         if (debugLevel > 0) then
-        write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),         &
-        lbound(GRID(ng)%lonu, dim=1), ubound(GRID(ng)%lonu, dim=1),     &
-        lbound(GRID(ng)%lonu, dim=2), ubound(GRID(ng)%lonu, dim=2)
+          write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),       &
+                      IstrU, IendU, JstrU, JendU
         end if
 !
         do jj = JstrU, JendU
@@ -1034,9 +1031,8 @@
         end do
       else if (models(Iocean)%mesh(i)%gtype == Ivpoint) then
         if (debugLevel > 0) then
-        write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),         &
-        lbound(GRID(ng)%lonv, dim=1), ubound(GRID(ng)%lonv, dim=1),     &
-        lbound(GRID(ng)%lonv, dim=2), ubound(GRID(ng)%lonv, dim=2)
+          write(*,30) localPet, j, adjustl("DAT/OCN/GRD/"//name),       &
+                      IstrV, IendV, JstrV, JendV
         end if
 !
         do jj = JstrV, JendV
