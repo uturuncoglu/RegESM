@@ -565,10 +565,8 @@
       use mod_runparams, only : dxsq
       use mod_atm_interface, only : mddom
       use mod_dynparam, only : iy, jx, nproc, ide1, ide2, jde1, jde2,   &
-                               idi1, idi2, jdi1, jdi2, &
-                               global_dot_istart, global_dot_jstart, &
-                               ice1, ice2, jce1, jce2, &
-                               global_cross_istart, global_cross_jstart
+                               idi1, idi2, jdi1, jdi2,                  &
+                               ice1, ice2, jce1, jce2
 !
       implicit none
 !
@@ -784,65 +782,55 @@
       if (models(Iatmos)%mesh(i)%gtype == Idot) then
         if (debugLevel > 0) then
           write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
-                    global_dot_istart+ide1-1, global_dot_istart+ide2-1, &
-                    global_dot_jstart+jde1-1, global_dot_jstart+jde2-1, &
-                    ma%has_bdybottom, ma%has_bdyright,                  &
-                    ma%has_bdytop, ma%has_bdyleft
+                      ide1, ide2, jde1, jde2,                           &
+                      ma%has_bdybottom, ma%has_bdyright,                &
+                      ma%has_bdytop, ma%has_bdyleft
         end if
 !
         do i0 = ide1, ide2
-        do j0 = jde1, jde2
-          ii = global_dot_istart+i0-1
-          jj = global_dot_jstart+j0-1
-          ptrX(ii,jj) = mddom%dlon(j0,i0)
-          ptrY(ii,jj) = mddom%dlat(j0,i0)
-        end do
+          do j0 = jde1, jde2
+            ptrX(i0,j0) = mddom%dlon(j0,i0)
+            ptrY(i0,j0) = mddom%dlat(j0,i0)
+          end do
         end do
 !
         if (ma%has_bdyright) then
-          jj = global_dot_jstart+jde2-1
-          ptrX(:,jj+1) = ptrX(:,jj)+(ptrX(:,jj)-ptrX(:,jj-1))
-          ptrY(:,jj+1) = ptrY(:,jj)+(ptrY(:,jj)-ptrY(:,jj-1))
+           ptrX(:,jde2+1) = ptrX(:,jde2)+(ptrX(:,jde2)-ptrX(:,jde2-1))
+           ptrY(:,jde2+1) = ptrY(:,jde2)+(ptrY(:,jde2)-ptrY(:,jde2-1))
         end if
 !
         if (ma%has_bdytop) then
-          ii = global_dot_istart+ide2-1
-          ptrX(ii+1,:) = ptrX(ii,:)+(ptrX(ii,:)-ptrX(ii-1,:))
-          ptrY(ii+1,:) = ptrY(ii,:)+(ptrY(ii,:)-ptrY(ii-1,:))
+          ptrX(ide2+1,:) = ptrX(ide2,:)+(ptrX(ide2,:)-ptrX(ide2-1,:))
+          ptrY(ide2+1,:) = ptrY(ide2,:)+(ptrY(ide2,:)-ptrY(ide2-1,:))
         end if
 !
         ptrA = dxsq
       else if (models(Iatmos)%mesh(i)%gtype == Icross) then
         if (debugLevel > 0) then
           write(*,30) localPet, j, adjustl("DAT/ATM/GRD/"//name),       &
-                   lbound(mddom%xlon, dim=1), ubound(mddom%xlon, dim=1),&
-                   lbound(mddom%xlon, dim=2), ubound(mddom%xlon, dim=2),&
-                   ma%has_bdybottom, ma%has_bdyright,                   &
-                   ma%has_bdytop, ma%has_bdyleft
+                      ice1, ice2, jce1, jce2,                           &
+                      ma%has_bdybottom, ma%has_bdyright,                &
+                      ma%has_bdytop, ma%has_bdyleft
         end if
 !
         do i0 = ice1, ice2
-        do j0 = jce1, jce2
-          ii = global_cross_istart+i0-1
-          jj = global_cross_jstart+j0-1
-          ptrX(ii,jj) = mddom%xlon(j0,i0)
-          ptrY(ii,jj) = mddom%xlat(j0,i0)
-          ptrM(ii,jj) = int(mddom%mask(j0,i0))
-        end do
+          do j0 = jce1, jce2
+            ptrX(i0,j0) = mddom%xlon(j0,i0)
+            ptrY(i0,j0) = mddom%xlat(j0,i0)
+            ptrM(i0,j0) = int(mddom%mask(j0,i0))
+          end do
         end do
 !
         ptrA = dxsq
 !
         if (ma%has_bdyright) then
-          jj = global_cross_jstart+jce2-1
-          ptrX(:,jj+1) = ptrX(:,jj)+(ptrX(:,jj)-ptrX(:,jj-1))
-          ptrY(:,jj+1) = ptrY(:,jj)+(ptrY(:,jj)-ptrY(:,jj-1))
+           ptrX(:,jce2+1) = ptrX(:,jce2)+(ptrX(:,jce2)-ptrX(:,jce2-1))
+           ptrY(:,jce2+1) = ptrY(:,jce2)+(ptrY(:,jce2)-ptrY(:,jce2-1))
         end if
 !
         if (ma%has_bdytop) then
-          ii = global_cross_istart+ice2-1
-          ptrX(ii+1,:) = ptrX(ii,:)+(ptrX(ii,:)-ptrX(ii-1,:))
-          ptrY(ii+1,:) = ptrY(ii,:)+(ptrY(ii,:)-ptrY(ii-1,:))
+          ptrX(ice2+1,:) = ptrX(ice2,:)+(ptrX(ice2,:)-ptrX(ice2-1,:))
+          ptrY(ice2+1,:) = ptrY(ice2,:)+(ptrY(ice2,:)-ptrY(ice2-1,:))
         end if
       end if
 !
@@ -1305,7 +1293,6 @@
 !
       use mod_update, only : importFields 
       use mod_dynparam, only : ici1, ici2, jci1, jci2
-      use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
 !
@@ -1448,46 +1435,36 @@
       case ('sst')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%sst(n,m) = (ptr(ii,jj)*sfac)+addo
+            importFields%sst(n,m) = (ptr(m,n)*sfac)+addo
           end do
         end do 
 #ifdef OCNICE
       case ('sit')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%sit(n,m) = (ptr(ii,jj)*sfac)+addo
+            importFields%sit(n,m) = (ptr(m,n)*sfac)+addo
           end do
         end do
 #endif
       case ('msk')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            importFields%msk(n,m) = ptr(ii,jj)
+            importFields%msk(n,m) = ptr(m,n)
           end do
         end do
 !     Import from WAV
-!      case ('zo')
-!        do m = ici1, ici2
-!          do n = jci1, jci2
-!            ii = global_cross_istart+m-1
-!            jj = global_cross_jstart+n-1
-!            importFields%zo(n,m) = (ptr(ii,jj)*sfac)+addo
-!          end do
-!        end do
-!      case ('ustar')
-!        do m = ici1, ici2
-!          do n = jci1, jci2
-!            ii = global_cross_istart+m-1
-!            jj = global_cross_jstart+n-1
-!            importFields%ustar(n,m) = (ptr(ii,jj)*sfac)+addo
-!          end do
-!        end do        
+      case ('zo')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            importFields%zo(n,m) = (ptr(m,n)*sfac)+addo
+          end do
+        end do
+      case ('ustar')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            importFields%ustar(n,m) = (ptr(m,n)*sfac)+addo
+          end do
+        end do        
       end select
 !
 !-----------------------------------------------------------------------
@@ -1499,11 +1476,7 @@
                         iyear, imonth, iday, ihour, localPet, j
         iunit = localPet*10
         open(unit=iunit, file=trim(ofile)//'.txt')
-        imin = global_cross_istart+ici1-1
-        imax = global_cross_istart+ici2-1
-        jmin = global_cross_jstart+jci1-1
-        jmax = global_cross_jstart+jci2-1
-        call print_matrix(ptr, imin, imax, jmin, jmax, 1, 1,            &
+        call print_matrix(ptr, ici1, ici2, jci1, jci2, 1, 1,            &
                           localPet, iunit, "PTR/ATM/IMP")
         close(unit=iunit)
       end if
@@ -1558,7 +1531,6 @@
 !
       use mod_update, only : exportFields
       use mod_dynparam, only : ici1, ici2, jci1, jci2
-      use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
 !
@@ -1697,179 +1669,135 @@
       case ('psfc')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%psfc(n,m)
+            ptr(m,n) = exportFields%psfc(n,m)
           end do
         end do
       case ('tsfc')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%tsfc(n,m) 
+            ptr(m,n) = exportFields%tsfc(n,m)
           end do
         end do
       case ('qsfc')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%qsfc(n,m)
+            ptr(m,n) = exportFields%qsfc(n,m)
           end do
         end do
       case ('lwrd')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%lwrd(n,m)
+            ptr(m,n) = exportFields%lwrd(n,m)
           end do
         end do
       case ('dlwr')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%dlwr(n,m)
+            ptr(m,n) = exportFields%dlwr(n,m)
           end do
         end do
       case ('lhfx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%lhfx(n,m)
+            ptr(m,n) = exportFields%lhfx(n,m)
           end do
         end do
       case ('shfx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%shfx(n,m)
+            ptr(m,n) = exportFields%shfx(n,m)
           end do
         end do
       case ('prec')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%prec(n,m)
+            ptr(m,n) = exportFields%prec(n,m)
           end do
         end do
       case ('wndu')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%wndu(n,m)
+            ptr(m,n) = exportFields%wndu(n,m)
           end do
         end do
       case ('wndv')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%wndv(n,m)
+            ptr(m,n) = exportFields%wndv(n,m)
           end do
         end do
       case ('swrd')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%swrd(n,m)
+            ptr(m,n) = exportFields%swrd(n,m)
           end do
         end do
       case ('dswr')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%dswr(n,m)
+            ptr(m,n) = exportFields%dswr(n,m)
           end do
         end do
       case ('rnof')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%rnof(n,m)
+            ptr(m,n) = exportFields%rnof(n,m)
           end do
         end do
       case ('snof')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%snof(n,m)
+            ptr(m,n) = exportFields%snof(n,m)
           end do
         end do
       case ('taux')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%taux(n,m)
+            ptr(m,n) = exportFields%taux(n,m)
           end do
         end do
       case ('tauy')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%tauy(n,m)
+            ptr(m,n) = exportFields%tauy(n,m)
           end do
         end do
       case ('wspd')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%wspd(n,m)
+            ptr(m,n) = exportFields%wspd(n,m)
           end do
         end do
       case ('wdir')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
             dd = atan2(exportFields%wndu(n,m), exportFields%wndv(n,m))
             if (dd < ZERO_R8) dd = dd+pi2
-            ptr(ii,jj) = dd
+            ptr(m,n) = dd
           end do
         end do
       case ('ustr')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-!            ptr(ii,jj) = exportFields%ustr(n,m)
+            ptr(m,n) = exportFields%ustr(n,m)
           end do
         end do
       case ('nflx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%nflx(n,m)
+            ptr(m,n) = exportFields%nflx(n,m)
           end do
         end do
       case ('sflx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%sflx(n,m)
+            ptr(m,n) = exportFields%sflx(n,m)
           end do
         end do
       case ('snow')
         do m = ici1, ici2
           do n = jci1, jci2
-            ii = global_cross_istart+m-1
-            jj = global_cross_jstart+n-1
-            ptr(ii,jj) = exportFields%snow(n,m)
+            ptr(m,n) = exportFields%snow(n,m)
           end do
         end do
       end select
@@ -1883,12 +1811,8 @@
         write(ofile,90) 'atm_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        imin = global_cross_istart+ici1-1
-        imax = global_cross_istart+ici2-1
-        jmin = global_cross_jstart+jci1-1
-        jmax = global_cross_jstart+jci2-1
-        call print_matrix(transpose(ptr), imin, imax, jmin, jmax , 1, 1,&
-                              localPet, iunit, "PTR/ATM/EXP")
+        call print_matrix(transpose(ptr), ici1, ici2, jci1, jci2,       &
+                          1, 1, localPet, iunit, "PTR/ATM/EXP")
         close(unit=iunit)
       end if 
 !
@@ -1911,13 +1835,6 @@
         write(ofile,100) 'atm_export', trim(itemNameList(i)),           &
                         iyear, imonth, iday, ihour, localPet
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
-!        write(ofile,100) 'atm_export', trim(itemNameList(i))
-!        if (localPet == 0) print*, tstep
-!        call ESMF_FieldWrite(field, trim(ofile)//'.nc',                 &
-!                             variableName=trim(itemNameList(i)),        &
-!                             timeslice=int(tstep),                      &
-!                             iofmt=ESMF_IOFMT_NETCDF,                   &
-!                             rc=rc) 
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end if
@@ -1951,7 +1868,6 @@
       use mod_dynparam, only : iproj
       use mod_dynparam, only : clon, clat, plon, plat, xcone
       use mod_dynparam, only : ici1, ici2, jci1, jci2
-      use mod_dynparam, only : global_cross_istart, global_cross_jstart
 !
       implicit none
 !
@@ -1959,14 +1875,8 @@
 !     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-      real*8, intent(inout) :: u(global_cross_jstart+jci1-1:            &
-                                 global_cross_jstart+jci2-1,            &
-                                 global_cross_istart+ici1-1:            &
-                                 global_cross_istart+ici2-1)
-      real*8, intent(inout) :: v(global_cross_jstart+jci1-1:            &
-                                 global_cross_jstart+jci2-1,            &
-                                 global_cross_istart+ici1-1:            &
-                                 global_cross_istart+ici2-1)
+      real*8, intent(inout) :: u(jci1:jci2,ici1:ici2)
+      real*8, intent(inout) :: v(jci1:jci2,ici1:ici2)
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
@@ -1992,12 +1902,9 @@
 !
         do j = jci1, jci2
           do i = ici1, ici2
-            ii = global_cross_istart+i-1
-            jj = global_cross_jstart+j-1
-!
-            zphi = mddom%dlat(ii,jj)*degrad
-            zrla = mddom%dlon(ii,jj)*degrad
-            if (mddom%dlat(ii,jj) > 89.999999D0) zrla = 0.0d0
+            zphi = mddom%dlat(j,i)*degrad
+            zrla = mddom%dlon(j,i)*degrad
+            if (mddom%dlat(j,i) > 89.999999D0) zrla = 0.0d0
             zrlap = pollam*degrad-zrla
             zarg1 = polcphi*dsin(zrlap)
             zarg2 = polsphi*dcos(zphi)-polcphi*dsin(zphi)*dcos(zrlap)
@@ -2005,18 +1912,15 @@
             sindel = zarg1*znorm
             cosdel = zarg2*znorm
 !
-            us = u(ii,jj)*cosdel+v(ii,jj)*sindel
-            vs = -u(ii,jj)*sindel+v(ii,jj)*cosdel
-            u(ii,jj) = us
-            v(ii,jj) = vs
+            us = u(j,i)*cosdel+v(j,i)*sindel
+            vs = -u(j,i)*sindel+v(j,i)*cosdel
+            u(j,i) = us
+            v(j,i) = vs 
           end do
         end do
       else ! LAMCON, Lambert conformal
         do i = ici1, ici2
           do j = jci1, jci2
-            ii = global_cross_istart+i-1
-            jj = global_cross_jstart+j-1
-!
             if ((clon >= 0.0d0 .and. mddom%xlon(j,i) >= 0.0d0) .or.     &
                 (clon < 0.0d0 .and. mddom%xlon(j,i) < 0.0d0)) then
               x = (clon-mddom%xlon(j,i))*degrad*xcone
@@ -2042,13 +1946,13 @@
             xc = cos(x)
 !
             if (clat >= 0.0d0) then
-              d = u(jj,ii)*xc-v(jj,ii)*xs
-              v(jj,ii) = u(jj,ii)*xs+v(jj,ii)*xc
-              u(jj,ii) = d
+              d = u(j,i)*xc-v(j,i)*xs
+              v(j,i) = u(j,i)*xs+v(j,i)*xc
+              u(j,i) = d
             else
-              d = u(jj,ii)*xc+v(jj,ii)*xs
-              v(jj,ii) = v(jj,ii)*xc-u(jj,ii)*xs
-              u(jj,ii) = d
+              d = u(j,i)*xc+v(j,i)*xs
+              v(j,i) = v(j,i)*xc-u(j,i)*xs
+              u(j,i) = d
             end if
           end do
         end do
