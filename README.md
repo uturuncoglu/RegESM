@@ -7,7 +7,7 @@ Supported Components
 ====================
 
 * Atmosphere (ATM):
-    * RegCM (4.4.5.X) - http://gforge.ictp.it/gf/project/regcm/
+    * RegCM (4.4.5.10 and 4.5) - http://gforge.ictp.it/gf/project/regcm/
 * Ocean (OCN): 
     * ROMS (3.7) - http://www.myroms.org or for ice branch https://github.com/kshedstrom/roms
     * MITgcm (MITgcm_c63s) - http://mitgcm.org/download/
@@ -22,16 +22,19 @@ Prerequisites
 =============
 
 * RegESM itself (as a driver)
-    * The RegESM version 1.0.0 is compatible with the RegCM version < 4.5 
-    * If you plan to use RegCM 4.5 then please use RegESM version 1.1.0
-* Earth System Modeling Framework (ESMF, == esmf-7.0.0b38) Library - http://www.earthsystemmodeling.org
+    * The RegESM version 1.0.0-beta.5 is compatible with the RegCM version < 4.5 
+    * If you plan to use RegCM 4.5 (includes new non-hydrostatic core) then please use RegESM version 1.1.0
+* Earth System Modeling Framework (ESMF, == esmf-7.0.0) Library
+  http://www.earthsystemmodeling.org/download/data/releases.shtml#v7_0_0
 * Model Components (patched and installed with coupling support - see user guide under doc/ directory)
 
 References
 =============
 
-When using the RegESM coupled modeling system in a paper, the following is the correct citation to use:
+Please cite following publications in case of using RegESM coupled modeling system: 
+
+* Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, under revision
+
+Previous publications with early version of the coupled model:
 
 * Turuncoglu, U. U., Giuliani, G., Elguindi, N., and Giorgi, F., 2013. Modelling the Caspian Sea and its catchment area using a coupled regional atmosphere-ocean model (RegCM4-ROMS): model design and preliminary results, Geosci. Model Dev., 6, 283-299, doi:10.5194/gmd-6-283-2013
-
-Also note that this reference belongs to old version of the coupled model and the new paper is on the way.
