@@ -150,7 +150,7 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, ubound(models(Iriver)%importField, dim=1)
-        call NUOPC_StateAdvertiseField(importState,                     &
+        call NUOPC_Advertise(importState,                               &
              StandardName=trim(models(Iriver)%importField(i)%long_name),&
              name=trim(models(Iriver)%importField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -162,7 +162,7 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, ubound(models(Iriver)%exportField, dim=1)
-        call NUOPC_StateAdvertiseField(exportState,                     &
+        call NUOPC_Advertise(exportState,                               &
              StandardName=trim(models(Iriver)%exportField(i)%long_name),&
              name=trim(models(Iriver)%exportField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -735,7 +735,7 @@
 !     Add field export state
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateRealizeField(exportState, field=field, rc=rc) 
+      call NUOPC_Realize(exportState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end do
@@ -823,7 +823,7 @@
 !     Add field import state
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateRealizeField(importState, field=field, rc=rc) 
+      call NUOPC_Realize(importState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end do
@@ -1406,7 +1406,7 @@
 !     on all the Fields in export state 
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateSetTimestamp(exportState, clock, rc=rc)
+      call NUOPC_UpdateTimestamp(exportState, clock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !

@@ -173,7 +173,7 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, ubound(models(Iocean)%importField, dim=1)
-        call NUOPC_StateAdvertiseField(importState,                     &
+        call NUOPC_Advertise(importState,                               &
              StandardName=trim(models(Iocean)%importField(i)%long_name),&
              name=trim(models(Iocean)%importField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -185,7 +185,7 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, ubound(models(Iocean)%exportField, dim=1)
-        call NUOPC_StateAdvertiseField(exportState,                     &
+        call NUOPC_Advertise(exportState,                               &
              StandardName=trim(models(Iocean)%exportField(i)%long_name),&
              name=trim(models(Iocean)%exportField(i)%short_name), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
@@ -609,8 +609,7 @@
           line=__LINE__, file=FILENAME)) return
 !
       if (cplType == 1) then
-        atCorrectTime = NUOPC_FieldIsAtTime(field, currTime,            &
-                                            rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTime, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
@@ -618,8 +617,7 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else
-        atCorrectTime = NUOPC_FieldIsAtTime(field, currTime+timeStep,   &
-                                            rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
@@ -1305,7 +1303,7 @@
 !     Add field export state
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateRealizeField(exportState, field=field, rc=rc) 
+      call NUOPC_Realize(exportState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end do
@@ -1412,7 +1410,7 @@
 !     Add field import state
 !-----------------------------------------------------------------------
 !
-      call NUOPC_StateRealizeField(importState, field=field, rc=rc) 
+      call NUOPC_Realize(importState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end do
