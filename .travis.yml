@@ -67,11 +67,11 @@ before_install:
 - make
 - make install
 - cd $PROGS/netcdf-4.4.0/lib
-- ln -s ../../netcdf-cxx-4.2/lib .
-- ln -s ../../netcdf-fortran-4.4.3/lib .
+- ln -s ../../netcdf-cxx-4.2/lib/* .
+- ln -s ../../netcdf-fortran-4.4.3/lib/* .
 - cd $PROGS/netcdf-4.4.0/include
-- ln -s ../../netcdf-cxx-4.2/include .
-- ln -s ../../netcdf-fortran-4.4.3/include .
+- ln -s ../../netcdf-cxx-4.2/include/* .
+- ln -s ../../netcdf-fortran-4.4.3/include/* .
 # ---------------------------------------------------------------------------
 # Install Xerces C++ library
 # ---------------------------------------------------------------------------
