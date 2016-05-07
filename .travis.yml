@@ -83,5 +83,3 @@ before_install:
 - ./configure --prefix=$PROGS/xerces-c-3.1.3 CC=gcc CXX=g++
 - make
 - make install
-
-
