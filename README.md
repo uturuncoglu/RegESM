@@ -3,6 +3,8 @@ RegESM
 
 Regional Earth System Model
 
+[![Build Status](https://travis-ci.org/uturuncoglu/RegESM.svg?branch=master)](https://travis-ci.org/uturuncoglu/RegESM)
+
 Supported Components
 ====================
 

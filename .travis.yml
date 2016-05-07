@@ -30,6 +30,20 @@ before_install:
 - wget "http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.8.16.tar.gz"
 - tar -zxvf hdf5-1.8.16.tar.gz
 - cd hdf5-1.8.16
-- ./configure --prefix=$PROGS/hdf5-1.8.16 --with-zlib=$PROGS/zlib-1.2.8 --enable-fortran --enable-cxx CC=cc FC=gfortran CXX=g++
+- ./configure --prefix=$PROGS/hdf5-1.8.16 --with-zlib=$PROGS/zlib-1.2.8 --enable-fortran --enable-cxx CC=gcc FC=gfortran CXX=g++
 - make
 - make install
+# ---------------------------------------------------------------------------
+# Install NetCDF (C/C++ and Fortran)
+# ---------------------------------------------------------------------------
+- cd $PROGS
+- wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.0.tar.gz"
+- tar -zxvf netcdf-4.4.0.tar.gz
+- cd netcdf-4.4.0
+- mkdir src
+- mv * src/.
+- cd src
+- ./configure --prefix=$PROGS/netcdf-4.4.0 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.11/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.11/include"
+- make
+- make install
+
