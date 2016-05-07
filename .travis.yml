@@ -68,6 +68,7 @@ before_install:
 - make install
 - cd $PROGS/netcdf-4.4.0/lib
 - ln -s ../../netcdf-cxx-4.2/lib/* .
+- rm -f pkgconfig
 - ln -s ../../netcdf-fortran-4.4.3/lib/* .
 - cd $PROGS/netcdf-4.4.0/include
 - ln -s ../../netcdf-cxx-4.2/include/* .
