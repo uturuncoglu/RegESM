@@ -1,0 +1,35 @@
+language: c
+sudo: false
+addons:
+  apt:
+    packages:
+    - gfortran     #Add Fortran (C and C++ installed by specifying C++ above)
+
+before_install:
+# ---------------------------------------------------------------------------
+# Creating directory for custom installation of libraries used by RegESM
+# ---------------------------------------------------------------------------
+- cd $TRAVIS_BUILD_DIR
+- mkdir ../progs
+- cd ../progs
+- export PROGS=$PWD
+# ---------------------------------------------------------------------------
+# Install Zlib
+# ---------------------------------------------------------------------------
+- cd $PROGS
+- wget "http://zlib.net/zlib-1.2.8.tar.gz"
+- tar -zxvf zlib-1.2.8.tar.gz
+- cd zlib-1.2.8
+- ./configure --prefix=$PROGS/zlib-1.2.8
+- make
+- make install
+# ---------------------------------------------------------------------------
+# Install HDF5
+# ---------------------------------------------------------------------------
+- cd $PROGS
+- wget "http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.8.16.tar.gz"
+- tar -zxvf hdf5-1.8.16.tar.gz
+- cd hdf5-1.8.16
+- ./configure --prefix=$PROGS/hdf5-1.8.16 --with-zlib=$PROGS/zlib-1.2.8 --enable-fortran --enable-cxx CC=cc FC=gfortran CXX=g++
+- make
+- make install
