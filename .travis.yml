@@ -37,13 +37,37 @@ before_install:
 # Install NetCDF (C/C++ and Fortran)
 # ---------------------------------------------------------------------------
 - cd $PROGS
+- mkdir netcdf-4.4.0
+- cd netcdf-4.4.0
 - wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.0.tar.gz"
 - tar -zxvf netcdf-4.4.0.tar.gz
-- cd netcdf-4.4.0
-- mkdir src
-- mv * src/.
+- mv netcdf-4.4.0 src
 - cd src
-- ./configure --prefix=$PROGS/netcdf-4.4.0 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.11/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.11/include"
+- ./configure --prefix=$PROGS/netcdf-4.4.0 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include"
 - make
 - make install
-
+- cd $PROGS
+- mkdir netcdf-cxx-4.2
+- cd netcdf-cxx-4.2
+- wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-cxx-4.2.tar.gz"
+- tar -zxvf netcdf-cxx-4.2.tar.gz
+- mv netcdf-cxx-4.2 src
+- cd src
+- ./configure --prefix=$PROGS/netcdf-cxx-4.2 CC=gcc CXX=g++ LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib -L$PROGS/netcdf-4.4.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include -I$PROGS/netcdf-4.4.0/include"
+- make
+- make install
+- cd $PROGS
+- mkdir netcdf-fortran-4.4.3
+- cd netcdf-fortran-4.4.3
+- wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-fortran-4.4.3.tar.gz"
+- tar -zxvf netcdf-fortran-4.4.3.tar.gz
+- mv netcdf-fortran-4.4.3 src 
+- ./configure --prefix=$PROGS/netcdf-fortran-4.4.3 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib -L$PROGS/netcdf-4.4.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include -I$PROGS/netcdf-4.4.0/include"
+- make
+- make install
+- cd $PROGS/netcdf-4.4.0/lib
+- ln -s ../../netcdf-cxx-4.2/lib .
+- ln -s ../../netcdf-fortran-4.4.3/lib .
+- cd $PROGS/netcdf-4.4.0/include
+- ln -s ../../netcdf-cxx-4.2/include .
+- ln -s ../../netcdf-fortran-4.4.3/include .
