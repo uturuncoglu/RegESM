@@ -9,6 +9,8 @@ HDF5_VER="1.8.16"
 NCCC_VER="4.4.0"
 NCXX_VER="4.2"
 NCFC_VER="4.4.3"
+XERC_VER="3.1.3"
+OMPI_VER="1.10.2"
 
 CC=gcc
 FC=gfortran
@@ -33,8 +35,8 @@ cd hdf5-${HDF5_VER}
 ./configure --prefix=${PROGS}/hdf5-${HDF5_VER} --with-zlib=${PROGS}/zlib-${ZLIB_VER} --enable-fortran --enable-cxx CC=${CC} FC=${FC} CXX=${CXX}
 make > make.log
 make install >> make.log
-export LD_LIBRARY_PATH=$PROGS/hdf5-${HDF5_VER}/lib:$LD_LIBRARY_PATH
-echo "export LD_LIBRARY_PATH=$PROGS/hdf5-${HDF5_VER}/lib:$LD_LIBRARY_PATH" >> ~/.bashrc
+export LD_LIBRARY_PATH=$PROGS/hdf5-${HDF5_VER}/lib:${LD_LIBRARY_PATH}
+echo "export LD_LIBRARY_PATH=$PROGS/hdf5-${HDF5_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 # install netcdf
 cd ${PROGS}
@@ -78,8 +80,34 @@ cd ${PROGS}/netcdf-${NCCC_VER}/include
 ln -s ../../netcdf-cxx-${NCXX_VER}/include/* .
 ln -s ../../netcdf-fortran-${NCFC_VER}/include/* .
 export NETCDF=${PROGS}/netcdf-${NCCC_VER}
-export LD_LIBRARY_PATH=$NETCDF/lib:$LD_LIBRARY_PATH
-export PATH=$NETCDF/bin:$PATH
+export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}
+export PATH=${NETCDF}/bin:${PATH}
 echo "export NETCDF=${PROGS}/netcdf-${NCCC_VER}" >> ~/.bashrc
-echo "export LD_LIBRARY_PATH=$NETCDF/lib:$LD_LIBRARY_PATH" >> ~/.bashrc
-echo "export PATH=$NETCDF/bin:$PATH" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
+echo "export PATH=${NETCDF}/bin:${PATH}" >> ~/.bashrc
+
+# install xerces
+cd ${PROGS}
+wget "http://ftp.itu.edu.tr/Mirror/Apache//xerces/c/3/sources/xerces-c-${XERC_VER}.tar.gz"
+tar -zxvf xerces-c-${XERC_VER}.tar.gz
+cd xerces-c-${XERC_VER}
+./configure --prefix=${PROGS}/xerces-c-${XERC_VER} CC=${CC} CXX=${CXX}
+make > make.log
+make install >> make.log
+export XERCES=${PROGS}/xerces-c-${XERC_VER}
+export LD_LIBRARY_PATH=${XERCES}/lib:${LD_LIBRARY_PATH}
+echo "export XERCES=${PROGS}/xerces-c-${XERC_VER}" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH=${XERCES}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
+
+# install openmpi
+cd ${PROGS}
+wget --no-check-certificate "https://www.open-mpi.org/software/ompi/v1.10/downloads/openmpi-${OMPI_VER}.tar.gz"
+tar -zxvf openmpi-${OMPI_VER}.tar.gz
+cd openmpi-${OMPI_VER}
+./configure --prefix=${PROGS}/openmpi-${OMPI_VER} CC=${CC} CXX=${CXX} FC=${FC}
+make > make.log
+make install >> make.log
+export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}
+export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}
+echo "export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
+echo "export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}" >> ~/.bashrc
