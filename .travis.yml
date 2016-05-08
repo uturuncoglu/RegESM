@@ -4,6 +4,9 @@ addons:
   apt:
     packages:
     - gfortran     #Add Fortran (C and C++ installed by specifying C++ above)
+env:
+  global:
+  - TERM=dumb      #Add for "The log length has exceeded the limit of 4 Megabytes"
 before_install:
 # ---------------------------------------------------------------------------
 # Creating directory for custom installation of libraries used by RegESM
