@@ -9,6 +9,7 @@ before_install:
   - mkdir ../progs
   - cd ../progs
   - export PROGS=$PWD
+  - cd -
   - ./install-deps.sh $PROGS
 script:
   - source ~/.bashrc

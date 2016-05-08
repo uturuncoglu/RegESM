@@ -1,4 +1,5 @@
 #!/bin/sh
+set -ex
 
 PROGS=$1
 
