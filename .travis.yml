@@ -4,82 +4,137 @@ addons:
   apt:
     packages:
     - gfortran     #Add Fortran (C and C++ installed by specifying C++ above)
-
+env:
+  ESMF_OS=Linux
+  ESMF_TESTMPMD=OFF
+  ESMF_TESTHARNESS_ARRAY=RUN_ESMF_TestHarnessArray_default
+  ESMF_TESTHARNESS_FIELD=RUN_ESMF_TestHarnessField_default
+  ESMF_DIR=$TRAVIS_BUILD_DIR/progs/esmf-7.0.0
+  ESMF_TESTWITHTHREADS=OFF
+  ESMF_INSTALL_PREFIX=$TRAVIS_BUILD_DIR/progs/esmf-7.0.0/install_dir
+  ESMF_COMM=openmpi
+  ESMF_TESTEXHAUSTIVE=ON
+  ESMF_BOPT=O 
+  ESMF_OPENMP=OFF
+  ESMF_SITE=default
+  ESMF_ABI=64
+  ESMF_COMPILER=gfortran 
+  ESMF_PIO=internal
+  ESMF_PNETCDF="standard"
+#  ESMF_PNETCDF_INCLUDE=${PNETCDF}/include
+#  ESMF_PNETCDF_LIBPATH=${PNETCDF}/lib 
+#  ESMF_NETCDF "split"
+#  ESMF_NETCDF_INCLUDE=${NETCDF}/include
+#  ESMF_NETCDF_LIBPATH=${NETCDF}/lib 
+#  ESMF_XERCES "standard"
+#  ESMF_XERCES_INCLUDE=${XERCES}/include
+#  ESMF_XERCES_LIBPATH=${XERCES}/lib
+#
+#setenv ESMF_LIB "${ESMF_INSTALL_PREFIX}/lib/lib${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}"
+#setenv ESMFMKFILE "${ESMF_LIB}/esmf.mk"
+#setenv PATH "${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}"
+#
+#setenv LD_LIBRARY_PATH ${ESMF_LIB}:${LD_LIBRARY_PATH}
+##setenv LD_LIBRARY_PATH /home/uturunco/progs/libtool-2.4/lib:${LD_LIBRARY_PATH}
+#setenv PATH ${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}
+##setenv LD_RUN_PATH /home/uturunco/progs/libtool-2.4/lib
+#
+#
 before_install:
 # ---------------------------------------------------------------------------
 # Creating directory for custom installation of libraries used by RegESM
 # ---------------------------------------------------------------------------
-- cd $TRAVIS_BUILD_DIR
-- mkdir ../progs
-- cd ../progs
-- export PROGS=$PWD
+  - cd $TRAVIS_BUILD_DIR
+  - mkdir ../progs
+  - cd ../progs
+  - export PROGS=$PWD
 # ---------------------------------------------------------------------------
 # Install Zlib
 # ---------------------------------------------------------------------------
-- cd $PROGS
-- wget "http://zlib.net/zlib-1.2.8.tar.gz"
-- tar -zxvf zlib-1.2.8.tar.gz
-- cd zlib-1.2.8
-- ./configure --prefix=$PROGS/zlib-1.2.8
-- make
-- make install
+  - cd $PROGS
+  - wget "http://zlib.net/zlib-1.2.8.tar.gz"
+  - tar -zxvf zlib-1.2.8.tar.gz
+  - cd zlib-1.2.8
+  - ./configure --prefix=$PROGS/zlib-1.2.8
+  - make
+  - make install
 # ---------------------------------------------------------------------------
 # Install HDF5
 # ---------------------------------------------------------------------------
-- cd $PROGS
-- wget "http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.8.16.tar.gz"
-- tar -zxvf hdf5-1.8.16.tar.gz
-- cd hdf5-1.8.16
-- ./configure --prefix=$PROGS/hdf5-1.8.16 --with-zlib=$PROGS/zlib-1.2.8 --enable-fortran --enable-cxx CC=gcc FC=gfortran CXX=g++
-- make
-- make install
+  - cd $PROGS
+  - wget "http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.8.16.tar.gz"
+  - tar -zxvf hdf5-1.8.16.tar.gz
+  - cd hdf5-1.8.16
+  - ./configure --prefix=$PROGS/hdf5-1.8.16 --with-zlib=$PROGS/zlib-1.2.8 --enable-fortran --enable-cxx CC=gcc FC=gfortran CXX=g++
+  - make
+  - make install
 # ---------------------------------------------------------------------------
 # Install NetCDF (C/C++ and Fortran)
 # ---------------------------------------------------------------------------
-- cd $PROGS
-- mkdir netcdf-4.4.0
-- cd netcdf-4.4.0
-- wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.0.tar.gz"
-- tar -zxvf netcdf-4.4.0.tar.gz
-- mv netcdf-4.4.0 src
-- cd src
-- ./configure --prefix=$PROGS/netcdf-4.4.0 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include"
-- make
-- make install
-- cd $PROGS
-- mkdir netcdf-cxx-4.2
-- cd netcdf-cxx-4.2
-- wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-cxx-4.2.tar.gz"
-- tar -zxvf netcdf-cxx-4.2.tar.gz
-- mv netcdf-cxx-4.2 src
-- cd src
-- ./configure --prefix=$PROGS/netcdf-cxx-4.2 CC=gcc CXX=g++ LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib -L$PROGS/netcdf-4.4.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include -I$PROGS/netcdf-4.4.0/include"
-- make
-- make install
-- cd $PROGS
-- mkdir netcdf-fortran-4.4.3
-- cd netcdf-fortran-4.4.3
-- wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-fortran-4.4.3.tar.gz"
-- tar -zxvf netcdf-fortran-4.4.3.tar.gz
-- mv netcdf-fortran-4.4.3 src 
-- cd src
-- ./configure --prefix=$PROGS/netcdf-fortran-4.4.3 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib -L$PROGS/netcdf-4.4.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include -I$PROGS/netcdf-4.4.0/include"
-- make
-- make install
-- cd $PROGS/netcdf-4.4.0/lib
-- ln -s ../../netcdf-cxx-4.2/lib/* .
-- rm -rf pkgconfig
-- ln -s ../../netcdf-fortran-4.4.3/lib/* .
-- cd $PROGS/netcdf-4.4.0/include
-- ln -s ../../netcdf-cxx-4.2/include/* .
-- ln -s ../../netcdf-fortran-4.4.3/include/* .
+  - cd $PROGS
+  - mkdir netcdf-4.4.0
+  - cd netcdf-4.4.0
+  - wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.0.tar.gz"
+  - tar -zxvf netcdf-4.4.0.tar.gz
+  - mv netcdf-4.4.0 src
+  - cd src
+  - ./configure --prefix=$PROGS/netcdf-4.4.0 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include"
+  - make
+  - make install
+  - cd $PROGS
+  - mkdir netcdf-cxx-4.2
+  - cd netcdf-cxx-4.2
+  - wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-cxx-4.2.tar.gz"
+  - tar -zxvf netcdf-cxx-4.2.tar.gz
+  - mv netcdf-cxx-4.2 src
+  - cd src
+  - ./configure --prefix=$PROGS/netcdf-cxx-4.2 CC=gcc CXX=g++ LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib -L$PROGS/netcdf-4.4.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include -I$PROGS/netcdf-4.4.0/include"
+  - make
+  - make install
+  - cd $PROGS
+  - mkdir netcdf-fortran-4.4.3
+  - cd netcdf-fortran-4.4.3
+  - wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-fortran-4.4.3.tar.gz"
+  - tar -zxvf netcdf-fortran-4.4.3.tar.gz
+  - mv netcdf-fortran-4.4.3 src 
+  - cd src
+  - ./configure --prefix=$PROGS/netcdf-fortran-4.4.3 CC=gcc FC=gfortran LDFLAGS="-L$PROGS/zlib-1.2.8/lib -L$PROGS/hdf5-1.8.16/lib -L$PROGS/netcdf-4.4.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I$PROGS/hdf5-1.8.16/include -I$PROGS/netcdf-4.4.0/include"
+  - make
+  - make install
+  - cd $PROGS/netcdf-4.4.0/lib
+  - ln -s ../../netcdf-cxx-4.2/lib/* .
+  - rm -rf pkgconfig
+  - ln -s ../../netcdf-fortran-4.4.3/lib/* .
+  - cd $PROGS/netcdf-4.4.0/include
+  - ln -s ../../netcdf-cxx-4.2/include/* .
+  - ln -s ../../netcdf-fortran-4.4.3/include/* .
 # ---------------------------------------------------------------------------
 # Install Xerces C++ library
 # ---------------------------------------------------------------------------
-- cd $PROGS
-- wget "http://ftp.itu.edu.tr/Mirror/Apache//xerces/c/3/sources/xerces-c-3.1.3.tar.gz"
-- tar -zxvf xerces-c-3.1.3.tar.gz
-- cd xerces-c-3.1.3
-- ./configure --prefix=$PROGS/xerces-c-3.1.3 CC=gcc CXX=g++
-- make
-- make install
+  - cd $PROGS
+  - wget "http://ftp.itu.edu.tr/Mirror/Apache//xerces/c/3/sources/xerces-c-3.1.3.tar.gz"
+  - tar -zxvf xerces-c-3.1.3.tar.gz
+  - cd xerces-c-3.1.3
+  - ./configure --prefix=$PROGS/xerces-c-3.1.3 CC=gcc CXX=g++
+  - make
+  - make install
+# ---------------------------------------------------------------------------
+# Install OpenMPI
+# ---------------------------------------------------------------------------
+  - cd $PROGS
+  - wget "https://www.open-mpi.org/software/ompi/v1.10/downloads/openmpi-1.10.2.tar.gz"
+  - tar -zxvf openmpi-1.10.2.tar.gz
+  - cd openmpi-1.10.2
+  - ./configure --prefix=/opt/progs/openmpi-1.10.2 CC=gcc CXX=g++ FC=gfortran
+  - make
+  - make install
+# ---------------------------------------------------------------------------
+# Install ESMF
+# ---------------------------------------------------------------------------
+  - cd $PROGS
+  - wget "https://sourceforge.net/projects/esmf/files/ESMF_7_0_0/esmf_7_0_0_src.tar.gz"
+  - tar -zxvf esmf_7_0_0_src.tar.gz
+  - mv esmf esmf-7.0.0
+  - cd esmf-7.0.0  
+script: 
+  - echo "Working ..."
