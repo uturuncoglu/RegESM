@@ -96,11 +96,11 @@ before_install:
   - wget --no-check-certificate "https://www.open-mpi.org/software/ompi/v1.10/downloads/openmpi-1.10.2.tar.gz"
   - tar -zxvf openmpi-1.10.2.tar.gz
   - cd openmpi-1.10.2
-  - ./configure --prefix=/opt/progs/openmpi-1.10.2 CC=gcc CXX=g++ FC=gfortran
+  - ./configure --prefix=$PROGS/openmpi-1.10.2 CC=gcc CXX=g++ FC=gfortran
   - make
   - make install
-  - export LD_LIBRARY_PATH=/opt/progs/openmpi-1.10.2/lib:$LD_LIBRARY_PATH
-  - export PATH=/opt/progs/openmpi-1.10.2/bin:$PATH
+  - export LD_LIBRARY_PATH=$PROGS/openmpi-1.10.2/lib:$LD_LIBRARY_PATH
+  - export PATH=$PROGS/openmpi-1.10.2/bin:$PATH
 # ---------------------------------------------------------------------------
 # Install ESMF
 # ---------------------------------------------------------------------------
