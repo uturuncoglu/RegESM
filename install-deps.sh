@@ -12,6 +12,7 @@ NCFC_VER="4.4.3"
 XERC_VER="3.1.3"
 OMPI_VER="1.10.2"
 ESMF_VER="7_0_0"
+CATM_VER="4.5.0-rc2"
 
 CC=gcc
 FC=gfortran
@@ -132,7 +133,11 @@ export ESMF_BOPT=O
 export ESMF_OPENMP=OFF
 export ESMF_SITE=default
 export ESMF_ABI=64
-export ESMF_COMPILER=gfortran
+if [ "$FC" == "gfortran" ]; then
+  export ESMF_COMPILER=gfortran
+elif [ "$FC" == "ifort" ]; then
+  export ESMF_COMPILER=intel 
+fi
 export ESMF_PIO=internal
 export ESMF_NETCDF=split
 export ESMF_NETCDF_INCLUDE=${NETCDF}/include
@@ -159,7 +164,11 @@ echo "export ESMF_BOPT=O" >> ~/.bashrc
 echo "export ESMF_OPENMP=OFF" >> ~/.bashrc
 echo "export ESMF_SITE=default" >> ~/.bashrc
 echo "export ESMF_ABI=64" >> ~/.bashrc
-echo "export ESMF_COMPILER=gfortran" >> ~/.bashrc
+if [ "$FC" == "gfortran" ]; then
+  echo "export ESMF_COMPILER=gfortran" >> ~/.bashrc
+elif [ "$FC" == "ifort" ]; then
+  echo "export ESMF_COMPILER=intel" >> ~/.bashrc
+fi 
 echo "export ESMF_PIO=internal" >> ~/.bashrc
 echo "export ESMF_NETCDF=split" >> ~/.bashrc
 echo "export ESMF_NETCDF_INCLUDE=${NETCDF}/include" >> ~/.bashrc
@@ -175,4 +184,15 @@ echo "export PATH=${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_C
 
 make info >> make.log
 make >> make.log
+make install >> make.log
+
+# install atm model
+cd ${PROGS}
+if [ "${CATM_VER}" == "4.5.0-rc2"]; then
+  wget "https://gforge.ictp.it/gf/download/frsrelease/250/1555/RegCM-4.5.0-rc2.tar.gz"
+fi
+tar -zxvf RegCM-${CATM_VER}.tar.gz
+cd RegCM-${CATM_VER}
+./configure --prefix=${PROGS}/RegCM-${CATM_VER} --enable-cpl CC=${CC} FC=${FC}
+make > make.log
 make install >> make.log
