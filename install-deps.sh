@@ -188,7 +188,7 @@ make install >> make.log
 
 # install atm model
 cd ${PROGS}
-if [ "${CATM_VER}" == "4.5.0-rc2"]; then
+if [ "${CATM_VER}" == "4.5.0-rc2" ]; then
   wget "https://gforge.ictp.it/gf/download/frsrelease/250/1555/RegCM-4.5.0-rc2.tar.gz"
 fi
 tar -zxvf RegCM-${CATM_VER}.tar.gz
