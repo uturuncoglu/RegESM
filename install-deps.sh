@@ -11,6 +11,7 @@ NCXX_VER="4.2"
 NCFC_VER="4.4.3"
 XERC_VER="3.1.3"
 OMPI_VER="1.10.2"
+ESMF_VER="7_0_0"
 
 CC=gcc
 FC=gfortran
@@ -111,3 +112,67 @@ export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}
 export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}
 echo "export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 echo "export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}" >> ~/.bashrc
+
+# install esmf
+cd ${PROGS}
+wget "https://sourceforge.net/projects/esmf/files/ESMF_${ESMF_VER}/esmf_${ESMF_VER}_src.tar.gz"
+tar -zxvf esmf_${ESMF_VER}_src.tar.gz
+mv esmf esmf-${ESMF_VER//_/.}
+cd esmf-${ESMF_VER//_/.}  
+export ESMF_OS=Linux
+export ESMF_TESTMPMD=OFF
+export ESMF_TESTHARNESS_ARRAY=RUN_ESMF_TestHarnessArray_default
+export ESMF_TESTHARNESS_FIELD=RUN_ESMF_TestHarnessField_default
+export ESMF_DIR=${PROGS}/esmf-${ESMF_VER//_/.}
+export ESMF_TESTWITHTHREADS=OFF
+export ESMF_INSTALL_PREFIX=${PROGS}/esmf-${ESMF_VER//_/.}/install_dir
+export ESMF_COMM=openmpi
+export ESMF_TESTEXHAUSTIVE=ON
+export ESMF_BOPT=O
+export ESMF_OPENMP=OFF
+export ESMF_SITE=default
+export ESMF_ABI=64
+export ESMF_COMPILER=gfortran
+export ESMF_PIO=internal
+export ESMF_NETCDF=split
+export ESMF_NETCDF_INCLUDE=${NETCDF}/include
+export ESMF_NETCDF_LIBPATH=${NETCDF}/lib 
+export ESMF_XERCES=standard
+export ESMF_XERCES_INCLUDE=${XERCES}/include
+export ESMF_XERCES_LIBPATH=${XERCES}/lib
+export ESMF_LIB=${ESMF_INSTALL_PREFIX}/lib/lib${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}
+export ESMFMKFILE=${ESMF_LIB}/esmf.mk
+export LD_LIBRARY_PATH=${ESMF_LIB}:${LD_LIBRARY_PATH}
+export PATH=${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}
+export PATH=${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}
+
+echo "export ESMF_OS=Linux" >> ~/.bashrc
+echo "export ESMF_TESTMPMD=OFF" >> ~/.bashrc
+echo "export ESMF_TESTHARNESS_ARRAY=RUN_ESMF_TestHarnessArray_default" >> ~/.bashrc
+echo "export ESMF_TESTHARNESS_FIELD=RUN_ESMF_TestHarnessField_default" >> ~/.bashrc
+echo "export ESMF_DIR=${PROGS}/esmf-${ESMF_VER//_/.}" >> ~/.bashrc
+echo "export ESMF_TESTWITHTHREADS=OFF" >> ~/.bashrc
+echo "export ESMF_INSTALL_PREFIX=${PROGS}/esmf-${ESMF_VER//_/.}/install_dir" >> ~/.bashrc
+echo "export ESMF_COMM=openmpi" >> ~/.bashrc
+echo "export ESMF_TESTEXHAUSTIVE=ON" >> ~/.bashrc
+echo "export ESMF_BOPT=O" >> ~/.bashrc
+echo "export ESMF_OPENMP=OFF" >> ~/.bashrc
+echo "export ESMF_SITE=default" >> ~/.bashrc
+echo "export ESMF_ABI=64" >> ~/.bashrc
+echo "export ESMF_COMPILER=gfortran" >> ~/.bashrc
+echo "export ESMF_PIO=internal" >> ~/.bashrc
+echo "export ESMF_NETCDF=split" >> ~/.bashrc
+echo "export ESMF_NETCDF_INCLUDE=${NETCDF}/include" >> ~/.bashrc
+echo "export ESMF_NETCDF_LIBPATH=${NETCDF}/lib" >> ~/.bashrc
+echo "export ESMF_XERCES=standard" >> ~/.bashrc
+echo "export ESMF_XERCES_INCLUDE=${XERCES}/include" >> ~/.bashrc
+echo "export ESMF_XERCES_LIBPATH=${XERCES}/lib" >> ~/.bashrc
+echo "export ESMF_LIB=${ESMF_INSTALL_PREFIX}/lib/lib${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}" >> ~/.bashrc
+echo "export ESMFMKFILE=${ESMF_LIB}/esmf.mk" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH=${ESMF_LIB}:${LD_LIBRARY_PATH}" >> ~/.bashrc
+echo "export PATH=${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}" >> ~/.bashrc
+echo "export PATH=${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}" >> ~/.bashrc
+
+make info >> make.log
+make >> make.log
+make install >> make.log
