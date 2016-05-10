@@ -22,6 +22,7 @@ CXX=g++
 cd ${PROGS}
 wget "http://zlib.net/zlib-${ZLIB_VER}.tar.gz"
 tar -zxvf zlib-${ZLIB_VER}.tar.gz
+rm -f zlib-${ZLIB_VER}.tar.gz
 cd zlib-${ZLIB_VER}
 ./configure --prefix=${PROGS}/zlib-${ZLIB_VER}
 make > make.log 
@@ -33,12 +34,17 @@ echo "LD_LIBRARY_PATH=${PROGS}/zlib-${ZLIB_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.ba
 cd ${PROGS}
 wget "https://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VER}/src/hdf5-${HDF5_VER}.tar.gz" 
 tar -zxvf hdf5-${HDF5_VER}.tar.gz
+rm -f hdf5-${HDF5_VER}.tar.gz
 cd hdf5-${HDF5_VER}
 ./configure --prefix=${PROGS}/hdf5-${HDF5_VER} --with-zlib=${PROGS}/zlib-${ZLIB_VER} --enable-fortran --enable-cxx CC=${CC} FC=${FC} CXX=${CXX}
 make > make.log
 make install >> make.log
-export LD_LIBRARY_PATH=$PROGS/hdf5-${HDF5_VER}/lib:${LD_LIBRARY_PATH}
-echo "export LD_LIBRARY_PATH=$PROGS/hdf5-${HDF5_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
+export HDF5=${PROGS}/hdf5-${HDF5_VER}
+export PATH=${HDF5}/bin:${PATH}
+export LD_LIBRARY_PATH=${HDF5}/lib:${LD_LIBRARY_PATH}
+echo "export HDF5=${PROGS}/hdf5-${HDF5_VER}" >> ~/.bashrc 
+echo "export PATH=${HDF5}/bin:${PATH}"
+echo "export LD_LIBRARY_PATH=${HDF5}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 # install netcdf
 cd ${PROGS}
@@ -46,17 +52,25 @@ mkdir netcdf-${NCCC_VER}
 cd netcdf-${NCCC_VER}
 wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-${NCCC_VER}.tar.gz"
 tar -zxvf netcdf-${NCCC_VER}.tar.gz
+rm -f netcdf-${NCCC_VER}.tar.gz
 mv netcdf-${NCCC_VER} src
 cd src
 ./configure --prefix=${PROGS}/netcdf-${NCCC_VER} CC=${CC} FC=${FC} LDFLAGS="-L${PROGS}/zlib-${ZLIB_VER}/lib -L${PROGS}/hdf5-${HDF5_VER}/lib" CPPFLAGS="-I${PROGS}/zlib-${ZLIB_VER}/include -I${PROGS}/hdf5-${HDF5_VER}/include"
 make > make.log
 make install >> make.log
+export NETCDF=${PROGS}/netcdf-${NCCC_VER}
+export PATH=${NETCDF}/bin:${PATH}
+export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}
+echo "export NETCDF=${PROGS}/netcdf-${NCCC_VER}" >> ~/.bashrc
+echo "export PATH=${NETCDF}/bin:${PATH}" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 cd ${PROGS}
 mkdir netcdf-cxx-${NCXX_VER}
 cd netcdf-cxx-${NCXX_VER}
 wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-cxx-${NCXX_VER}.tar.gz"
 tar -zxvf netcdf-cxx-${NCXX_VER}.tar.gz
+rm -f netcdf-cxx-${NCXX_VER}.tar.gz
 mv netcdf-cxx-${NCXX_VER} src
 cd src
 ./configure --prefix=${PROGS}/netcdf-cxx-${NCXX_VER} CC=${CC} CXX=${CXX} LDFLAGS="-L${PROGS}/zlib-${ZLIB_VER}/lib -L${PROGS}/hdf5-${HDF5_VER}/lib -L${PROGS}/netcdf-${NCCC_VER}/lib" CPPFLAGS="-I${PROGS}/zlib-${ZLIB_VER}/include -I${PROGS}/hdf5-${HDF5_VER}/include -I${PROGS}/netcdf-${NCCC_VER}/include"
@@ -68,12 +82,15 @@ mkdir netcdf-fortran-${NCFC_VER}
 cd netcdf-fortran-${NCFC_VER}
 wget "ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-fortran-${NCFC_VER}.tar.gz"
 tar -zxvf netcdf-fortran-${NCFC_VER}.tar.gz
+rm -f netcdf-fortran-${NCFC_VER}.tar.gz
 mv netcdf-fortran-${NCFC_VER} src 
 cd src
 ./configure --prefix=${PROGS}/netcdf-fortran-${NCFC_VER} CC=${CC} FC=${FC} LDFLAGS="-L${PROGS}/zlib-${ZLIB_VER}/lib -L${PROGS}/hdf5-${HDF5_VER}/lib -L${PROGS}/netcdf-${NCCC_VER}/lib" CPPFLAGS="-I${PROGS}/zlib-${ZLIB_VER}/include -I${PROGS}/hdf5-${HDF5_VER}/include -I${PROGS}/netcdf-${NCCC_VER}/include"
 make > make.log
 make install >> make.log
 
+cd ${PROGS}/netcdf-${NCCC_VER}/bin
+ln -s ../../netcdf-fortran-${NCFC_VER}/bin/* .
 cd ${PROGS}/netcdf-${NCCC_VER}/lib
 ln -s ../../netcdf-cxx-${NCXX_VER}/lib/* .
 rm -rf pkgconfig
@@ -81,17 +98,12 @@ ln -s ../../netcdf-fortran-${NCFC_VER}/lib/* .
 cd ${PROGS}/netcdf-${NCCC_VER}/include
 ln -s ../../netcdf-cxx-${NCXX_VER}/include/* .
 ln -s ../../netcdf-fortran-${NCFC_VER}/include/* .
-export NETCDF=${PROGS}/netcdf-${NCCC_VER}
-export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}
-export PATH=${NETCDF}/bin:${PATH}
-echo "export NETCDF=${PROGS}/netcdf-${NCCC_VER}" >> ~/.bashrc
-echo "export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
-echo "export PATH=${NETCDF}/bin:${PATH}" >> ~/.bashrc
 
 # install xerces
 cd ${PROGS}
 wget "http://ftp.itu.edu.tr/Mirror/Apache//xerces/c/3/sources/xerces-c-${XERC_VER}.tar.gz"
 tar -zxvf xerces-c-${XERC_VER}.tar.gz
+rm -f xerces-c-${XERC_VER}.tar.gz
 cd xerces-c-${XERC_VER}
 ./configure --prefix=${PROGS}/xerces-c-${XERC_VER} CC=${CC} CXX=${CXX}
 make > make.log
@@ -105,19 +117,21 @@ echo "export LD_LIBRARY_PATH=${XERCES}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 cd ${PROGS}
 wget --no-check-certificate "https://www.open-mpi.org/software/ompi/v1.10/downloads/openmpi-${OMPI_VER}.tar.gz"
 tar -zxvf openmpi-${OMPI_VER}.tar.gz
+rm -f openmpi-${OMPI_VER}.tar.gz
 cd openmpi-${OMPI_VER}
 ./configure --prefix=${PROGS}/openmpi-${OMPI_VER} CC=${CC} CXX=${CXX} FC=${FC}
 make > make.log
 make install >> make.log
-export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}
 export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}
-echo "export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
+export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}
 echo "export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 # install esmf
 cd ${PROGS}
-wget "https://sourceforge.net/projects/esmf/files/ESMF_${ESMF_VER}/esmf_${ESMF_VER}_src.tar.gz"
+wget --no-check-certificate "https://sourceforge.net/projects/esmf/files/ESMF_${ESMF_VER}/esmf_${ESMF_VER}_src.tar.gz"
 tar -zxvf esmf_${ESMF_VER}_src.tar.gz
+rm -f esmf_${ESMF_VER}_src.tar.gz
 mv esmf esmf-${ESMF_VER//_/.}
 cd esmf-${ESMF_VER//_/.}  
 export ESMF_OS=Linux
@@ -192,7 +206,34 @@ if [ "${CATM_VER}" == "4.5.0-rc2" ]; then
   wget "https://gforge.ictp.it/gf/download/frsrelease/250/1555/RegCM-4.5.0-rc2.tar.gz"
 fi
 tar -zxvf RegCM-${CATM_VER}.tar.gz
+rm -f RegCM-${CATM_VER}.tar.gz
 cd RegCM-${CATM_VER}
 ./configure --prefix=${PROGS}/RegCM-${CATM_VER} --enable-cpl CC=${CC} FC=${FC}
 make > make.log
 make install >> make.log
+
+# install ocn model
+#cd ${PROGS}
+#cd ocn
+#cat ocn/roms-r783/Compilers/Linux-gfortran.mk
+
+# install rtm model
+#cd ${PROGS}
+#wget "https://kovan.itu.edu.tr/index.php/s/veMPowZBRF6Z0rp/download"
+#mv download rtm.tar.gz
+#tar -zxvf rtm.tar.gz
+#cd rtm
+#cat Makefile | sed "s/__FC__/${FC} -O3 -DCPL/g" | sed "s/__NETCDF__/${NETCDF////\/}/g" > tmp
+#mv tmp Makefile
+#make install
+
+# install wav model
+#cd ${PROGS}
+#wget "https://kovan.itu.edu.tr/index.php/s/FlJNvnVK3BZceM1/download"
+#mv download wav.tar.gz
+#tar -zxvf wav.tar.gz
+#cd wav
+#cat mk/.dirset | sed "s/__PRODADMDIR__/${PROGS////\/}\/wav/g" | sed "s/__FCFLAGS__/-O3 -DCPL/g" | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
+#mv tmp mk/.dirset 
+#cd mk
+#./create_binaries
