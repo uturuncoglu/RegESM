@@ -218,22 +218,22 @@ make install >> make.log
 #cat ocn/roms-r783/Compilers/Linux-gfortran.mk
 
 # install rtm model
-#cd ${PROGS}
-#wget "https://kovan.itu.edu.tr/index.php/s/veMPowZBRF6Z0rp/download"
-#mv download rtm.tar.gz
-#tar -zxvf rtm.tar.gz
-#cd rtm
-#cat Makefile | sed "s/__FC__/${FC} -O3 -DCPL/g" | sed "s/__NETCDF__/${NETCDF////\/}/g" > tmp
-#mv tmp Makefile
-#make install
+cd ${PROGS}
+wget "https://kovan.itu.edu.tr/index.php/s/veMPowZBRF6Z0rp/download"
+mv download rtm.tar.gz
+tar -zxvf rtm.tar.gz
+cd rtm
+cat Makefile | sed "s/__FC__/${FC} -O3 -DCPL/g" | sed "s/__NETCDF__/${NETCDF////\/}/g" > tmp
+mv tmp Makefile
+make install
 
 # install wav model
-#cd ${PROGS}
-#wget "https://kovan.itu.edu.tr/index.php/s/FlJNvnVK3BZceM1/download"
-#mv download wav.tar.gz
-#tar -zxvf wav.tar.gz
-#cd wav
-#cat mk/.dirset | sed "s/__PRODADMDIR__/${PROGS////\/}\/wav/g" | sed "s/__FCFLAGS__/-O3 -DCPL/g" | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
-#mv tmp mk/.dirset 
-#cd mk
-#./create_binaries
+cd ${PROGS}
+wget "https://kovan.itu.edu.tr/index.php/s/FlJNvnVK3BZceM1/download"
+mv download wav.tar.gz
+tar -zxvf wav.tar.gz
+cd wav
+cat mk/.dirset | sed "s/__PRODADMDIR__/${PROGS////\/}\/wav/g" | sed "s/__FCFLAGS__/-O3 -DCPL/g" | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
+mv tmp mk/.dirset 
+cd mk
+./create_binaries
