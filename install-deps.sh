@@ -213,9 +213,11 @@ make > make.log
 make install >> make.log
 
 # install ocn model
-#cd ${PROGS}
-#cd ocn
-#cat ocn/roms-r783/Compilers/Linux-gfortran.mk
+cd ${PROGS}
+cd ocn
+cat roms-r783/Compilers/Linux-gfortran.mk | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
+mv tmp roms-r783/Compilers/Linux-gfortran.mk
+./build.sh
 
 # install rtm model
 cd ${PROGS}
