@@ -18,3 +18,7 @@ before_install:
   - ./install-deps.sh $PROGS $OCN_LINK $RTM_LINK $WAV_LINK
 script:
   - source ~/.bashrc
+  - ./bootstrap.sh
+  - ./configure --prefix=$TRAVIS_BUILD_DIR --with-atm=$PROGS/atm --with-ocn=$PROGS/ocn/Build --with-rtm=$PROGS/rtm --with-wav=$PROGS/wav/obj
+  - make
+  - make install

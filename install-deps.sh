@@ -210,8 +210,9 @@ if [ "${CATM_VER}" == "4.5.0-rc2" ]; then
 fi
 tar -zxvf RegCM-${CATM_VER}.tar.gz
 rm -f RegCM-${CATM_VER}.tar.gz
-cd RegCM-${CATM_VER}
-./configure --prefix=${PROGS}/RegCM-${CATM_VER} --enable-cpl CC=${CC} FC=${FC}
+mv RegCM-${CATM_VER} atm
+cd atm
+./configure --prefix=${PROGS}/atm --enable-cpl CC=${CC} FC=${FC}
 make > make.log
 make install >> make.log
 
