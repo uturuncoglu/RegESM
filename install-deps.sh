@@ -5,8 +5,6 @@ PROGS=$1
 OCN_LINK=$2
 RTM_LINK=$3
 WAV_LINK=$4
-echo $OCN_LINK $RTM_LINK $WAV_LINK
-exit
 
 # parameters
 ZLIB_VER="1.2.8"
@@ -219,7 +217,7 @@ make install >> make.log
 
 # install ocn model
 cd ${PROGS}
-wget "https://kovan.itu.edu.tr/index.php/s/VUcoakppHHFBgNA/download"
+wget "${OCN_LINK}"
 mv download ocn.tar.gz
 tar -zxvf ocn.tar.gz
 cd ocn
@@ -229,7 +227,7 @@ mv tmp roms-r783/Compilers/Linux-gfortran.mk
 
 # install rtm model
 cd ${PROGS}
-wget "https://kovan.itu.edu.tr/index.php/s/veMPowZBRF6Z0rp/download"
+wget "${RTM_LINK}"
 mv download rtm.tar.gz
 tar -zxvf rtm.tar.gz
 cd rtm
@@ -239,7 +237,7 @@ make install
 
 # install wav model
 cd ${PROGS}
-wget "https://kovan.itu.edu.tr/index.php/s/FlJNvnVK3BZceM1/download"
+wget "${WAV_LINK}"
 mv download wav.tar.gz
 tar -zxvf wav.tar.gz
 cd wav
