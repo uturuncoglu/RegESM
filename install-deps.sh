@@ -2,6 +2,11 @@
 set -ex
 
 PROGS=$1
+OCN_LINK=$2
+RTM_LINK=$3
+WAV_LINK=$4
+echo $OCN_LINK $RTM_LINK $WAV_LINK
+exit
 
 # parameters
 ZLIB_VER="1.2.8"
@@ -214,6 +219,9 @@ make install >> make.log
 
 # install ocn model
 cd ${PROGS}
+wget "https://kovan.itu.edu.tr/index.php/s/VUcoakppHHFBgNA/download"
+mv download ocn.tar.gz
+tar -zxvf ocn.tar.gz
 cd ocn
 cat roms-r783/Compilers/Linux-gfortran.mk | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
 mv tmp roms-r783/Compilers/Linux-gfortran.mk
