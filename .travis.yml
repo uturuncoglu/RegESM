@@ -9,6 +9,7 @@ addons:
   apt:
     packages:
     - gfortran
+    - csh
 before_install:
   - cd $TRAVIS_BUILD_DIR
   - mkdir ../progs
