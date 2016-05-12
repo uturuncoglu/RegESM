@@ -224,6 +224,7 @@ tar -zxvf ocn.tar.gz > extract.log
 cd ocn
 cat roms-r783/Compilers/Linux-gfortran.mk | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
 mv tmp roms-r783/Compilers/Linux-gfortran.mk
+cat roms-r783/Compilers/Linux-gfortran.mk
 ./build.sh > make.log
 
 # install rtm model
