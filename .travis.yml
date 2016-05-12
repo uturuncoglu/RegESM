@@ -1,5 +1,5 @@
 language: c
-sudo: false
+sudo: required
 env:
   global:
     - secure: "VsqWigdXeDwa2hdm5WuZ9adyiRfEvoAFGNzuIqVij1ZN0p9IBy6xIXVD8XG3t890muL93CRAOw8EYKmWFpWIhrLCN6L2B6A9+TBMDrKa7gwWpRyBZLSlUNwWgQ9XuDonkkxpAfFTkQGR9wPgh1Rf02kRgBL1q5j9tDcbFOZ6WSQXcXSusn6SJney/ZNPO0lhUUk/5T5H9pX6SYtHIZF6giDKQU0lPD2gLBDlKaOMUjni731E0F9d5t2bH2gwGRsYYEQONR8+4c4RKawGczmrdPUoPHHISB0iY/RSCB7TN2B4LcDRrRT0TJAu5r4J+kDeUQppkCHrcA2ARa5o7Z1NSjgnOP79Kf4VfK3ZasUkDVDJtY1hgmeIVbtZhi8Lf6Df/xu4bZ5JA7PvbmgjeSpEByIl/zPzYI2nmc2WfTVpuapdLTkdlcS8bwkTR16Hl7o+xjAsRmzpP/4rYlZGJab8EE1i8RUM7FqKdC0ij3rb25lvv64cH70e0UJii/yCNlDoPy/xUZQA9jj7ypJrCbI1NpgtRrxo3Y4dYLc4jtCjhE0e+69o+pMEEuaXHfTViG3eBv2aBNEP+Rl3ZpZ+UNZitby70YDcisMX9o7P1CKrCFEEbCiiyrHataUQB+2xkztzou9+pG/k+KLh5ZXOgZhvPkevcS4qWoCdOjG384xC+Uw="
@@ -11,6 +11,8 @@ addons:
     - gfortran
     - csh
 before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y subversion
   - cd $TRAVIS_BUILD_DIR
   - mkdir ../progs
   - cd ../progs
