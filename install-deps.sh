@@ -21,6 +21,10 @@ CC=gcc
 FC=gfortran
 CXX=g++
 
+# export environment variables
+export CFLAGS="-march=native -mno-avx"
+export CXXFLAGS="-march=native -mno-avx"
+
 # install zlib
 cd ${PROGS}
 wget "http://zlib.net/zlib-${ZLIB_VER}.tar.gz"
