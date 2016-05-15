@@ -15,15 +15,11 @@ NCFC_VER="4.4.3"
 XERC_VER="3.1.3"
 OMPI_VER="1.10.2"
 ESMF_VER="7_0_0"
-CATM_VER="4.5.0-rc2"
+CATM_VER="4.5.0"
 
 CC=gcc
 FC=gfortran
 CXX=g++
-
-# export environment variables
-export CFLAGS="-march=native -mno-avx"
-export CXXFLAGS="-march=native -mno-avx"
 
 # install zlib
 cd ${PROGS}
@@ -211,6 +207,9 @@ make install >> make.log
 cd ${PROGS}
 if [ "${CATM_VER}" == "4.5.0-rc2" ]; then
   wget "https://gforge.ictp.it/gf/download/frsrelease/250/1555/RegCM-4.5.0-rc2.tar.gz"
+fi
+if [ "${CATM_VER}" == "4.5.0" ]; then
+  wget "https://gforge.ictp.it/gf/download/frsrelease/252/1580/RegCM-4.5.0.tar.gz"
 fi
 tar -zxvf RegCM-${CATM_VER}.tar.gz > extract.log
 rm -f RegCM-${CATM_VER}.tar.gz
