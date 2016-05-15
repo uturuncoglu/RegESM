@@ -17,9 +17,14 @@ OMPI_VER="1.10.2"
 ESMF_VER="7_0_0"
 CATM_VER="4.5.0"
 
+# compilers
 CC=gcc
 FC=gfortran
 CXX=g++
+
+export CC=$CC
+export FC=$FC
+export CXX=$CXX
 
 # install zlib
 cd ${PROGS}
