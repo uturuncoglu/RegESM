@@ -618,7 +618,7 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else
-        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, "OCN", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
