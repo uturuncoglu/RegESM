@@ -26,6 +26,9 @@ export CC=$CC
 export FC=$FC
 export CXX=$CXX
 
+# arch
+gcc -march=native -Q --help=target
+
 # install zlib
 cd ${PROGS}
 wget "http://zlib.net/zlib-${ZLIB_VER}.tar.gz"
@@ -220,9 +223,9 @@ tar -zxvf RegCM-${CATM_VER}.tar.gz > extract.log
 rm -f RegCM-${CATM_VER}.tar.gz
 mv RegCM-${CATM_VER} atm
 cd atm
-./configure --prefix=${PROGS}/atm --enable-cpl CC=${CC} FC=${FC} CFLAGS="-march=corei7"
-make > make.log
-make install >> make.log
+./configure --prefix=${PROGS}/atm --enable-cpl CC=${CC} FC=${FC} CFLAGS="-march=native -mno-avx"
+make #> make.log
+make install #>> make.log
 
 # install ocn model
 cd ${PROGS}
