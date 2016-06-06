@@ -543,6 +543,7 @@
 !
       type(ESMF_VM) :: vm
       type(ESMF_Time) :: startTime, currTime
+      type(ESMF_TimeInterval) :: timeStep
       type(ESMF_Clock) :: driverClock
       type(ESMF_Field) :: field
       type(ESMF_State) :: importState
@@ -617,7 +618,7 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else
-        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, "OCN", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
@@ -647,7 +648,7 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      atCorrectTime = NUOPC_FieldIsAtTime(field, startTime, rc=rc)
+      atCorrectTime = NUOPC_IsAtTime(field, startTime, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
