@@ -39,7 +39,6 @@ cd zlib-${ZLIB_VER}
 make > make.log 
 make install >> make.log
 export LD_LIBRARY_PATH=${PROGS}/zlib-${ZLIB_VER}/lib:${LD_LIBRARY_PATH}
-echo "LD_LIBRARY_PATH=${PROGS}/zlib-${ZLIB_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 # install hdf5
 cd ${PROGS}
@@ -53,9 +52,6 @@ make install >> make.log
 export HDF5=${PROGS}/hdf5-${HDF5_VER}
 export PATH=${HDF5}/bin:${PATH}
 export LD_LIBRARY_PATH=${HDF5}/lib:${LD_LIBRARY_PATH}
-echo "export HDF5=${PROGS}/hdf5-${HDF5_VER}" >> ~/.bashrc 
-echo "export PATH=${HDF5}/bin:${PATH}"
-echo "export LD_LIBRARY_PATH=${HDF5}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 # install netcdf
 cd ${PROGS}
@@ -72,9 +68,6 @@ make install >> make.log
 export NETCDF=${PROGS}/netcdf-${NCCC_VER}
 export PATH=${NETCDF}/bin:${PATH}
 export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}
-echo "export NETCDF=${PROGS}/netcdf-${NCCC_VER}" >> ~/.bashrc
-echo "export PATH=${NETCDF}/bin:${PATH}" >> ~/.bashrc
-echo "export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 cd ${PROGS}
 mkdir netcdf-cxx-${NCXX_VER}
@@ -121,8 +114,6 @@ make > make.log
 make install >> make.log
 export XERCES=${PROGS}/xerces-c-${XERC_VER}
 export LD_LIBRARY_PATH=${XERCES}/lib:${LD_LIBRARY_PATH}
-echo "export XERCES=${PROGS}/xerces-c-${XERC_VER}" >> ~/.bashrc
-echo "export LD_LIBRARY_PATH=${XERCES}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 # install openmpi
 cd ${PROGS}
@@ -135,8 +126,6 @@ make > make.log
 make install >> make.log
 export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}
 export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}
-echo "export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}" >> ~/.bashrc
-echo "export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 
 # install esmf
 cd ${PROGS}
@@ -176,6 +165,23 @@ export LD_LIBRARY_PATH=${ESMF_LIB}:${LD_LIBRARY_PATH}
 export PATH=${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}
 export PATH=${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}
 
+make info >> make.log
+make >> make.log
+make install >> make.log
+
+# add environment variables to .bashrc
+echo "***** BEFORE *****"
+cat ~/.bashrc
+echo "*****************"
+
+echo "export PROGS=${PROGS}" >> ~/.bashrc
+echo "export ZLIB=${PROGS}/zlib-${ZLIB_VER}" >> ~/.bashrc
+echo "export HDF5=${PROGS}/hdf5-${HDF5_VER}" >> ~/.bashrc
+echo "export NETCDF=${PROGS}/netcdf-${NCCC_VER}" >> ~/.bashrc
+echo "export XERCES=${PROGS}/xerces-c-${XERC_VER}" >> ~/.bashrc
+echo "export MPI=${PROGS}/openmpi-${OMPI_VER}" >> ~/.bashrc
+echo "export PATH=${HDF5}/bin:${NETCDF}/bin:${MPI}/bin:${PATH}"
+echo "export LD_LIBRARY_PATH=${ZLIB}/lib:${HDF5}/lib:${NETCDF}/lib:${XERCES}/lib:${MPI}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
 echo "export ESMF_OS=Linux" >> ~/.bashrc
 echo "export ESMF_TESTMPMD=OFF" >> ~/.bashrc
 echo "export ESMF_TESTHARNESS_ARRAY=RUN_ESMF_TestHarnessArray_default" >> ~/.bashrc
@@ -193,7 +199,7 @@ if [ "$FC" == "gfortran" ]; then
   echo "export ESMF_COMPILER=gfortran" >> ~/.bashrc
 elif [ "$FC" == "ifort" ]; then
   echo "export ESMF_COMPILER=intel" >> ~/.bashrc
-fi 
+fi
 echo "export ESMF_PIO=internal" >> ~/.bashrc
 echo "export ESMF_NETCDF=split" >> ~/.bashrc
 echo "export ESMF_NETCDF_INCLUDE=${NETCDF}/include" >> ~/.bashrc
@@ -207,9 +213,9 @@ echo "export LD_LIBRARY_PATH=${ESMF_LIB}:${LD_LIBRARY_PATH}" >> ~/.bashrc
 echo "export PATH=${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}" >> ~/.bashrc
 echo "export PATH=${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}" >> ~/.bashrc
 
-make info >> make.log
-make >> make.log
-make install >> make.log
+echo "***** AFTER *****"
+cat ~/.bashrc
+echo "*****************"
 
 # install atm model
 cd ${PROGS}
@@ -224,8 +230,8 @@ rm -f RegCM-${CATM_VER}.tar.gz
 mv RegCM-${CATM_VER} atm
 cd atm
 ./configure --prefix=${PROGS}/atm --enable-cpl CC=${CC} FC="${FC} -mno-avx" MPIFC="${PROGS}/openmpi-${OMPI_VER}/bin/mpif90 -mno-avx"
-make #> make.log
-make install #>> make.log
+make > make.log
+make install >> make.log
 
 # install ocn model
 cd ${PROGS}
