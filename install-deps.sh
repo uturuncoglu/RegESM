@@ -223,7 +223,7 @@ tar -zxvf RegCM-${CATM_VER}.tar.gz > extract.log
 rm -f RegCM-${CATM_VER}.tar.gz
 mv RegCM-${CATM_VER} atm
 cd atm
-./configure --prefix=${PROGS}/atm --enable-cpl CC=${CC} FC=${FC} CFLAGS="-march=native -mno-avx"
+./configure --prefix=${PROGS}/atm --enable-cpl CC=${CC} FC=${FC} CFLAGS="-march=native -mno-avx" FCFLAGS="-march=native -mno-avx"
 make #> make.log
 make install #>> make.log
 
