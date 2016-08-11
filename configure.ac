@@ -20,7 +20,7 @@ AC_INIT([RegESM], [1.0.0], [ufuk.turuncoglu@itu.edu.tr])
 
 AC_SUBST([PACKAGE_URL], ["https://github.com/uturuncoglu/RegESM"])
 
-AC_PREREQ([2.64])
+#AC_PREREQ([2.64])
 
 LT_INIT
 
