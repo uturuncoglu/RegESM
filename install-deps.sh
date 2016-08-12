@@ -13,6 +13,7 @@ NCCC_VER="4.4.0"
 NCXX_VER="4.2"
 NCFC_VER="4.4.3"
 XERC_VER="3.1.4"
+OMPI_VER="1.10.2"
 ESMF_VER="7_0_0"
 
 # compilers
