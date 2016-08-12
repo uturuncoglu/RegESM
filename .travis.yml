@@ -2,25 +2,26 @@ language: c
 sudo: required
 env:
   global:
-    - secure: "VsqWigdXeDwa2hdm5WuZ9adyiRfEvoAFGNzuIqVij1ZN0p9IBy6xIXVD8XG3t890muL93CRAOw8EYKmWFpWIhrLCN6L2B6A9+TBMDrKa7gwWpRyBZLSlUNwWgQ9XuDonkkxpAfFTkQGR9wPgh1Rf02kRgBL1q5j9tDcbFOZ6WSQXcXSusn6SJney/ZNPO0lhUUk/5T5H9pX6SYtHIZF6giDKQU0lPD2gLBDlKaOMUjni731E0F9d5t2bH2gwGRsYYEQONR8+4c4RKawGczmrdPUoPHHISB0iY/RSCB7TN2B4LcDRrRT0TJAu5r4J+kDeUQppkCHrcA2ARa5o7Z1NSjgnOP79Kf4VfK3ZasUkDVDJtY1hgmeIVbtZhi8Lf6Df/xu4bZ5JA7PvbmgjeSpEByIl/zPzYI2nmc2WfTVpuapdLTkdlcS8bwkTR16Hl7o+xjAsRmzpP/4rYlZGJab8EE1i8RUM7FqKdC0ij3rb25lvv64cH70e0UJii/yCNlDoPy/xUZQA9jj7ypJrCbI1NpgtRrxo3Y4dYLc4jtCjhE0e+69o+pMEEuaXHfTViG3eBv2aBNEP+Rl3ZpZ+UNZitby70YDcisMX9o7P1CKrCFEEbCiiyrHataUQB+2xkztzou9+pG/k+KLh5ZXOgZhvPkevcS4qWoCdOjG384xC+Uw="
-    - secure: "DMgeddUuIxzh9j2fXK21ZS18Nr/4m4cR6eAoVoO60JBSbQcNsJ5BplzP2p6Tkb3wRPte0/DWpzidZY+NAUrSOa27Pcn6/GzXdAiWy81qua36koGhtkNnuSEZvF/IO3FAIRFTAs8b3UC0H2N0QkGnC7PrlIkySDFmFwZnodthzJ7SiVpTbNCkFbP7vcB1Jw+LazC05pznLFiWj/YOzM2wUfD0qW+dtzZ6xGOC9YGat0XZjnCPGJAhyTnGix0IyS0cRW1XABJCn9dMQR8HKsb262SbGXmbkNc/nC4ybJarfi/vevz898Sg9mvICD6PFrZA/8ujrhwlPcHjqhjhdH8cVf4YYXGUR/qbGoFRyxyqi3VtiqanclqlQEYfn1grXTDKiUaldmmUynEuDvh/1WI6ZWEGAHnRG43HdCvUONj93Vj4ZxENYKayvLv0ua/GnAgavRIzyBofY1s9QR4DO0/1k2syD0GhT8YAEKINQYktgGrDBb5vZ1NkoINWyD/z32BzXZrZScA0w5+0OdVmniAOJGcDaRPA7MB+lSp3IKBLfwGqSXEK4o/QRPY6dqMlbjdsoSMy8duVxbqIPLq6uD/D8rJyLGvxS9XcPPpQRQrkJMAo3KUVjmTuth1YSWF1oYpqHPs1ww4Aa4JCznDXnqn13I2lOYpphlzSxsf7e0vLgbs="
-    - secure: "d6N/4KodnZD6uV1b5imeBNpS95joqrvmUSqmoSj6oekNyNBkB/SYBv8RgnNQRoCZ6q3rBn0gcgdzebM+F8SXIE1PwjhZoom8/lIknBrsMu8m7dP9kmeV33g2nJgblQTi8LErFTcgYanlN09VSajCz/izuLw9bzy5VnWOxYXrEEiG1dUbOKDdGnXA+LemMdSsoxNxGDiS9Ic59tH0VlrTfBpPWo4zahncr5ENqjeedDHmC3wYMT8PU2yz8QJe3XIiDP9Hg2qNR0iFR33R2CRRrf5ErhZywlu08ANHkLFP0ns/buTC1CBs9W+QoV2O0TXoYSLlkLMnYmw8d1lt6JU1q+1nuZeaUcF/n0ZMDgq2t444RaPHoOdPX2HRgrw6ru6thSCS7rsPs0r7300Y2w+NFY41EHAfFejN8esNuuJl4t0odiKn2C6GsW8M7/i/B3U/rH/+vZAXLZlzXFipH7F/Gp5qAVecikOFYcWGCxHGu3nap3dCgVeW3gziypLswE6VyG2uVGZJ9ev4jAln76iNMwvgS+CewP7kdbkLzG9a2mRpKz77j401uKqRePfdB3zvy4ZloBEUGM1PBRyPWisStSWz5+wOazbwVCsuECipDN3jPCNJjRRsGgkbiuLHNEuxzf5b0yXnic7GmmjuR9xxZpONKBnlyCKx+eVuktKiG/w="
+    secure: "Mip85ZPbkKWJv+yb5t5kJAlPp1k7ji0u5HiwSqJu/WveilctXsYQMDp+fUKPGC8VYLBcEsWvofd4ls12Stc28+zYMObiiQUcCk1JUda8laMoHAFzUKApy1EuY4X2yiWUg62nyysN6eQAOAb4061dvflIXTYQ5/tfobm/g4gVnn6ijchVtZMhKx6EbZ9xqAoQ2PZ9tGDpsWJgirzlVtC8o7MRDls4hOXekdXwCODfuG1tNTZCZ/Y8tzwh1m+SECqnAE9GyThUQoEEKvX/8JClUU9h36ZBNbolp+3LHnOZzeXIEgkR71a91A5Y4GLOmtwYLI3EwnYqOuOkv5IOzH0lPJqcFPqP6RGDa/+pd9CNFCMGvTILeucSkAE6lB8n8F5GtFzbH5WlWZKlMyLwVLa7+LtMn897poPfKtuR2UvPjWLNlytRa5vFgNgMSerb90NcyVw9cNwbzaw3C1rKvUN6XwzalvPgj4vfEQxek60c7FLfdvICp5EMDSvE/edS5+bhpETtiaPukc/JBO46GEB0g3BkEYWgY8yquKcUkrZx42Yc5Lk/vZl3whW/TAGdig6/un0jSik9TbgLSQa4sHxAbd5DNQhOuKHVKeQ/RdGTCbd1kpssSfm22s+dRpp1ex0SIQJ0adNTqjb4iWghU3VO/o0kY8SgBQqvlR8ykSe6DpE="
+    secure: "EIDNIQINr4UnoO1GMrzNjjp1O3n1g7+3Z0n4Z9eRmYppB49+jgUiQMdTZw/D9jMmomzRs5ZjRP2v4frIylL4gNsoBZZgUCahAzS49vG9pQfl4tp1AumvK/IlmZAAm06spwTIssv9bcg0/E1SiY6VMWV8+uMjJOhYA2Z5ucdKAt9KKL/yRHAInheNOwWs8aELNZpIlmMoUxRWJnFqwKPbml416F+K3P4thZj2wZNu3uJVjrXrQSJ1OyOXaIkDBafkD0Cg1cxg8ZsqRTEOPdycETOqX5QV8DbAwFWGrl2280EFGxlgqCoXfzh3NALDMciPfTeAdz3C5g6vDekjVRB5k8h+twa9I21SULRlSHmXWwukjHOtClncEBE1nyUajCEaMvXtmRa8HJM1pgxv25P3LsZBTU9LPJb7hgK9d2UuX2FiKruo5cN6ckvjvObr8VRwEqpsj5cnXeNmWEtCECAgl/Gn3cmyn24tRSv+jLaWP80xOT/Pk2lLu4MNhZpkV0a8pfNTBioE4+vtU7rEIcG6/QZ3vKVXqzHzoYgGonrMkNq6402Sn2A3DDgXmumC+QW+S5MxZsKipk98t4Z9cv+MQ5T5ddOuIOTSFIvM4BJrc09r1yKSo0M3+HFQXvwYog1KMhnWx+oyoScgE5yqle8lnjspppO2yMsXUJFGumTbsIU="
+    secure: "A6zjceQBBp2r/fsMvEnlur4Jxkon46O02O2NpYf4EUtsS5gHV8HccR07x18hYQ5c5wnttZEPTqMH0yNtK6G0IEbhjqgq8KIMhQ4amdtnhDOpcUiPKqSK5tyK5ml67nto0pXYCc9hyrVmcdUmnNK00+0vgDcGScAllDyYw8yMnkWImpDF4UvIbZIJ32xbWe+/ybgguxwfxhwmn7wy1IY0aAeDmpMO3D24Xq4gM5vAutwTBXjBEbbD4N+t8Yes92Vs68ywsCM9fr63p24QRTnWU+ueAKYDHdZhh11TmoM1kkRVmdSSH7XW8gyy66PsfDiN73Yk+BLruzDM74vl3PlP9ly5OXAycAt/mWwoYZlKyb2ESPXv0AvC6iYnm8l88h3o6DgObuqytERDrG2pZubi4YADtYtSIw+3sNTyWgfFbNMecpXxIx82/suG7XLNge/Absa3tBtPSawHxKNeUD6Fv7iJaGHlREBEsYduJ8da/KcT3P1dSDxH1NIl26yMSHcdjpOOd7y0sHoQh17PJayHOROup+Y+fw5qil4ph1FrndeM47LYXBgvbqfZmwGZR55PfbTgL5B1crfbfMyRzCZdFXGy5yAGScGo3h0eupdZGGMvL81dyd4PoWjdoRKBTlWIVF2VitkNkJVPBWpS/5F7Ac5Na9XiaKJ16pPmRft6T1s="
 addons:
   apt:
     packages:
     - gfortran
     - csh
 before_install:
-  - cd $TRAVIS_BUILD_DIR
-  - mkdir ../progs
-  - cd ../progs
-  - export PROGS=$PWD
-  - cd -
-  - ./install-deps.sh $PROGS
-  - ./install-test.sh $PROGS $OCN_LINK $RTM_LINK $WAV_LINK
+- cd $TRAVIS_BUILD_DIR
+- mkdir ../progs
+- cd ../progs
+- export PROGS=$PWD
+- cd -
+- ./install-deps.sh $PROGS
+- ./install-test.sh $PROGS $OCN_LINK $RTM_LINK $WAV_LINK
 script:
-  - source $PROGS/env_progs
-  - ./bootstrap.sh
-  - ./configure --prefix=$TRAVIS_BUILD_DIR --with-atm=$PROGS/atm --with-ocn=$PROGS/ocn/Build --with-rtm=$PROGS/rtm --with-wav=$PROGS/wav/obj
-  - make
-  - make install
+- source $PROGS/env_progs
+- ./bootstrap.sh
+- ./configure --prefix=$TRAVIS_BUILD_DIR --with-atm=$PROGS/atm --with-ocn=$PROGS/ocn/Build
+  --with-rtm=$PROGS/rtm --with-wav=$PROGS/wav/obj
+- make
+- make install
