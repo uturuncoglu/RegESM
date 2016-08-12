@@ -38,6 +38,10 @@ cd zlib-${ZLIB_VER}
 ./configure --prefix=${PROGS}/zlib-${ZLIB_VER}
 make > make.log 
 make install >> make.log
+cd -
+mv extract.log ${PROGS}/zlib-${ZLIB_VER}/.
+
+export ZLIB=${PROGS}/zlib-${ZLIB_VER}
 export LD_LIBRARY_PATH=${PROGS}/zlib-${ZLIB_VER}/lib:${LD_LIBRARY_PATH}
 
 # install hdf5
@@ -49,11 +53,14 @@ cd hdf5-${HDF5_VER}
 ./configure --prefix=${PROGS}/hdf5-${HDF5_VER} --with-zlib=${PROGS}/zlib-${ZLIB_VER} --enable-fortran --enable-cxx CC=${CC} FC=${FC} CXX=${CXX}
 make > make.log
 make install >> make.log
+cd -
+mv extract.log ${PROGS}/hdf5-${HDF5_VER}/.
+
 export HDF5=${PROGS}/hdf5-${HDF5_VER}
 export PATH=${HDF5}/bin:${PATH}
 export LD_LIBRARY_PATH=${HDF5}/lib:${LD_LIBRARY_PATH}
 
-# install netcdf
+# install netcdf c
 cd ${PROGS}
 mkdir netcdf-${NCCC_VER}
 cd netcdf-${NCCC_VER}
@@ -65,10 +72,12 @@ cd src
 ./configure --prefix=${PROGS}/netcdf-${NCCC_VER} CC=${CC} FC=${FC} LDFLAGS="-L${PROGS}/zlib-${ZLIB_VER}/lib -L${PROGS}/hdf5-${HDF5_VER}/lib" CPPFLAGS="-I${PROGS}/zlib-${ZLIB_VER}/include -I${PROGS}/hdf5-${HDF5_VER}/include"
 make > make.log
 make install >> make.log
+
 export NETCDF=${PROGS}/netcdf-${NCCC_VER}
 export PATH=${NETCDF}/bin:${PATH}
 export LD_LIBRARY_PATH=${NETCDF}/lib:${LD_LIBRARY_PATH}
 
+# install netcdf c++
 cd ${PROGS}
 mkdir netcdf-cxx-${NCXX_VER}
 cd netcdf-cxx-${NCXX_VER}
@@ -81,6 +90,7 @@ cd src
 make > make.log
 make install >> make.log
 
+# install netcdf fortran
 cd ${PROGS} 
 mkdir netcdf-fortran-${NCFC_VER}
 cd netcdf-fortran-${NCFC_VER}
@@ -93,6 +103,7 @@ cd src
 make > make.log
 make install >> make.log
 
+# link netcdf c++ and fortran to c
 cd ${PROGS}/netcdf-${NCCC_VER}/bin
 ln -s ../../netcdf-fortran-${NCFC_VER}/bin/* .
 cd ${PROGS}/netcdf-${NCCC_VER}/lib
@@ -112,6 +123,9 @@ cd xerces-c-${XERC_VER}
 ./configure --prefix=${PROGS}/xerces-c-${XERC_VER} CC=${CC} CXX=${CXX}
 make > make.log
 make install >> make.log
+cd -
+mv extract.log ${PROGS}/xerces-c-${XERC_VER}/.
+
 export XERCES=${PROGS}/xerces-c-${XERC_VER}
 export LD_LIBRARY_PATH=${XERCES}/lib:${LD_LIBRARY_PATH}
 
@@ -124,6 +138,9 @@ cd openmpi-${OMPI_VER}
 ./configure --prefix=${PROGS}/openmpi-${OMPI_VER} CC=${CC} CXX=${CXX} FC=${FC}
 make > make.log
 make install >> make.log
+cd -
+mv extract.log ${PROGS}/openmpi-${OMPI_VER}/.
+
 export PATH=${PROGS}/openmpi-${OMPI_VER}/bin:${PATH}
 export LD_LIBRARY_PATH=${PROGS}/openmpi-${OMPI_VER}/lib:${LD_LIBRARY_PATH}
 
@@ -160,106 +177,48 @@ export ESMF_XERCES=standard
 export ESMF_XERCES_INCLUDE=${XERCES}/include
 export ESMF_XERCES_LIBPATH=${XERCES}/lib
 export ESMF_LIB=${ESMF_INSTALL_PREFIX}/lib/lib${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}
-export ESMFMKFILE=${ESMF_LIB}/esmf.mk
-export LD_LIBRARY_PATH=${ESMF_LIB}:${LD_LIBRARY_PATH}
-export PATH=${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}
-export PATH=${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}
-
 make info >> make.log
 make >> make.log
 make install >> make.log
+cd ${PROGS}
+mv extract.log ${PROGS}/esmf-${ESMF_VER//_/.}/.
 
-# add environment variables to .bashrc
-echo "***** BEFORE *****"
-cat ~/.bashrc
-echo "*****************"
-
-echo "export PROGS=${PROGS}" >> ~/.bashrc
-echo "export ZLIB=${PROGS}/zlib-${ZLIB_VER}" >> ~/.bashrc
-echo "export HDF5=${PROGS}/hdf5-${HDF5_VER}" >> ~/.bashrc
-echo "export NETCDF=${PROGS}/netcdf-${NCCC_VER}" >> ~/.bashrc
-echo "export XERCES=${PROGS}/xerces-c-${XERC_VER}" >> ~/.bashrc
-echo "export MPI=${PROGS}/openmpi-${OMPI_VER}" >> ~/.bashrc
-echo "export PATH=${HDF5}/bin:${NETCDF}/bin:${MPI}/bin:${PATH}"
-echo "export LD_LIBRARY_PATH=${ZLIB}/lib:${HDF5}/lib:${NETCDF}/lib:${XERCES}/lib:${MPI}/lib:${LD_LIBRARY_PATH}" >> ~/.bashrc
-echo "export ESMF_OS=Linux" >> ~/.bashrc
-echo "export ESMF_TESTMPMD=OFF" >> ~/.bashrc
-echo "export ESMF_TESTHARNESS_ARRAY=RUN_ESMF_TestHarnessArray_default" >> ~/.bashrc
-echo "export ESMF_TESTHARNESS_FIELD=RUN_ESMF_TestHarnessField_default" >> ~/.bashrc
-echo "export ESMF_DIR=${PROGS}/esmf-${ESMF_VER//_/.}" >> ~/.bashrc
-echo "export ESMF_TESTWITHTHREADS=OFF" >> ~/.bashrc
-echo "export ESMF_INSTALL_PREFIX=${PROGS}/esmf-${ESMF_VER//_/.}/install_dir" >> ~/.bashrc
-echo "export ESMF_COMM=openmpi" >> ~/.bashrc
-echo "export ESMF_TESTEXHAUSTIVE=ON" >> ~/.bashrc
-echo "export ESMF_BOPT=O" >> ~/.bashrc
-echo "export ESMF_OPENMP=OFF" >> ~/.bashrc
-echo "export ESMF_SITE=default" >> ~/.bashrc
-echo "export ESMF_ABI=64" >> ~/.bashrc
+# create file for environment variables
+cd ${PROGS}
+echo "export CC=$CC" > env_progs
+echo "export FC=$FC" >> env_progs
+echo "export CXX=$CXX" >> env_progs
+echo "export PROGS=${PROGS}" >> env_progs
+echo "export ZLIB=${PROGS}/zlib-${ZLIB_VER}" >> env_progs
+echo "export HDF5=${PROGS}/hdf5-${HDF5_VER}" >> env_progs
+echo "export NETCDF=${PROGS}/netcdf-${NCCC_VER}" >> env_progs
+echo "export XERCES=${PROGS}/xerces-c-${XERC_VER}" >> env_progs
+echo "export ESMF_OS=Linux" >> env_progs
+echo "export ESMF_TESTMPMD=OFF" >> env_progs
+echo "export ESMF_TESTHARNESS_ARRAY=RUN_ESMF_TestHarnessArray_default" >> env_progs
+echo "export ESMF_TESTHARNESS_FIELD=RUN_ESMF_TestHarnessField_default" >> env_progs
+echo "export ESMF_DIR=${PROGS}/esmf-${ESMF_VER//_/.}" >> env_progs
+echo "export ESMF_TESTWITHTHREADS=OFF" >> env_progs
+echo "export ESMF_INSTALL_PREFIX=${PROGS}/esmf-${ESMF_VER//_/.}/install_dir" >> env_progs
+echo "export ESMF_COMM=openmpi" >> env_progs
+echo "export ESMF_TESTEXHAUSTIVE=ON" >> env_progs
+echo "export ESMF_BOPT=O" >> env_progs
+echo "export ESMF_OPENMP=OFF" >> env_progs
+echo "export ESMF_SITE=default" >> env_progs
+echo "export ESMF_ABI=64" >> env_progs
 if [ "$FC" == "gfortran" ]; then
-  echo "export ESMF_COMPILER=gfortran" >> ~/.bashrc
+  echo "export ESMF_COMPILER=gfortran" >> env_progs
 elif [ "$FC" == "ifort" ]; then
-  echo "export ESMF_COMPILER=intel" >> ~/.bashrc
+  echo "export ESMF_COMPILER=intel" >> env_progs
 fi
-echo "export ESMF_PIO=internal" >> ~/.bashrc
-echo "export ESMF_NETCDF=split" >> ~/.bashrc
-echo "export ESMF_NETCDF_INCLUDE=${NETCDF}/include" >> ~/.bashrc
-echo "export ESMF_NETCDF_LIBPATH=${NETCDF}/lib" >> ~/.bashrc
-echo "export ESMF_XERCES=standard" >> ~/.bashrc
-echo "export ESMF_XERCES_INCLUDE=${XERCES}/include" >> ~/.bashrc
-echo "export ESMF_XERCES_LIBPATH=${XERCES}/lib" >> ~/.bashrc
-echo "export ESMF_LIB=${ESMF_INSTALL_PREFIX}/lib/lib${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}" >> ~/.bashrc
-echo "export ESMFMKFILE=${ESMF_LIB}/esmf.mk" >> ~/.bashrc
-echo "export LD_LIBRARY_PATH=${ESMF_LIB}:${LD_LIBRARY_PATH}" >> ~/.bashrc
-echo "export PATH=${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}" >> ~/.bashrc
-echo "export PATH=${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}" >> ~/.bashrc
-
-echo "***** AFTER *****"
-cat ~/.bashrc
-echo "*****************"
-
-# install atm model
-cd ${PROGS}
-if [ "${CATM_VER}" == "4.5.0-rc2" ]; then
-  wget "https://gforge.ictp.it/gf/download/frsrelease/250/1555/RegCM-4.5.0-rc2.tar.gz"
-fi
-if [ "${CATM_VER}" == "4.5.0" ]; then
-  wget "https://gforge.ictp.it/gf/download/frsrelease/252/1580/RegCM-4.5.0.tar.gz"
-fi
-tar -zxvf RegCM-${CATM_VER}.tar.gz > extract.log
-rm -f RegCM-${CATM_VER}.tar.gz
-mv RegCM-${CATM_VER} atm
-cd atm
-./configure --prefix=${PROGS}/atm --enable-cpl CC=${CC} FC="${FC} -mno-avx" MPIFC="${PROGS}/openmpi-${OMPI_VER}/bin/mpif90 -mno-avx"
-make > make.log
-make install >> make.log
-
-# install ocn model
-cd ${PROGS}
-wget "${OCN_LINK}"
-mv download ocn.tar.gz
-tar -zxvf ocn.tar.gz > extract.log
-cd ocn
-cat roms-r783/Compilers/Linux-gfortran.mk | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
-mv tmp roms-r783/Compilers/Linux-gfortran.mk
-./build.sh > make.log
-
-# install rtm model
-cd ${PROGS}
-wget "${RTM_LINK}"
-mv download rtm.tar.gz
-tar -zxvf rtm.tar.gz > extract.log
-cd rtm
-cat Makefile | sed "s/__FC__/${FC} -O3 -DCPL/g" | sed "s/__NETCDF__/${NETCDF////\/}/g" > tmp
-mv tmp Makefile
-make install > make.log
-
-# install wav model
-cd ${PROGS}
-wget "${WAV_LINK}"
-mv download wav.tar.gz
-tar -zxvf wav.tar.gz > extract.log
-cd wav
-cat mk/.dirset | sed "s/__PRODADMDIR__/${PROGS////\/}\/wav/g" | sed "s/__FCFLAGS__/-O3 -DCPL/g" | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
-mv tmp mk/.dirset 
-cd mk
-./create_binaries > make.log
+echo "export ESMF_PIO=internal" >> env_progs
+echo "export ESMF_NETCDF=split" >> env_progs
+echo "export ESMF_NETCDF_INCLUDE=${NETCDF}/include" >> env_progs
+echo "export ESMF_NETCDF_LIBPATH=${NETCDF}/lib" >> env_progs
+echo "export ESMF_XERCES=standard" >> env_progs
+echo "export ESMF_XERCES_INCLUDE=${XERCES}/include" >> env_progs
+echo "export ESMF_XERCES_LIBPATH=${XERCES}/lib" >> env_progs
+echo "export ESMF_LIB=${ESMF_INSTALL_PREFIX}/lib/lib${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}" >> env_progs
+echo "export ESMFMKFILE=${ESMF_LIB}/esmf.mk" >> env_progs
+echo "export PATH=${HDF5}/bin:${NETCDF}/bin:${ESMF_DIR}/apps/apps${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${ESMF_INSTALL_PREFIX}/bin/bin${ESMF_BOPT}/${ESMF_OS}.${ESMF_COMPILER}.${ESMF_ABI}.${ESMF_COMM}.${ESMF_SITE}:${PATH}" >> env_progs
+echo "export LD_LIBRARY_PATH=${ZLIB}/lib:${HDF5}/lib:${NETCDF}/lib:${XERCES}/lib:${ESMF_LIB}:${LD_LIBRARY_PATH}" >> env_progs
