@@ -25,7 +25,7 @@ Prerequisites
 
 * RegESM itself (as a driver)
     * The RegESM version 1.0.0-beta.5 is compatible with the RegCM version < 4.5 
-    * If you plan to use RegCM 4.5 (includes new non-hydrostatic core) then please use RegESM version 1.1.0
+    * If you plan to use RegCM 4.5 (includes new non-hydrostatic core) then please use RegESM version 1.0.0
 * Earth System Modeling Framework (ESMF, == esmf-7.0.0) Library
   http://www.earthsystemmodeling.org/download/data/releases.shtml#v7_0_0
 * Model Components (patched and installed with coupling support - see user guide under doc/ directory)

@@ -846,22 +846,23 @@
 !-----------------------------------------------------------------------
 !
       do i = 1, 4 
+!
       if (models(Iocean)%mesh(i)%gtype == Iupoint) then
         staggerLoc = ESMF_STAGGERLOC_EDGE1
-        staggerEdgeLWidth = (/0,1/) !(/0,1/)
-        staggerEdgeUWidth = (/0,1/) !(/1,1/)
+        staggerEdgeLWidth = (/0,1/)
+        staggerEdgeUWidth = (/0,0/)
       else if (models(Iocean)%mesh(i)%gtype == Ivpoint) then
         staggerLoc = ESMF_STAGGERLOC_EDGE2
-        staggerEdgeLWidth = (/0,0/) !(/1,0/)
-        staggerEdgeUWidth = (/0,1/) !(/1,1/)
+        staggerEdgeLWidth = (/0,0/)
+        staggerEdgeUWidth = (/0,1/)
       else if (models(Iocean)%mesh(i)%gtype == Icross) then
         staggerLoc = ESMF_STAGGERLOC_CENTER
-        staggerEdgeLWidth = (/0,1/) !(/1,1/)
-        staggerEdgeUWidth = (/0,1/) !(/1,1/)
+        staggerEdgeLWidth = (/1,1/)
+        staggerEdgeUWidth = (/1,1/)
       else if (models(Iocean)%mesh(i)%gtype == Idot) then
         staggerLoc = ESMF_STAGGERLOC_CORNER
-        staggerEdgeLWidth = (/0,0/) !(/0,0/)
-        staggerEdgeUWidth = (/0,1/) !(/1,1/)
+        staggerEdgeLWidth = (/0,0/)
+        staggerEdgeUWidth = (/0,0/)
       end if
 !
 !-----------------------------------------------------------------------
