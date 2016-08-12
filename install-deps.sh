@@ -12,10 +12,8 @@ HDF5_VER="1.8.16"
 NCCC_VER="4.4.0"
 NCXX_VER="4.2"
 NCFC_VER="4.4.3"
-XERC_VER="3.1.3"
-OMPI_VER="1.10.2"
+XERC_VER="3.1.4"
 ESMF_VER="7_0_0"
-CATM_VER="4.5.0"
 
 # compilers
 CC=gcc

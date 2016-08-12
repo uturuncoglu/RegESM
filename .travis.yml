@@ -11,18 +11,15 @@ addons:
     - gfortran
     - csh
 before_install:
-#  - sudo apt-get -qq update
-#  - sudo apt-get install -y subversion
   - cd $TRAVIS_BUILD_DIR
   - mkdir ../progs
   - cd ../progs
   - export PROGS=$PWD
   - cd -
-  - ./install-deps.sh $PROGS $OCN_LINK $RTM_LINK $WAV_LINK
+  - ./install-deps.sh $PROGS
+  - ./install-test.sh $PROGS $OCN_LINK $RTM_LINK $WAV_LINK
 script:
-  - source ~/.bashrc
-  - cat ~/.bashrc
-  - ls $ESMF_LIB
+  - source $PROGS/env_progs
   - ./bootstrap.sh
   - ./configure --prefix=$TRAVIS_BUILD_DIR --with-atm=$PROGS/atm --with-ocn=$PROGS/ocn/Build --with-rtm=$PROGS/rtm --with-wav=$PROGS/wav/obj
   - make
