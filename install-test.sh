@@ -7,6 +7,7 @@ RTM_LINK=$3
 WAV_LINK=$4
 
 # parameters
+OMPI_VER="1.10.2"
 CATM_VER="4.5.0"
 
 # source third-party libraries
