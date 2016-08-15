@@ -30,6 +30,11 @@ Prerequisites
   http://www.earthsystemmodeling.org/download/data/releases.shtml#v7_0_0
 * Model Components (patched and installed with coupling support - see user guide under doc/ directory)
 
+Tutorial
+========
+
+A tutorial for two component coupling (RegCM+ROMS) over Black Sea can be found in [here](https://github.com/uturuncoglu/summer_school-resm_2016). This repository is the same one that is used in Regional Earth Sistem Modeling Summer School 2016 held in ITU, Turkey.
+
 References
 =============
 
