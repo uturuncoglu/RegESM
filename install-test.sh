@@ -34,12 +34,12 @@ tar -zxvf src.tar.gz > extract.log
 
 # install ocn model
 cd ${PROGS}
-tar -zxvf ocn.tar.gz > extract.log
+mkdir ocn
 cd ocn
+tar -zxvf ../ocn.tar.gz > extract.log
 cat roms-r783/Compilers/Linux-gfortran.mk | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
 mv tmp roms-r783/Compilers/Linux-gfortran.mk
-cat roms-r783/build.sh | sed "s/__MY_ROOT_DIR__/${PROGS////\/}\/ocn/g" > tmp
-mv tmp build.sh
+cat roms-r783/build.sh | sed "s/__MY_ROOT_DIR__/${PROGS////\/}\/ocn/g" > build.sh 
 chmod 755 build.sh
 cp roms-r783/med12.h .
 ./build.sh > make.log
