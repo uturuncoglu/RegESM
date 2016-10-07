@@ -35,7 +35,8 @@
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
           NUOPC_Label_SetClock       => label_SetClock,                 &
-          NUOPC_Label_CheckImport    => label_CheckImport
+          NUOPC_Label_CheckImport    => label_CheckImport,              &
+          NUOPC_ModelGet
 !
       use mod_types
       use mod_shared
