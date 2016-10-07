@@ -30,7 +30,7 @@
 !
       use ESMF
       use NUOPC
-      use NUOPC_Model,                                                  &
+      use NUOPC_Model, only :                                           &
           NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
