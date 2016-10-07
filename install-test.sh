@@ -38,6 +38,10 @@ tar -zxvf ocn.tar.gz > extract.log
 cd ocn
 cat roms-r783/Compilers/Linux-gfortran.mk | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
 mv tmp roms-r783/Compilers/Linux-gfortran.mk
+cat roms-r783/build.sh | sed "s/__MY_ROOT_DIR__/${PROGS////\/}\/ocn/g" > tmp
+mv tmp build.sh
+chmod 755 build.sh
+cp roms-r783/med12.h .
 ./build.sh > make.log
 
 # install rtm model
