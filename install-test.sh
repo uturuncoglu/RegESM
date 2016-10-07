@@ -2,9 +2,7 @@
 set -ex
 
 PROGS=$1
-OCN_LINK=$2
-RTM_LINK=$3
-WAV_LINK=$4
+SRC_LINK=$2
 
 # parameters
 OMPI_VER="1.10.2"
@@ -29,10 +27,13 @@ cd atm
 make > make.log
 make install >> make.log
 
+# get ocn, rtm and wav sources
+cd ${PROGS}
+wget "${SRC_LINK}"
+tar -zxvf src.tar.gz > extract.log
+
 # install ocn model
 cd ${PROGS}
-wget "${OCN_LINK}"
-mv download ocn.tar.gz
 tar -zxvf ocn.tar.gz > extract.log
 cd ocn
 cat roms-r783/Compilers/Linux-gfortran.mk | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
@@ -41,8 +42,6 @@ mv tmp roms-r783/Compilers/Linux-gfortran.mk
 
 # install rtm model
 cd ${PROGS}
-wget "${RTM_LINK}"
-mv download rtm.tar.gz
 tar -zxvf rtm.tar.gz > extract.log
 cd rtm
 cat Makefile | sed "s/__FC__/${FC} -O3 -DCPL/g" | sed "s/__NETCDF__/${NETCDF////\/}/g" > tmp
@@ -51,8 +50,6 @@ make install > make.log
 
 # install wav model
 cd ${PROGS}
-wget "${WAV_LINK}"
-mv download wav.tar.gz
 tar -zxvf wav.tar.gz > extract.log
 cd wav
 cat mk/.dirset | sed "s/__PRODADMDIR__/${PROGS////\/}\/wav/g" | sed "s/__FCFLAGS__/-O3 -DCPL/g" | sed "s/__NETCDFLIB__/${NETCDF////\/}\/lib/g" | sed "s/__NETCDFINC__/${NETCDF////\/}\/include/g" > tmp
