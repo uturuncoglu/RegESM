@@ -9,9 +9,9 @@ Supported Components
 ====================
 
 * Atmosphere (ATM):
-    * RegCM (4.4.5.10 and 4.5) - http://gforge.ictp.it/gf/project/regcm/
+    * RegCM (4.5) - http://gforge.ictp.it/gf/project/regcm/
 * Ocean (OCN): 
-    * ROMS (3.7) - http://www.myroms.org or for ice branch https://github.com/kshedstrom/roms
+    * ROMS (revision 809) - http://www.myroms.org or for ice branch https://github.com/kshedstrom/roms
     * MITgcm (MITgcm_c63s) - http://mitgcm.org/download/
 * River Routing (RTM): 
     * HD (1.0.2)
@@ -23,9 +23,7 @@ Supported Components
 Prerequisites
 =============
 
-* RegESM itself (as a driver)
-    * The RegESM version 1.0.0-beta.5 is compatible with the RegCM version < 4.5 
-    * If you plan to use RegCM 4.5 (includes new non-hydrostatic core) then please use RegESM version 1.0.0
+* RegESM itself (as a driver; 1.0.0)
 * Earth System Modeling Framework (ESMF, == esmf-7.0.0) Library
   http://www.earthsystemmodeling.org/download/data/releases.shtml#v7_0_0
 * Model Components (patched and installed with coupling support - see user guide under doc/ directory)
