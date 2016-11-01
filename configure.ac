@@ -28,6 +28,7 @@ AM_INIT_AUTOMAKE([foreign])
 
 AC_PROG_RANLIB
 AC_PROG_CC
+AC_PROG_CXX
 AC_PROG_FC
 
 AC_LANG([Fortran])
@@ -152,6 +153,27 @@ if eval "test x$WAV_PREFIX != xnone"; then
   fi
 fi
 
+# check PARAVIEW
+AC_ARG_WITH([paraview],
+  AC_HELP_STRING([--with-paraview],
+            [Path to ParaView installation (default: none)]),
+  [PVDIR="$withval"], [PVDIR="none"]
+)
+AM_CONDITIONAL(DO_COMPILE_PARAVIEW, [test -d "$PVDIR"])
+AC_SUBST(PVDIR)
+
+if eval "test x$PVDIR != xnone"; then
+  NO_PARAVIEW_SUPPORT=1
+  AC_CHECK_FILE([$PVDIR/Makefile],
+                [NO_PARAVIEW_SUPPORT=0; AC_MSG_NOTICE([compiling with co-processing support])])
+  if eval "test x$NO_PARAVIEW_SUPPORT = x1"; then
+    AC_MSG_ERROR([required file $PVDIR/Makefile is not found!])
+  else
+    AC_SUBST(PVSRC)
+    PVSRC="`cat $PVDIR/Makefile | grep CMAKE_SOURCE_DIR | head -1 | awk -F= '{print $2}' | awk '{$1=$1};1'`"
+  fi
+fi
+
 # check DEBUG
 DEBUG="0"
 AC_ARG_ENABLE(debug,
@@ -179,12 +201,22 @@ if eval "test x$DEBUG = x1"; then
             -fno-range-check"
     AC_SUBST(FCFLAGS)
   fi
+  if eval "test x"$CXX" = xg++"; then
+    CXXFLAGS="-O0 -g"
+    AC_SUBST(CXXFLAGS)
+  fi
   if eval "test x"$FC" = xifort"; then
     FCFLAGS="-O0 -g \
              -check arg_temp_created,bounds,format,output_conversion,uninit \
              -traceback -warn all -fp-model precise -fp-model source -ftz \
              -fimf-arch-consistency=true $FCFLAGS"
+    CXXFLAGS="-O0 -g"
     AC_SUBST(FCFLAGS)
+    AC_SUBST(CXXFLAGS)
+  fi
+  if eval "test x"$CXX" = xicpc"; then
+    CXXFLAGS="-O0 -g -Wall -Wcheck"
+    AC_SUBST(CXXFLAGS)
   fi
   if eval "test x"$FC" = xxlf2003"; then
     FCFLAGS="-O0 -qsuppress=1501-245 -bnoquiet -qcheck -qffltrap=nanq,overflow \
@@ -255,5 +287,6 @@ AC_PREFIX_DEFAULT(${PWD})
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile \
+                 cop/Makefile \
                  util/Makefile])
 AC_OUTPUT

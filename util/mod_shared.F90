@@ -556,4 +556,100 @@
 !
       end subroutine print_timestamp
 !
+      pure function to_upper (str) result (string)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      character(*), intent(in) :: str
+      character(len(str)) :: string
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: ic, i
+      character(26), parameter :: cap = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      character(26), parameter :: low = 'abcdefghijklmnopqrstuvwxyz'
+!
+!-----------------------------------------------------------------------
+!     capitalize each letter if it is lowecase
+!-----------------------------------------------------------------------
+!
+      string = str
+      do i = 1, len_trim(str)
+        ic = index(low, str(i:i))
+        if (ic > 0) string(i:i) = cap(ic:ic)
+      end do
+!
+      end function to_upper
+!
+      pure function to_lower (str) result (string)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      character(*), intent(in) :: str
+      character(len(str)) :: string
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: ic, i
+      character(26), parameter :: cap = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      character(26), parameter :: low = 'abcdefghijklmnopqrstuvwxyz'
+!
+!-----------------------------------------------------------------------
+!     capitalize each letter if it is lowecase
+!-----------------------------------------------------------------------
+!
+      string = str
+      do i = 1, len_trim(str)
+        ic = index(cap, str(i:i))
+        if (ic > 0) string(i:i) = low(ic:ic)
+      end do
+!
+      end function to_lower
+!
+      function replace_str (str, text, repl) result (string)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      character(*), intent(in) :: str
+      character(*), intent(in) :: text
+      character(*), intent(in) :: repl
+      character(len(str)-len(text)+len(repl)) :: string
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: ind, s1, s2
+!
+!-----------------------------------------------------------------------
+!     Replace text with replacement in the given string
+!-----------------------------------------------------------------------
+!
+      string = str
+      s1 = len(text)
+      s2 = len(repl)
+      do
+        ind = index(string, text(1:s1))
+        if (ind == 0) then
+          exit
+        else
+          string = string(1:ind-1)//repl(1:s2)//string(ind+s1:)
+        end if 
+      end do
+! 
+      end function replace_str
+!
       end module mod_shared

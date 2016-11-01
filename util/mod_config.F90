@@ -166,6 +166,8 @@
           models(i)%name = "RTM"
         else if (i == Iwavee) then
           models(i)%name = "WAV"
+        else if (i == Icopro) then
+          models(i)%name = "COP"
         end if
 !
         models(i)%modActive = .false.
@@ -252,13 +254,13 @@
 !
 !-----------------------------------------------------------------------
 !     Assign PETs to model components 
-!     River routing model uses latest PET of the ATM component
 !-----------------------------------------------------------------------
 !
       select case (runMod)
       case (iseq) ! sequential
         do i = 1, nModels
-          if ((i == Iatmos) .or. (i == Iocean) .or. (i == Iwavee)) then
+          if ((i == Iatmos) .or. (i == Iocean) .or.                     &
+              (i == Iwavee) .or. (i == Icopro)) then
             models(i)%nPets = petCount
           else if (i == Iriver) then
             models(i)%nPets = 1
@@ -268,7 +270,8 @@
             allocate(models(i)%petList(models(i)%nPets))
           end if
 !
-          if ((i == Iatmos) .or. (i == Iocean) .or. (i == Iwavee)) then
+          if ((i == Iatmos) .or. (i == Iocean) .or.                     &
+              (i == Iwavee) .or. (i == Icopro)) then
             models(i)%petList = (/ (k, k = 0, petCount-1) /)
           else if (i == Iriver) then
             models(i)%petList = (/ (k, k = petCount-1, petCount-1) /)
@@ -292,6 +295,8 @@
               models(i)%petList(j) = k 
             else if (i == Iwavee) then
               models(i)%petList(j) = k 
+            else if (i == Icopro) then
+              models(i)%petList(j) = k
             else if (i == Iriver) then
               ! assign last PET, if negative value given
               if (models(i)%nPets < 0) then
@@ -374,6 +379,7 @@
 !     Fix active connectors (put exceptions in here)
 !     - no interaction between RTM-ATM and OCN-RTM components
 !     - no interaction between RTM-WAV and WAV-RTM components
+!     - no interaction between COP-ATM, COP-OCN, COP-RTM and COP-WAV   
 !     - OCN-WAV and WAV-OCN coupling is not implemented yet !!!
 !-----------------------------------------------------------------------
 !
@@ -382,7 +388,11 @@
       connectors(Iriver,Iwavee)%modActive = .false.
       connectors(Iwavee,Iriver)%modActive = .false.
       connectors(Iocean,Iwavee)%modActive = .false.
-      connectors(Iwavee,Iocean)%modActive = .false.      
+      connectors(Iwavee,Iocean)%modActive = .false.
+      connectors(Icopro,Iatmos)%modActive = .false.
+      connectors(Icopro,Iocean)%modActive = .false.
+      connectors(Icopro,Iriver)%modActive = .false.
+      connectors(Icopro,Iwavee)%modActive = .false.
 !
 !-----------------------------------------------------------------------
 !     Set interface for connector
@@ -530,6 +540,49 @@
       end if
 !
 !-----------------------------------------------------------------------
+!     Read name of co-processing script
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigFindLabel(cf, 'CoProcessorScript:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigGetAttribute(cf, coproc_fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (localPet == 0) then
+        write(*, fmt='(A12,A)') "Co-processing Script: ", trim(coproc_fname)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Read co-processing component tiles in x and y direction 
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigFindLabel(cf, 'CoProcessorTile:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      do i = 1, 2
+        call ESMF_ConfigGetAttribute(cf, models(Icopro)%tile(i), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
+      end do
+!
+      if (models(Icopro)%nPets /=                                       &
+          models(Icopro)%tile(1)*models(Icopro)%tile(2)) then
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+             msg='[COP] -- nPets not equal to tileX*tileY')
+        return
+
+      end if
+!
+      if (localPet == 0) then
+        write(*, fmt='(A12,I2,A,I2)') "Co-processing Tiles: ",          &
+              models(Icopro)%tile(1),"x",models(Icopro)%tile(2)
+      end if
+!
+!-----------------------------------------------------------------------
 !     Format definition 
 !-----------------------------------------------------------------------
 !
@@ -600,6 +653,18 @@
             case('wav2ocn')
               i = Iwavee
               j = Iocean
+            case('atm2cop')
+              i = Iatmos
+              j = Icopro
+            case('ocn2cop')
+              i = Iocean
+              j = Icopro
+            case('rtm2cop')
+              i = Iriver
+              j = Icopro
+            case('wav2cop')
+              i = Iwavee
+              j = Icopro
             case default
               write(*,*) '[error] -- Undefined components: '//trim(str)
               call ESMF_Finalize(endflag=ESMF_END_ABORT)  

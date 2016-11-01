@@ -126,6 +126,7 @@
         character(len=100) :: name
         integer :: nPets
         logical :: modActive
+        integer :: tile(2)
         integer, allocatable :: petList(:) 
         integer :: isLand
         integer :: isOcean
@@ -171,11 +172,12 @@
 !     ESM model indices
 !-----------------------------------------------------------------------
 !
-      character(len=3) :: COMPDES(4) = (/'ATM','OCN','RTM','WAV'/)
+      character(len=3) :: COMPDES(5) = (/'ATM','OCN','RTM','WAV','COP'/)
       integer, parameter :: Iatmos = 1 
       integer, parameter :: Iocean = 2
       integer, parameter :: Iriver = 3
       integer, parameter :: Iwavee = 4
+      integer, parameter :: Icopro = 5
 !
 !-----------------------------------------------------------------------
 !     Interaction interfaces  
@@ -235,6 +237,7 @@
 !-----------------------------------------------------------------------
 !
       character(ESMF_MAXSTR) :: config_fname="namelist.rc"
+      character(ESMF_MAXSTR) :: coproc_fname="tools/cop/allinputsgridwriter.py"
       character(ESMF_MAXSTR) :: petLayoutOption
       type(ESMF_Time) :: esmStartTime
       type(ESMF_Time) :: esmRestartTime

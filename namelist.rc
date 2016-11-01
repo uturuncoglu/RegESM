@@ -26,28 +26,28 @@ PETLayoutOption: sequential
 CouplingType: 1
 #
 #-----------------------------------------------------------------------
-#     PET distribution of model components (ordered in ATM, OCN, RTM)
-#     Order: [ATM] [OCN] [RTM] [WAV]
+#     PET distribution of model components: [ATM] [OCN] [RTM] [WAV] [COP]
 #
-#     - Put zero to deactivate the model component. It works on both
-#       'sequential' and 'concurrent' mode. 
-#     - In 'sequential' mode RTM component runs on the last PET
-#     - In 'concurrent' mode there are two options. If PET number is
-#       assigned to -1 then RTM component runs on the last PET, if
-#       it is assigned to 1 then RTM component will have its own PET
-#     - Usage examples: 
-#       60 60 1 0  - three components are actived and 121 core is needed 
-#                    in total when 'concurrent' mode is selected. 
-#                    Otherwise 60 core is used by coupler.
-#       60 60 -1 0 - three components are actived and 120 core is needed
-#                    in total when 'concurrent' mode is selected.
-#                    Otherwise 60 core is used by coupler.
-#       60 60 0 0  - only ATM and OCN components are active. 120 core is 
-#                    needed in total when 'concurrent' mode is selected.
+#     Notes:
+#     * Put zero to deactivate the model component. 
+#       It works on both 'sequential' and 'concurrent' mode. 
+#     * In 'sequential' mode RTM component runs on the last PET
+#     * In 'concurrent' mode there are two options. 
+#       -1 - RTM component runs on the last PET
+#        1 - RTM component will have its own PET
 #
+#     Usage Examples: 
+#     60 60 1 0 0 - Three components are actived and total 121 core is
+#                   needed when 'concurrent' mode is selected, otherwise 
+#                   60 core is used in total and resource will be shared
+#     60 60 -1 0 0- Three components are actived and 120 core is needed
+#                   in total when 'concurrent' mode is selected, otherwise
+#                   60 core is used by coupler.
+#     60 60 0 0 0 - Only ATM and OCN components are active and 120 core is 
+#                   needed in total when 'concurrent' mode is selected.
 #-----------------------------------------------------------------------
 #
-PETs: 16 0 0 16 
+PETs: 16 0 0 16 16
 #
 #-----------------------------------------------------------------------
 #     Activate extrapolation for unmapped grid cells
@@ -93,18 +93,24 @@ TimeStep:    0000 00 00 01 00 00
 #     Matrix of divider for driver TimeStep. Zero (0) means no 
 #     interaction between components.
 # 
-#          ATM  OCN  RTM  WAV
-#     ATM   0    8    1    0     i.e  if driver TimeStep = 1-day then
-#     OCN   8    0    0    0          3-hr  for ATM-OCN and OCN-ATM
-#     RTM   0    1    0    0          1-day for ATM-RTM and RTM-OCN
-#     WAV   0    0    0    0
+#          ATM  OCN  RTM  WAV  COP
+#     ATM   0    8    1    0    0
+#     OCN   8    0    0    0    0
+#     RTM   0    1    0    0    0
+#     WAV   0    0    0    0    0
+#     COP   0    0    0    0    0
+#
+#     If driver TimeStep is set as 1-day then 3-hr coupling interval
+#     will be used between ATM-OCN and OCN-ATM and 1-day coupling
+#     interval will be used between ATM-RTM and RTM-OCN
 #-----------------------------------------------------------------------
 #
 DividerForTStep::
-0 0 0 1
-0 0 0 0
-0 0 0 0
-1 0 0 0
+0 1 0 0 1
+1 0 0 0 1
+0 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
 :: 
 #
 #-----------------------------------------------------------------------
@@ -140,7 +146,6 @@ RiverOpt: 2
 #           | active RTM component.
 #           | If second column is equal to 2 then values are used to
 #           | assign fixed monthly values for river  
-#
 #-----------------------------------------------------------------------
 #
 RiverList::
@@ -152,3 +157,16 @@ RiverList::
 1 1 20.0 12.44 45.23  1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Adige
 1 1 20.0 12.33 41.86 -1 1 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 # Tiber
 ::
+#
+#-----------------------------------------------------------------------
+#      ParaView co-processing script
+#-----------------------------------------------------------------------
+#
+CoProcessorScript: tools/cop/allinputsgridwriter.py 
+#
+#-----------------------------------------------------------------------
+#      Co-processing component tile information
+#-----------------------------------------------------------------------
+#
+CoProcessorTile: 4 4
+

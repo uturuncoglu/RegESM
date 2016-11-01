@@ -16,9 +16,10 @@
 #     along with ITU RegESM.  If not, see <http://www.gnu.org/licenses/>.
 #
 #-----------------------------------------------------------------------
-vpath %.o util:.
+vpath %.o util:. 
+vpath %.o cop:.
 
-SUBDIRS = util
+SUBDIRS = cop util
 
 UTILLIBPTH = util
 LIBS = -L$(UTILLIBPTH) -lesmutil
@@ -84,6 +85,45 @@ skip_files = $(WAV_PREFIX)/chief.o \
 libwav_a_LIBADD = $(filter-out $(skip_files), $(wildcard $(WAV_PREFIX)/*.o))
 endif
 
+if DO_COMPILE_PARAVIEW
+COPLIBPTH = cop
+LIBS += -L$(COPLIBPTH) -lcop -L$(PVDIR)/lib `$(PVDIR)/bin/paraview-config --libs \
+        vtkCommonDataModel \
+        vtkCommonCore \
+        vtkPVCatalyst \
+        vtkPVPythonCatalyst \
+        vtkParallelMPI | cut -d ' ' -f3-`
+CPPFLAGS += -I$(PVSRC)/VTK/Common/Core \
+            -I$(PVSRC)/VTK/Utilities/KWIML \
+            -I$(PVSRC)/VTK/Common/DataModel \
+            -I$(PVSRC)/CoProcessing/Catalyst \
+            -I$(PVSRC)/CoProcessing/PythonCatalyst \
+            -I$(PVSRC)/VTK/Common/DataModel \
+            -I$(PVSRC)/VTK/Parallel/MPI \
+            -I$(PVDIR)/VTK/Common/Core \
+            -I$(PVDIR)/VTK/Utilities/KWIML \
+            -I$(PVDIR)/VTK/Common/DataModel \
+            -I$(PVDIR)/CoProcessing/Catalyst \
+            -I$(PVDIR)/ParaViewCore/ServerManager/SMApplication \
+            -I$(PVDIR)/ParaViewCore/ServerManager/Core \
+            -I$(PVDIR)/ParaViewCore/ServerImplementation/Core \
+            -I$(PVDIR)/ParaViewCore/ClientServerCore/Core \
+            -I$(PVDIR)/VTK/Filters/Extraction \
+            -I$(PVDIR)/VTK/Filters/Core \
+            -I$(PVDIR)/VTK/Filters/General \
+            -I$(PVDIR)/VTK/Filters/Statistics \
+            -I$(PVDIR)/VTK/Filters/Parallel \
+            -I$(PVDIR)/VTK/Filters/Geometry \
+            -I$(PVDIR)/VTK/Filters/Modeling \
+            -I$(PVDIR)/VTK/Filters/Sources \
+            -I$(PVDIR)/VTK/Rendering/Core \
+            -I$(PVDIR)/ParaViewCore/VTKExtensions/Core \
+            -I$(PVDIR)/CoProcessing/PythonCatalyst \
+            -I$(PVDIR)/VTK/Parallel/MPI \
+            -I$(COPLIBPTH) \
+            -I.
+endif
+
 bin_PROGRAMS = regesm.x
 
 regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_cpl.F90
@@ -115,6 +155,12 @@ if DO_COMPILE_LIBWAV
 regesm_x_SOURCES += mod_esmf_wav.F90
 else
 regesm_x_SOURCES += mod_esmf_wav_void.F90
+endif
+
+if DO_COMPILE_PARAVIEW
+regesm_x_SOURCES += mod_esmf_cop.F90
+else
+regesm_x_SOURCES += mod_esmf_cop_void.F90
 endif
 
 FCLD = $(MPIFC)
@@ -179,6 +225,14 @@ OBJ+=mod_esmf_wav.o
 else
 mod_esmf_wav_void.o: mod_esmf_wav_void.F90 mod_types.o
 OBJ+=mod_esmf_wav_void.o
+endif
+
+if DO_COMPILE_PARAVIEW
+mod_esmf_cop.o: mod_esmf_cop.F90 mod_types.o $(COPLIBPTH)/libcop.a
+OBJ+=mod_esmf_cop.o
+else
+mod_esmf_cop_void.o: mod_esmf_cop_void.F90 mod_types.o
+OBJ+=mod_esmf_cop_void.o
 endif
 
 mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o mod_utils.o

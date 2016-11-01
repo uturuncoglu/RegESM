@@ -106,7 +106,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      logical :: enableExtp, rh1Exist, rh2Exist
+      logical :: enableExtp, coprocActive, rhExist, rh1Exist, rh2Exist
       integer :: i, j, localPet, petCount, localDECount
       integer :: iSrc, iDst, idSrc, idDst, itSrc, itDst, grSrc, grDst
       integer :: srcCount, dstCount, itemCount, srcTermProcessing
@@ -153,6 +153,15 @@
       end do
 !
       enableExtp = connectors(iSrc,iDst)%modExtrapolation
+!
+!-----------------------------------------------------------------------
+!     Interacting with co-processing component or not? 
+!-----------------------------------------------------------------------
+!
+      coprocActive = .false.
+      if (iDst == Icopro) then
+        coprocActive = .true.
+      end if
 !
 !-----------------------------------------------------------------------
 !     Exchange land-sea mask information 
@@ -295,6 +304,61 @@
                          staggerloc=dstSLoc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     If co-processing is active, then create routehandle just for
+!     field redistribution without regridding 
+!-----------------------------------------------------------------------
+!
+      if (coprocActive) then
+!
+!-----------------------------------------------------------------------
+!     Check routehandle (i.e. rh_ATM-COP_redist)
+!-----------------------------------------------------------------------
+!
+      rname = trim(cname)//'_redist'
+!
+      call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
+                         itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+      rhExist = .true.
+      if (itemCount <= 0) rhExist = .false.
+!
+      if (.not. rhExist) then
+!
+!-----------------------------------------------------------------------
+!     Create routehandle
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldRedistStore(srcField=srcField,                     &
+                                 dstField=dstField,                     &
+                                 routeHandle=routeHandle,               &
+                                 rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add name to routehandle    
+!-----------------------------------------------------------------------
+!
+      call ESMF_RouteHandleSet(routeHandle,                             &
+                               name='rh_'//trim(rname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Add 1st routehandle to the state    
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateAdd(state, (/ routeHandle /), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+      else
 !
 !-----------------------------------------------------------------------
 !     Check for extrapolation option for field?
@@ -542,7 +606,10 @@
                   rh1Exist, rh2Exist 
       end if
 !
+      end if
+!
       end do
+!
       end if
 !
 !-----------------------------------------------------------------------
@@ -568,7 +635,7 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      logical :: enableExtp
+      logical :: coprocActive, enableExtp
       real*8 :: src_total, dst_total, rel_error
       integer :: srcValueList(9), dstValueList(9)
       integer :: localPet, petCount, localDECount
@@ -611,6 +678,15 @@
       end do
 !
       enableExtp = connectors(iSrc,iDst)%modExtrapolation
+!
+!-----------------------------------------------------------------------
+!     Interacting with co-processing component or not? 
+!-----------------------------------------------------------------------
+!
+      coprocActive = .false.
+      if (iDst == Icopro) then
+        coprocActive = .true.
+      end if
 !
 !-----------------------------------------------------------------------
 !     Get size of field list
@@ -692,6 +768,29 @@
                                field=dstField, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     If co-processing is active, then create routehandle just for
+!     field redistribution without regridding 
+!-----------------------------------------------------------------------
+!
+      if (coprocActive) then
+!
+!-----------------------------------------------------------------------
+!     Perform redistribute
+!-----------------------------------------------------------------------
+!
+      rname = trim(cname)//'_redist'
+!
+      call ESMF_StateGet(state, 'rh_'//trim(rname), routeHandle, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldRedist(srcField, dstField, routeHandle, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+         line=__LINE__, file=FILENAME)) return
+!
+      else
 !
 !-----------------------------------------------------------------------
 !     Perform regrid
@@ -911,6 +1010,8 @@
                     trim(models(iDst)%importField(idDst)%short_name),   &
                     dstValueList(1), dstValueList(2), dstValueList(3),  &
                     dstValueList(4), dstValueList(5)
+      end if
+!
       end if
 !
       end do
