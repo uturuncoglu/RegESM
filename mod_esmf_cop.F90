@@ -1,0 +1,1320 @@
+!-----------------------------------------------------------------------
+!
+!     This file is part of ITU RegESM.
+!
+!     ITU RegESM is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
+!
+!     ITU RegESM is distributed in the hope that it will be useful,
+!     but WITHOUT ANY WARRANTY; without even the implied warranty of
+!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!     GNU General Public License for more details.
+!
+!     You should have received a copy of the GNU General Public License
+!     along with ITU RegESM.  If not, see <http://www.gnu.org/licenses/>.
+!
+!-----------------------------------------------------------------------
+#define FILENAME "mod_esmf_cop.F90"
+!
+!-----------------------------------------------------------------------
+!     COP gridded component code 
+!-----------------------------------------------------------------------
+!
+      module mod_esmf_cop
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use ESMF
+      use NUOPC
+      use NUOPC_Model,                                                  &
+          NUOPC_SetServices          => SetServices,                    &
+          NUOPC_Label_Advance        => label_Advance,                  &
+          NUOPC_Label_DataInitialize => label_DataInitialize
+!
+      use mod_types
+      use mod_shared
+!
+      implicit none
+      private
+!
+!-----------------------------------------------------------------------
+!     Public subroutines 
+!-----------------------------------------------------------------------
+!
+      public :: COP_SetServices
+!
+!-----------------------------------------------------------------------
+!     Component specific variables 
+!-----------------------------------------------------------------------
+!
+      integer :: nports
+      character(255), allocatable :: input_ports(:)
+      character(ESMF_MAXSTR), save :: gridnames(20)
+!
+      interface
+        subroutine create_grid(name, nProc, myRank, dims, lb, ub,       &
+                               nPoints, lonCoord, latCoord,             &
+                               levCoord) bind(C, name="create_grid")
+        use iso_c_binding
+        character :: name
+        integer(c_int), value :: nProc
+        integer(c_int), value :: myRank
+        integer(c_int) :: dims(*)
+        integer(c_int) :: lb(*)
+        integer(c_int) :: ub(*)
+        integer(c_int), value :: nPoints
+        real(c_double) :: lonCoord(*)
+        real(c_double) :: latCoord(*)
+        real(c_double), optional :: levCoord(*)
+        end subroutine
+      end interface
+!
+      contains
+!
+      subroutine COP_SetServices(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(inout) :: rc
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Register NUOPC generic routines
+!-----------------------------------------------------------------------
+!
+      call NUOPC_CompDerive(gcomp, NUOPC_SetServices, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Register initialize routines (Phase 1 and Phase 2)
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE,    &
+                                      userRoutine=COP_SetInitializeP0,  &
+                                      phase=0, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv03p1"/),       &
+                                   userRoutine=COP_SetInitializeP1,     &
+                                   rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv03p4"/),       &
+                                   userRoutine=COP_SetInitializeP4,     &
+                                   rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_CompSetEntryPoint(gcomp,                               &
+                                   methodflag=ESMF_METHOD_INITIALIZE,   &
+                                   phaseLabelList=(/"IPDv03p5"/),       &
+                                   userRoutine=COP_SetInitializeP5,     &
+                                   rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Attach phase independent specializing methods
+!-----------------------------------------------------------------------
+!
+      call NUOPC_CompSpecialize(gcomp,                                  &
+                                specLabel=NUOPC_Label_DataInitialize,   &
+                                specRoutine=COP_DataInit, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_Advance,   &
+                                specRoutine=COP_ModelAdvance, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end subroutine COP_SetServices
+!
+      subroutine COP_SetInitializeP0(gcomp,                             &
+                                     importState,                       &
+                                     exportState,                       &
+                                     clock,                             &
+                                     rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState, exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      logical :: file_exists
+      integer :: i, k, localPet, petCount, comm, nports
+!
+      type(ESMF_VM) :: vm
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount,         &
+                      mpiCommunicator=comm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Switch to IPDv03 by filtering all other phaseMap entries
+!-----------------------------------------------------------------------
+!
+      call NUOPC_CompFilterPhaseMap(gcomp, ESMF_METHOD_INITIALIZE,      &
+                                    acceptStringList=(/"IPDv03p"/),     &
+                                    rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create list of input ports
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(input_ports)) then
+        k = 0
+        do i = 1, nModels
+          if (connectors(i,Icopro)%modActive) then
+            k = k+1
+          end if
+        end do
+!
+        nports = k*2
+        allocate(input_ports(nports))
+!
+        k = 1
+        do i = 1, nModels
+          if (connectors(i,Icopro)%modActive) then
+            input_ports(k)   = to_lower(trim(models(i)%name))//         &
+                               "_input2d"//char(0)
+            input_ports(k+1) = to_lower(trim(models(i)%name))//         &
+                               "_input3d"//char(0)
+            k = k+2
+          end if
+        end do 
+      end if
+!
+      if (localPet == models(Icopro)%petList(1)) then
+        do i = 1, nports
+          write(*,10) "[LOG "//trim(models(Icopro)%name)//"] - "//      &
+                      "input port [", i, "] is defined as "//           &
+                      trim(input_ports(i))
+        end do
+      end if
+!
+!-----------------------------------------------------------------------
+!     Initialize co-processor
+!-----------------------------------------------------------------------
+!
+      inquire(file=trim(coproc_fname), exist=file_exists)
+      if (file_exists) then
+        call my_coprocessorinitializewithpython(comm,                   &
+             trim(coproc_fname)//char(0), input_ports, nports)
+      else
+        if (localPet == models(Icopro)%petList(1)) then
+          write(*,20) "[ERROR "//trim(models(Icopro)%name)//"] - "//    &
+                      trim(coproc_fname)//" not found! exiting ..."
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+        end if
+      end if
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+  10  format(A,I02,A)
+  20  format(A)
+!
+      print*, "COP_SetInitializeP0"
+!
+      end subroutine COP_SetInitializeP0
+!
+      subroutine COP_SetInitializeP1(gcomp,                             &
+                                     importState,                       &
+                                     exportState,                       &
+                                     clock,                             &
+                                     rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Set import fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, ubound(models(Icopro)%importField, dim=1)
+        call NUOPC_Advertise(importState,                               &
+             StandardName=trim(models(Icopro)%importField(i)%long_name),&
+             name=trim(models(Icopro)%importField(i)%short_name),       &
+             TransferOfferGeomObject="cannot provide",                  &
+             rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do 
+!
+!-----------------------------------------------------------------------
+!     Set export fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, ubound(models(Icopro)%exportField, dim=1)
+        call NUOPC_Advertise(exportState,                               &
+             StandardName=trim(models(Icopro)%exportField(i)%long_name),&
+             name=trim(models(Icopro)%exportField(i)%short_name),       &
+             TransferOfferGeomObject="cannot provide",                  &
+             rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end do
+!
+      print*, "COP_SetInitializeP1"
+!
+      end subroutine COP_SetInitializeP1
+!
+      subroutine COP_SetInitializeP4(gcomp,                             &
+                                     importState,                       &
+                                     exportState,                       &
+                                     clock,                             &
+                                     rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState, exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, k
+      integer :: itemCount, localDeCount, dimCount, tileCount
+      integer :: connectionCount, petCount, deCountPTile, extraDEs
+      integer, allocatable :: minIndexPTile(:,:), maxIndexPTile(:,:)
+      integer, allocatable :: regDecompPTile(:,:)
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      character(ESMF_MAXSTR) :: gname
+!
+      type(ESMF_Field) :: field
+      type(ESMF_Grid) :: grid
+      type(ESMF_DistGrid) :: distgrid
+      type(ESMF_DistGridConnection), allocatable :: connectionList(:)
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+!
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over import fields
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+!
+!-----------------------------------------------------------------------
+!     Get field from import state
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get grid from field
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, grid=grid, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Access localDeCount to show this is a real Grid
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridGet(grid, localDeCount=localDeCount,                &
+                        distgrid=distgrid, name=gname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Query distgrid to get rank and tile information
+!-----------------------------------------------------------------------
+!
+      call ESMF_DistGridGet(distgrid, dimCount=dimCount,                &
+                            tileCount=tileCount,                        &
+                            connectionCount=connectionCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     allocate minIndexPTile, maxIndexPTile and connectionList
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(minIndexPTile)) then
+        allocate(minIndexPTile(dimCount, tileCount),                    &
+                 maxIndexPTile(dimCount, tileCount))
+        allocate(connectionList(connectionCount))
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get minIndex and maxIndex arrays
+!-----------------------------------------------------------------------
+!
+      call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile,      &
+                            maxIndexPTile=maxIndexPTile,                &
+                            connectionList=connectionList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Construct a default regDecompPTile
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(regDecompPTile)) then
+        allocate(regDecompPTile(dimCount, tileCount))
+      end if
+!
+      do k = 1, dimCount
+        if (k < 3) then
+          regDecompPTile(k, 1) = models(Icopro)%tile(k)
+        else
+          regDecompPTile(k, 1) = 1
+        end if
+      end do
+!
+!-----------------------------------------------------------------------
+!     Create the new DistGrid with the same minIndexPTile and
+!     maxIndexPTile but with a default regDecompPTile
+!-----------------------------------------------------------------------
+!
+      distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile,       &
+                                     maxIndexPTile=maxIndexPTile,       &
+                                     regDecompPTile=regDecompPTile,     &
+                                     connectionList=connectionList,     &
+                                     rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create a new Grid on the new DistGrid and swap it in the Field
+!-----------------------------------------------------------------------
+!
+      grid = ESMF_GridCreate(distgrid, name=trim(gname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldEmptySet(field, grid=grid, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Swap the grid for import fields
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_FieldEmptySet(field, grid=grid, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays to free the memory
+!-----------------------------------------------------------------------
+!
+      if (allocated(minIndexPTile)) deallocate(minIndexPTile)
+      if (allocated(maxIndexPTile)) deallocate(maxIndexPTile)
+      if (allocated(connectionList)) deallocate(connectionList)
+      if (allocated(regDecompPTile)) deallocate(regDecompPTile)
+!
+      end do
+!
+      print*, "COP_SetInitializeP4"
+!
+      end subroutine COP_SetInitializeP4
+!
+      subroutine COP_SetInitializeP5(gcomp,                             &
+                                     importState,                       &
+                                     exportState,                       &
+                                     clock,                             &
+                                     rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState, exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: i, itemCount
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+!
+      type(ESMF_Field) :: field
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+!
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over import fields
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+!
+!-----------------------------------------------------------------------
+!     Get field from import state
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Allocate data for data by complete
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8,    &
+                                   rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end do
+!
+      print*, "COP_SetInitializeP5"
+!
+      end subroutine COP_SetInitializeP5
+!
+      subroutine COP_DataInit(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: i, itemCount
+!
+      type(ESMF_State) :: importState
+!
+!-----------------------------------------------------------------------
+!     Set attribute for data initialization
+!-----------------------------------------------------------------------
+!
+      call NUOPC_CompAttributeSet(gcomp,                                &
+                                  name="InitializeDataComplete",        &
+                                  value="true", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      print*, "COP_DataInit"
+!
+      end subroutine COP_DataInit
+!
+      subroutine COP_ModelAdvance(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, k, tileX, tileY 
+      integer :: localPet, petCount, itemCount, dimCount, tileCount
+      integer :: nPoints2D, nPoints3D  
+      integer :: cc2d(2), cc3d(3), lb(3), ub(3)
+      integer, allocatable :: minIndexPTile(:,:), maxIndexPTile(:,:)
+      character(ESMF_MAXSTR) :: gname
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      logical :: hasRight, hasTop, flag
+      real(ESMF_KIND_R8) :: dtime
+      real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2X
+      real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2Y
+      real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3X
+      real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3Y
+      real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3Z
+      real(ESMF_KIND_R8), allocatable, dimension(:) :: lon1d
+      real(ESMF_KIND_R8), allocatable, dimension(:) :: lat1d
+      real(ESMF_KIND_R8), allocatable, dimension(:) :: lev1d
+      real(ESMF_KIND_R8), allocatable, dimension(:,:) :: lon2d
+      real(ESMF_KIND_R8), allocatable, dimension(:,:) :: lat2d
+      real(ESMF_KIND_R8), allocatable, dimension(:,:,:) :: lon3d
+      real(ESMF_KIND_R8), allocatable, dimension(:,:,:) :: lat3d
+      real(ESMF_KIND_R8), allocatable, dimension(:,:,:) :: lev3d
+      real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d
+      real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3d
+      real(ESMF_KIND_R8), allocatable, dimension(:) :: var1d
+      real(ESMF_KIND_R8), allocatable, dimension(:,:) :: var2d
+      real(ESMF_KIND_R8), allocatable, dimension(:,:,:) :: var3d
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Grid) :: grid
+      type(ESMF_Field) :: field
+      type(ESMF_Array) :: arrX, arrY, arrZ
+      type(ESMF_Clock) :: clock
+      type(ESMF_TimeInterval) :: elapsedTime
+      type(ESMF_Time) :: startTime, currTime
+      type(ESMF_DistGrid) :: distgrid
+      type(ESMF_State) :: importState 
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Query component
+!-----------------------------------------------------------------------
+! 
+      call NUOPC_ModelGet(gcomp, modelClock=clock,                      &
+                          importState=importState, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+!
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over import fields
+!-----------------------------------------------------------------------
+!
+      j = 1
+      do i = 1, itemCount
+!
+!-----------------------------------------------------------------------
+!     Get field from import state
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Query underlying grid
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, grid=grid, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_GridGet(grid, name=gname, distgrid=distgrid, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Query distgrid to get rank and tile information
+!-----------------------------------------------------------------------
+!
+      call ESMF_DistGridGet(distgrid, dimCount=dimCount,                &
+                            tileCount=tileCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     allocate minIndexPTile, maxIndexPTile and connectionList
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(minIndexPTile)) then
+        allocate(minIndexPTile(dimCount, tileCount),                    &
+                 maxIndexPTile(dimCount, tileCount))
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get minIndex and maxIndex arrays
+!-----------------------------------------------------------------------
+!
+      call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile,      &
+                            maxIndexPTile=maxIndexPTile, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Define right and top extents
+!     The data will be stored as Point in VTK and it requires overlap in
+!     top and right most cells in two dimensional decomposition
+!-----------------------------------------------------------------------
+!
+      tileX = models(Icopro)%tile(1)
+      tileY = models(Icopro)%tile(2)
+!
+      hasRight = .false.
+      if (mod(localPet,tileX) < tileX-1) hasRight = .true.
+!
+      hasTop = .false.
+      if ((localPet/tileX+1) < tileY) hasTop = .true.
+!
+!-----------------------------------------------------------------------
+!     Define grid in co-processor side if it is not already defined
+!-----------------------------------------------------------------------
+!
+      if (.not. check_grid(gname)) then
+!
+!-----------------------------------------------------------------------
+!     Collect grid coordinates to define in co-processing module
+!-----------------------------------------------------------------------
+!
+      if (dimCount == 2) then ! 2d
+!
+      call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=ptr2X, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_GridGetCoord(grid, coordDim=1, array=arrX, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      if (.not. allocated(lon2d)) then
+        allocate(lon2d(maxIndexPTile(1,1),maxIndexPTile(2,1)))
+      end if
+!
+      do k = 1, models(Icopro)%nPets
+        call ESMF_ArrayGather(arrX, farray=lon2d,                       &
+                              rootPet=k-1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end do
+!
+      call ESMF_GridGetCoord(grid, coordDim=2, farrayPtr=ptr2Y,         &
+                             computationalCount=cc2d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_GridGetCoord(grid, coordDim=2, array=arrY, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      if (.not. allocated(lat2d)) then
+        allocate(lat2d(maxIndexPTile(1,1),maxIndexPTile(2,1)))
+      end if
+!
+      do k = 1, models(Icopro)%nPets
+        call ESMF_ArrayGather(arrY, farray=lat2d,                       &
+                              rootPet=k-1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end do
+!
+!-----------------------------------------------------------------------
+!     Calculate total number of 2d points in each MPI process
+!-----------------------------------------------------------------------
+!
+      nPoints2D = 1
+      if (hasRight) cc2d(1) = cc2d(1)+1
+      if (hasTop) cc2d(2) = cc2d(2)+1
+      do k = 1, 2
+        nPoints2D = nPoints2D*cc2d(k)
+      end do
+!
+!-----------------------------------------------------------------------
+!     Serialize (2d -> 1d) coordinate arrays 
+!-----------------------------------------------------------------------
+!
+      lb = (/ lbound(ptr2X,dim=1), lbound(ptr2X,dim=2), 0 /)
+      ub = (/ ubound(ptr2X,dim=1), ubound(ptr2X,dim=2), 0 /)
+!
+      if (hasRight) ub(1) = ub(1)+1
+      if (hasTop) ub(2) = ub(2)+1
+!
+      if (.not. allocated(lon1d)) then
+        allocate(lon1d(nPoints2D))
+        allocate(lat1d(nPoints2D))
+      end if
+!
+      call ntooned_2d(lb(1:2), ub(1:2),                                 &
+                      lon2d(lb(1):ub(1),lb(2):ub(2)), lon1d)
+      call ntooned_2d(lb(1:2), ub(1:2),                                 &
+                      lat2d(lb(1):ub(1),lb(2):ub(2)), lat1d)
+!
+!-----------------------------------------------------------------------
+!     Define grid (2d) in co-porcessing side via Catalyst adaptor
+!-----------------------------------------------------------------------
+!
+      gname = replace_str(gname, "_grid", "_input2d")
+!
+      flag = catalyst_create_grid(0, 0.0d0, trim(gname)//char(0),       &
+                                  petCount, localPet,                   &
+                                  (/maxIndexPTile(:,1),0/),             &
+                                  lb, ub, nPoints2D,                    &
+                                  lon1d, lat1d)
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random
+!     part in the memory
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr2X)) nullify(ptr2X)
+      if (associated(ptr2Y)) nullify(ptr2Y)
+!
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays to free the memory
+!-----------------------------------------------------------------------
+!
+      if (allocated(lon2d)) deallocate(lon2d)
+      if (allocated(lat2d)) deallocate(lat2d)
+!
+      else if (dimCount == 3) then ! 3d
+!
+      call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=ptr3X, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_GridGetCoord(grid, coordDim=1, array=arrX, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      if (.not. allocated(lon3d)) then
+        allocate(lon3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
+                       maxIndexPTile(3,1)))
+      end if
+!
+      do k = 1, models(Icopro)%nPets
+        call ESMF_ArrayGather(arrX, farray=lon3d,                       &
+                              rootPet=k-1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end do
+!
+      call ESMF_GridGetCoord(grid, coordDim=2, farrayPtr=ptr3Y, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_GridGetCoord(grid, coordDim=2, array=arrY, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      if (.not. allocated(lat3d)) then
+        allocate(lat3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
+                       maxIndexPTile(3,1)))
+      end if
+!
+      do k = 1, models(Icopro)%nPets
+        call ESMF_ArrayGather(arrY, farray=lat3d,                       &
+                              rootPet=k-1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end do
+!
+      call ESMF_GridGetCoord(grid, coordDim=3, farrayPtr=ptr3Z,         &
+                             computationalCount=cc3d,                   &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_GridGetCoord(grid, coordDim=3, array=arrZ, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!                             
+      if (.not. allocated(lev3d)) then
+        allocate(lev3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
+                       maxIndexPTile(3,1)))
+      end if
+!
+      do k = 1, models(Icopro)%nPets
+        call ESMF_ArrayGather(arrZ, farray=lev3d,                       &
+                              rootPet=k-1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end do
+!
+!-----------------------------------------------------------------------
+!     Calculate total number of 3d points in each MPI process
+!-----------------------------------------------------------------------
+!
+      nPoints3D = 1
+      if (hasRight) cc3d(1) = cc3d(1)+1
+      if (hasTop) cc3d(2) = cc3d(2)+1
+      do k = 1, 3
+        nPoints3D = nPoints3D*cc3d(k)
+      end do
+!
+!-----------------------------------------------------------------------
+!     Serialize (3d -> 1d) coordinate arrays 
+!-----------------------------------------------------------------------
+!
+      lb = (/ lbound(ptr3X,dim=1), lbound(ptr3X,dim=2),                 &
+              lbound(ptr3X,dim=3) /)
+      ub = (/ ubound(ptr3X,dim=1), ubound(ptr3X,dim=2),                 &
+              ubound(ptr3X,dim=3) /)
+!
+      if (hasRight) ub(1) = ub(1)+1
+      if (hasTop) ub(2) = ub(2)+1
+!
+      if (.not. allocated(lon1d)) then
+        allocate(lon1d(nPoints3D))
+        allocate(lat1d(nPoints3D))
+        allocate(lev1d(nPoints3D))
+      end if
+!
+      call ntooned_3d(lb, ub,                                           &
+                      lon3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), lon1d)
+      call ntooned_3d(lb, ub,                                           &
+                      lat3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), lat1d)
+      call ntooned_3d(lb, ub,                                           &
+                      lev3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), lev1d)
+!
+!-----------------------------------------------------------------------
+!     Define grid (2d) in co-porcessing side via Catalyst adaptor
+!-----------------------------------------------------------------------
+!
+      gname = replace_str(gname, "_grid", "_input3d")
+!
+      flag = catalyst_create_grid(0, 0.0d0, trim(gname)//char(0),       &
+                                  petCount, localPet,                   &
+                                  (/maxIndexPTile(:,1),0/),             &
+                                  lb, ub, nPoints3D,                    &
+                                  lon1d, lat1d, lev1d)
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random
+!     part in the memory
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr3X)) nullify(ptr3X)
+      if (associated(ptr3Y)) nullify(ptr3Y)
+      if (associated(ptr3Z)) nullify(ptr3Z)
+!
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays to free the memory
+!-----------------------------------------------------------------------
+!
+      if (allocated(lon3d)) deallocate(lon3d)
+      if (allocated(lat3d)) deallocate(lat3d)
+      if (allocated(lev3d)) deallocate(lev3d)
+!
+      end if
+!
+!-----------------------------------------------------------------------
+!     Save defined grid name in lookup table 
+!-----------------------------------------------------------------------
+!
+      gridnames(j) = trim(gname)
+      j = j+1
+!
+      end if
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field and serialize data to pass co-processing
+!-----------------------------------------------------------------------
+!
+      if (dimCount == 2) then ! 2d
+!
+      if (.not. allocated(var2d)) then
+        allocate(var2d(maxIndexPTile(1,1),maxIndexPTile(2,1)))
+      end if
+!
+      do k = 1, models(Icopro)%nPets
+        call ESMF_FieldGather(field, farray=var2d,                      &
+                              rootPet=k-1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end do
+!
+      call ESMF_FieldGet(field, localDE=0, farrayPtr=ptr2d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Serialize (2d -> 1d) coordinate arrays 
+!-----------------------------------------------------------------------
+!
+      lb = (/ lbound(ptr2d,dim=1), lbound(ptr2d,dim=2), 0 /)
+      ub = (/ ubound(ptr2d,dim=1), ubound(ptr2d,dim=2), 0 /)
+!
+      if (hasRight) ub(1) = ub(1)+1
+      if (hasTop) ub(2) = ub(2)+1
+!
+      nPoints2D = 1
+      do k = 1, 2
+        nPoints2D = nPoints2D*(ub(k)-lb(k)+1)
+      end do
+!
+      if (.not. allocated(var1d)) then
+        allocate(var1d(nPoints2D))
+      end if
+!
+      call ntooned_2d(lb(1:2), ub(1:2),                                 &
+                      var2d(lb(1):ub(1),lb(2):ub(2)), var1d)
+!
+!-----------------------------------------------------------------------
+!     Add field to co-processor
+!-----------------------------------------------------------------------
+!
+      gname = replace_str(gname, "_grid", "_input2d")
+!
+      call add_scalar(var1d, trim(itemNameList(i))//char(0), nPoints2D, &
+                      petCount, localPet, trim(gname)//char(0))
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random
+!     part in the memory
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr2d)) nullify(ptr2d)
+!
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays to free the memory
+!-----------------------------------------------------------------------
+!
+      if (allocated(var1d)) deallocate(var1d)
+      if (allocated(var2d)) deallocate(var2d)
+!
+      else if (dimCount == 3) then ! 3d     
+!
+      if (.not. allocated(var3d)) then
+        allocate(var3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
+                       maxIndexPTile(3,1)))
+      end if
+!
+      do k = 1, models(Icopro)%nPets
+        call ESMF_FieldGather(field, farray=var3d,                      &
+                              rootPet=k-1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end do
+!
+      call ESMF_FieldGet(field, localDE=0, farrayPtr=ptr3d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Serialize (3d -> 1d) coordinate arrays 
+!-----------------------------------------------------------------------
+!
+      lb = (/ lbound(ptr3d,dim=1), lbound(ptr3d,dim=2),                 &
+              lbound(ptr3d,dim=3) /)
+      ub = (/ ubound(ptr3d,dim=1), ubound(ptr3d,dim=2),                 &
+              ubound(ptr3d,dim=3) /)
+!
+      if (hasRight) ub(1) = ub(1)+1
+      if (hasTop) ub(2) = ub(2)+1
+!
+      nPoints3D = 1
+      do k = 1, 3
+        nPoints3D = nPoints3D*(ub(k)-lb(k)+1)
+      end do
+!
+      if (.not. allocated(var1d)) then
+        allocate(var1d(nPoints3D))
+      end if
+!
+      call ntooned_3d(lb, ub,                                           &
+                      var3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), var1d)
+!
+!-----------------------------------------------------------------------
+!     Add field to Catalyst
+!-----------------------------------------------------------------------
+!
+      gname = replace_str(gname, "_grid", "_input3d")
+!
+      call add_scalar(var1d, trim(itemNameList(i))//char(0), nPoints3D, &
+                      petCount, localPet, trim(gname)//char(0))
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random
+!     part in the memory
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr3d)) nullify(ptr3d)
+!
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays to free the memory
+!-----------------------------------------------------------------------
+!
+      if (allocated(var1d)) deallocate(var1d)
+      if (allocated(var3d)) deallocate(var3d)
+!
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+!
+!-----------------------------------------------------------------------
+!     Calculate elapsed time
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, currTime=currTime,                      &
+                         startTime=startTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__)) return
+!
+      elapsedTime = currTime-startTime
+!
+      call ESMF_TimeIntervalGet(elapsedTime, s_r8=dtime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Call co-processing
+!-----------------------------------------------------------------------
+!
+      call my_requestdatadescription(int(dtime), dtime, flag)
+      if (flag) then
+        call my_coprocess()
+      end if
+!
+      print*, "COP_ModelAdvance = ", int(dtime), dtime, flag
+!
+      end subroutine COP_ModelAdvance
+!
+      function check_grid(gname) result(flag)
+      implicit none
+!     
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      character(ESMF_MAXSTR), intent(in) :: gname
+      logical :: flag
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i
+!
+      flag = .false.
+      do i = 1, ubound(gridnames, dim=1)
+        if (trim(gname) == trim(gridnames(i))) flag = .true.
+      end do
+!  
+      end function check_grid
+!
+      subroutine ntooned_2d(lb, ub, xnd, x1d)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      integer, intent(in) :: lb(2)
+      integer, intent(in) :: ub(2)
+      real*8 , intent(in) :: xnd(lb(1):ub(1),lb(2):ub(2))
+      real*8 , intent(inout) :: x1d(:)
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, p
+!
+      p = 1
+      do j = lb(2), ub(2)
+        do i = lb(1), ub(1)
+          x1d(p) = xnd(i,j)
+          p = p+1
+        end do
+      end do
+!
+      end subroutine ntooned_2d
+!
+      subroutine ntooned_3d(lb, ub, xnd, x1d)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      integer, intent(in) :: lb(3)
+      integer, intent(in) :: ub(3)
+      real*8 , intent(in) :: xnd(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3))
+      real*8 , intent(inout) :: x1d(:)
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, k, p
+!
+      p = 1
+      do k = lb(3), ub(3)
+        do j = lb(2), ub(2)
+          do i = lb(1), ub(1)
+            x1d(p) = xnd(i,j,k)
+            p = p+1
+          end do
+        end do
+      end do
+!
+      end subroutine ntooned_3d
+!
+      function catalyst_create_grid(step,                               &
+                                    time,                               &
+                                    name,                               &
+                                    petCount,                           &
+                                    localPet,                           &
+                                    dims,                               &
+                                    lb,                                 &
+                                    ub,                                 &
+                                    nPoints,                            &
+                                    lon1d,                              &
+                                    lat1d,                              &
+                                    lev1d)                              &
+                                    result(continueProcessing)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      integer, intent(in) :: step
+      real*8, intent(in) :: time
+      character(len=*), intent(in) :: name
+      integer, intent(in) :: petCount
+      integer, intent(in) :: localPet
+      integer, intent(in) :: dims(:)
+      integer, intent(in) :: lb(:)
+      integer, intent(in) :: ub(:)
+      integer, intent(in) :: nPoints
+      real*8, intent(in)  :: lon1d(nPoints)
+      real*8, intent(in)  :: lat1d(nPoints)
+      real*8, intent(in), optional  :: lev1d(nPoints)
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!      
+      logical :: flag1, continueProcessing
+      integer :: flag2
+!
+!-----------------------------------------------------------------------
+!     Create grid in co-processing module 
+!-----------------------------------------------------------------------
+!
+      continueProcessing = .false.
+      call my_requestdatadescription(step, time, flag1)
+      if (flag1) then
+        continueProcessing = .true.
+        call my_needtocreategrid(flag2, name//char(0))
+        write(*,'(A," ",I2," ",I2)') "NEED TO CREATE GRID",             &
+                                     localPet, flag2
+        if (present(lev1d)) then
+          call create_grid(name//char(0), petCount, localPet,           &
+                           dims, lb, ub, nPoints, lon1d, lat1d, lev1d)
+        else
+          call create_grid(name//char(0), petCount, localPet,           &
+                           dims, lb, ub, nPoints, lon1d, lat1d)
+        end if
+      else
+        continueProcessing = .false.
+      end if
+!
+      end function catalyst_create_grid
+!
+      end module mod_esmf_cop
+
