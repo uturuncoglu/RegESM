@@ -7,6 +7,7 @@ outputfrequency = 1 #5
 
 # the name of the inputs that the adaptor provides
 # for most it will just be 'input' by convention
+#namedinputs = ['ocn_input2d']
 namedinputs = ['atm_input2d']
 #namedinputs = ['atm_input2d', 'ocn_input2d']
 #namedinputs = ['atm_input2d', 'atm_input3d']

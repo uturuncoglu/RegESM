@@ -234,17 +234,29 @@
 !     Set-up grid and load coordinate data 
 !-----------------------------------------------------------------------
 !
-      call ATM_SetGridArrays(gcomp, localPet, rc)
+      call ATM_SetGridArrays2d(gcomp, localPet, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+      if (models(Icopro)%modActive) then
+      call ATM_SetGridArrays3d(gcomp, localPet, rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Set-up fields and register to import/export states
 !-----------------------------------------------------------------------
 !
-      call ATM_SetStates(gcomp, rc)
+      call ATM_SetStates2d(gcomp, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+      if (models(Icopro)%modActive) then
+      call ATM_SetStates3d(gcomp, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
       end subroutine ATM_SetInitializeP2
 !
@@ -555,7 +567,7 @@
 !
       end subroutine ATM_SetClock
 !
-      subroutine ATM_SetGridArrays(gcomp, localPet, rc)
+      subroutine ATM_SetGridArrays2d(gcomp, localPet, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
@@ -637,7 +649,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Define component grid (dot and cross points)
+!     Define type of stenciles used by grid (dot and cross points)
 !-----------------------------------------------------------------------
 !
       if (.not. allocated(models(Iatmos)%mesh)) then
@@ -659,7 +671,7 @@
       end if
 !
 !-----------------------------------------------------------------------
-!     Create ESMF Grid
+!     Create grid (2d)
 !-----------------------------------------------------------------------
 !
       if (i == 1) then
@@ -861,6 +873,9 @@
       call ESMF_GridCompSet(gcomp, grid=models(Iatmos)%grid, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+      if (models(Icopro)%modActive) then    
+      end if
+
 !
 !-----------------------------------------------------------------------
 !     Debug: write out component grid in VTK format 
@@ -885,9 +900,299 @@
  30   format(" PET(",I3.3,") - DE(",I2.2,") - ",A20," : ",              &
              4I8," ",L," ",L," ",L," ",L)
 !
-      end subroutine ATM_SetGridArrays     
+      end subroutine ATM_SetGridArrays2d
 !
-      subroutine ATM_SetStates(gcomp, rc)
+      subroutine ATM_SetGridArrays3d(gcomp, localPet, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use mod_mppparam, only : ma
+      use mod_atm_interface, only : mddom
+      use mod_dynparam, only : iy, jx, nproc
+      use mod_dynparam, only : ide1, ide2, jde1, jde2
+      use mod_dynparam, only : ice1, ice2, jce1, jce2
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp), intent(inout) :: gcomp
+      integer :: localPet
+      integer :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, ii, jj, i0, j0, k0, kz, localDECount
+      integer :: cpus_per_dim(3)
+!
+      type(ESMF_DistGrid) :: distGrid
+      type(ESMF_StaggerLoc) :: staggerLoc
+      real(ESMF_KIND_R8), pointer :: ptrX(:,:,:)
+      real(ESMF_KIND_R8), pointer :: ptrY(:,:,:)
+      real(ESMF_KIND_R8), pointer :: ptrZ(:,:,:)
+      character (len=40) :: name
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Calculate number of CPUs in each direction 
+!-----------------------------------------------------------------------
+!
+      if ( nproc < 4 ) then
+        cpus_per_dim(2) = 1
+        cpus_per_dim(1) = nproc
+      else if ( nproc >= 4 ) then
+        cpus_per_dim(2) = (nint(sqrt(dble(nproc)))/2)*2
+        if ( iy > int(1.5*dble(jx)) ) then
+          cpus_per_dim(2) = cpus_per_dim(2) - 1
+          do while ( mod(nproc,cpus_per_dim(2)) /= 0 )
+            cpus_per_dim(2) = cpus_per_dim(2) - 1
+          end do
+        else if ( jx > int(1.5*dble(iy)) ) then
+          cpus_per_dim(2) = cpus_per_dim(2) + 1
+          do while ( mod(nproc,cpus_per_dim(2)) /= 0 )
+            cpus_per_dim(2) = cpus_per_dim(2) + 1
+          end do
+        else
+          do while ( mod(nproc,cpus_per_dim(2)) /= 0 )
+            cpus_per_dim(2) = cpus_per_dim(2) + 1
+          end do
+        end if
+        cpus_per_dim(1) = nproc/cpus_per_dim(2)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create DistGrid based on model domain decomposition
+!
+!     ESMF is basically using a right handed coordinate system, and 
+!     using the Fortran way of using the smallest stride to the first 
+!     dimension but RegCM not. The order of dimension is reversed
+!     because of this limitation. 
+!-----------------------------------------------------------------------
+!
+      kz = models(Iatmos)%nLevs
+      cpus_per_dim(3) = 1
+!
+      distGrid = ESMF_DistGridCreate(minIndex=(/ 1, 1, 1 /),            &
+                                     maxIndex=(/ iy, jx, kz /),         &
+                                     regDecomp=cpus_per_dim,            &
+                                     rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Define component grid (dot and cross points)
+!-----------------------------------------------------------------------
+!
+      do i = 1, 2 
+!
+!-----------------------------------------------------------------------
+!     Set staggering type 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%mesh(i)%gtype == Icross) then
+        staggerLoc = ESMF_STAGGERLOC_CENTER
+      else if (models(Iatmos)%mesh(i)%gtype == Idot) then
+        staggerLoc = ESMF_STAGGERLOC_CORNER
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create ESMF Grid
+!-----------------------------------------------------------------------
+!
+      if (i == 1) then
+      models(Iatmos)%grid3d = ESMF_GridCreate(distgrid=distGrid,        &
+                                            indexflag=ESMF_INDEX_GLOBAL,&
+                                            name="atm_grid",            &
+                                            rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Allocate coordinates 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddCoord(models(Iatmos)%grid3d,                     &
+                             staggerLoc=staggerLoc,                     &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid3d,                          &
+                        localDECount=localDECount,                      &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get pointers and set coordinates for the grid 
+!-----------------------------------------------------------------------
+! 
+      do j = 0, localDECount-1
+      call ESMF_GridGetCoord(models(Iatmos)%grid3d,                     &
+                             localDE=j,                                 &
+                             staggerLoc=staggerLoc,                     &
+                             coordDim=1,                                &
+                             farrayPtr=ptrX,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGetCoord(models(Iatmos)%grid3d,                     &
+                             localDE=j,                                 &
+                             staggerLoc=staggerLoc,                     &
+                             coordDim=2,                                &
+                             farrayPtr=ptrY,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGetCoord(models(Iatmos)%grid3d,                     &
+                             localDE=j,                                 &
+                             staggerLoc=staggerLoc,                     &
+                             coordDim=3,                                &
+                             farrayPtr=ptrZ,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Debug: write size of pointers    
+!-----------------------------------------------------------------------
+!
+      name = GRIDDES(models(Iatmos)%mesh(i)%gtype)
+!
+      if (debugLevel > 0) then
+        write(*,110) localPet, j, adjustl("PTR/ATM/GRD3D/"//name),      &
+                    lbound(ptrX, dim=1), ubound(ptrX, dim=1),           &
+                    lbound(ptrX, dim=2), ubound(ptrX, dim=2),           &
+                    lbound(ptrX, dim=3), ubound(ptrX, dim=3),           &
+                    ma%has_bdybottom, ma%has_bdyright,                  &
+                    ma%has_bdytop, ma%has_bdyleft
+      end if
+!
+!-----------------------------------------------------------------------
+!     Fill the pointers    
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%mesh(i)%gtype == Idot) then
+        if (debugLevel > 0) then
+          write(*,110) localPet, j, adjustl("DAT/ATM/GRD3D/"//name),    &
+                      ide1, ide2, jde1, jde2, 1, kz,                    &
+                      ma%has_bdybottom, ma%has_bdyright,                &
+                      ma%has_bdytop, ma%has_bdyleft
+        end if
+!
+        do k0 = 1 , kz
+          do i0 = ide1, ide2
+            do j0 = jde1, jde2
+              ptrX(i0,j0,k0) = mddom%dlon(j0,i0)
+              ptrY(i0,j0,k0) = mddom%dlat(j0,i0)
+              ptrZ(i0,j0,k0) = models(Iatmos)%levs(k0)
+            end do
+          end do
+        end do
+!
+        if (ma%has_bdyright) then
+           ptrX(:,jde2+1,:) = ptrX(:,jde2,:)+(ptrX(:,jde2,:)-           &
+                              ptrX(:,jde2-1,:))
+           ptrY(:,jde2+1,:) = ptrY(:,jde2,:)+(ptrY(:,jde2,:)-           &
+                              ptrY(:,jde2-1,:))
+        end if
+!
+        if (ma%has_bdytop) then
+          ptrX(ide2+1,:,:) = ptrX(ide2,:,:)+(ptrX(ide2,:,:)-            &
+                             ptrX(ide2-1,:,:))
+          ptrY(ide2+1,:,:) = ptrY(ide2,:,:)+(ptrY(ide2,:,:)-            &
+                             ptrY(ide2-1,:,:))
+        end if
+      else if (models(Iatmos)%mesh(i)%gtype == Icross) then
+        if (debugLevel > 0) then
+          write(*,110) localPet, j, adjustl("DAT/ATM/GRD3D/"//name),    &
+                      ice1, ice2, jce1, jce2, 1, kz,                    &
+                      ma%has_bdybottom, ma%has_bdyright,                &
+                      ma%has_bdytop, ma%has_bdyleft
+        end if
+!
+        do k0 = 1 , kz
+          do i0 = ice1, ice2
+            do j0 = jce1, jce2
+              ptrX(i0,j0,k0) = mddom%xlon(j0,i0)
+              ptrY(i0,j0,k0) = mddom%xlat(j0,i0)
+              ptrZ(i0,j0,k0) = models(Iatmos)%levs(k0) 
+            end do
+          end do
+        end do
+!
+        if (ma%has_bdyright) then
+           ptrX(:,jce2+1,:) = ptrX(:,jce2,:)+(ptrX(:,jce2,:)-           &
+                              ptrX(:,jce2-1,:))
+           ptrY(:,jce2+1,:) = ptrY(:,jce2,:)+(ptrY(:,jce2,:)-           &
+                              ptrY(:,jce2-1,:))
+        end if
+!
+        if (ma%has_bdytop) then
+          ptrX(ice2+1,:,:) = ptrX(ice2,:,:)+(ptrX(ice2,:,:)-            &
+                             ptrX(ice2-1,:,:))
+          ptrY(ice2+1,:,:) = ptrY(ice2,:,:)+(ptrY(ice2,:,:)-            &
+                             ptrY(ice2-1,:,:))
+        end if
+      end if
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptrY)) then
+        nullify(ptrY)
+      end if
+      if (associated(ptrX)) then
+        nullify(ptrX)
+      end if
+      if (associated(ptrZ)) then
+        nullify(ptrZ)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Debug: write out component grid in VTK format 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+      call ESMF_GridWriteVTK(models(Iatmos)%grid3d,                     &
+                         filename="atmos_"//                            &
+                         trim(GRIDDES(models(Iatmos)%mesh(i)%gtype))//  &
+                         "point_3d",                                    &
+                         staggerLoc=staggerLoc,                         &
+                         rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+      end do
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 110  format(" PET(",I3.3,") - DE(",I2.2,") - ",A20," : ",              &
+             6I8," ",L," ",L," ",L," ",L)
+!
+      end subroutine ATM_SetGridArrays3d     
+!
+      subroutine ATM_SetStates2d(gcomp, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -968,6 +1273,12 @@
       k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
 !
 !-----------------------------------------------------------------------
+!     Check rank of the export field 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%exportField(k)%rank .eq. 2) then
+!
+!-----------------------------------------------------------------------
 !     Set staggering type 
 !-----------------------------------------------------------------------
 !
@@ -1027,6 +1338,9 @@
       call NUOPC_Realize(exportState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
       end do
 !
 !-----------------------------------------------------------------------
@@ -1056,6 +1370,12 @@
 !
       do i = 1, itemCount
       k = get_varid(models(Iatmos)%importField, trim(itemNameList(i)))
+!
+!-----------------------------------------------------------------------
+!     Check rank of the import field 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%importField(k)%rank .eq. 2) then
 !
 !-----------------------------------------------------------------------
 !     Set staggering type 
@@ -1117,6 +1437,9 @@
       call NUOPC_Realize(importState, field=field, rc=rc) 
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
       end do
 !
 !-----------------------------------------------------------------------
@@ -1125,7 +1448,265 @@
 !
       if (allocated(itemNameList)) deallocate(itemNameList)
 !
-      end subroutine ATM_SetStates
+      end subroutine ATM_SetStates2d
+!
+      subroutine ATM_SetStates3d(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, k, localPet, petCount, itemCount, localDECount
+      real*8, dimension(:,:,:), pointer :: ptr
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Field) :: field
+      type(ESMF_ArraySpec) :: arraySpec
+      type(ESMF_StaggerLoc) :: staggerLoc 
+      type(ESMF_State) :: importState, exportState
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, importState=importState,             &
+                            exportState=exportState, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set array descriptor
+!-----------------------------------------------------------------------
+!
+      call ESMF_ArraySpecSet(arraySpec, typekind=ESMF_TYPEKIND_R8,      &
+                             rank=3, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid3d,                          &
+                        localDECount=localDECount,                      &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of export fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      call ESMF_StateGet(exportState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create export fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+      k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
+!
+!-----------------------------------------------------------------------
+!     Check rank of the export field 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%exportField(k)%rank .eq. 3) then
+!
+!-----------------------------------------------------------------------
+!     Set staggering type 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%exportField(k)%gtype == Icross) then
+        staggerLoc = ESMF_STAGGERLOC_CENTER
+      else if (models(Iatmos)%exportField(k)%gtype == Idot) then
+        staggerLoc = ESMF_STAGGERLOC_CORNER
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create field 
+!-----------------------------------------------------------------------
+!
+      field = ESMF_FieldCreate(models(Iatmos)%grid3d,                   &
+                               arraySpec,                               &
+                               staggerloc=staggerLoc,                   &
+                               name=trim(itemNameList(i)),              &
+                               rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put data into state 
+!-----------------------------------------------------------------------
+! 
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize pointer 
+!-----------------------------------------------------------------------
+!
+      ptr = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Add field export state
+!-----------------------------------------------------------------------
+!
+      call NUOPC_Realize(exportState, field=field, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create import fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+      k = get_varid(models(Iatmos)%importField, trim(itemNameList(i)))
+!
+!-----------------------------------------------------------------------
+!     Check rank of the import field 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%importField(k)%rank .eq. 3) then
+!
+!-----------------------------------------------------------------------
+!     Set staggering type 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%importField(k)%gtype == Icross) then
+        staggerLoc = ESMF_STAGGERLOC_CENTER
+      else if (models(Iatmos)%importField(k)%gtype == Idot) then
+        staggerLoc = ESMF_STAGGERLOC_CORNER
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create field 
+!-----------------------------------------------------------------------
+!
+      field = ESMF_FieldCreate(models(Iatmos)%grid3d,                   &
+                               arraySpec,                               &
+                               staggerloc=staggerLoc,                   &
+                               name=trim(itemNameList(i)),              &
+                               rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put data into state 
+!-----------------------------------------------------------------------
+! 
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize pointer 
+!-----------------------------------------------------------------------
+!
+      ptr = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Add field import state
+!-----------------------------------------------------------------------
+!
+      call NUOPC_Realize(importState, field=field, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+!
+      end subroutine ATM_SetStates3d
 !
       subroutine ATM_ModelAdvance(gcomp, rc)
 !
@@ -1529,7 +2110,7 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_update, only : exportFields
+      use mod_update, only : exportFields, exportFields3d
       use mod_dynparam, only : ici1, ici2, jci1, jci2
 !
       implicit none
@@ -1545,12 +2126,13 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, ii, jj, dd, m, n, imin, imax, jmin, jmax
-      integer :: iyear, iday, imonth, ihour, iunit
+      integer :: i, j, k, ii, jj, dd, m, n, imin, imax, jmin, jmax, kz
+      integer :: iyear, iday, imonth, ihour, iminute, isec, iunit
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
-      real(ESMF_KIND_R8), pointer :: ptr(:,:)
+      real(ESMF_KIND_R8), pointer :: ptr2d(:,:)
+      real(ESMF_KIND_R8), pointer :: ptr3d(:,:,:)
       integer(ESMF_KIND_I8) :: tstep
 !
       type(ESMF_VM) :: vm
@@ -1586,19 +2168,10 @@
                              line=__LINE__, file=FILENAME)) return
 !
       call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
-                        dd=iday, h=ihour, rc=rc)
+                        dd=iday, h=ihour, m=iminute, s=isec, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end if
-!
-!-----------------------------------------------------------------------
-!     Get number of local DEs
-!-----------------------------------------------------------------------
-! 
-      call ESMF_GridGet(models(Iatmos)%grid,                            &
-                        localDECount=localDECount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get list of export fields 
@@ -1632,6 +2205,25 @@
 !
       do i = 1, itemCount
 !
+      k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
+!
+      print*, i, trim(itemNameList(i)), models(Iatmos)%exportField(k)%rank
+!
+!-----------------------------------------------------------------------
+!     Check rank of the export field 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%exportField(k)%rank .eq. 2) then
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid,                            &
+                        localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
 !-----------------------------------------------------------------------
 !     Get field from export state 
 !-----------------------------------------------------------------------
@@ -1651,7 +2243,7 @@
 !     Get pointer from field 
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr, rc=rc)
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr2d, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -1659,7 +2251,7 @@
 !     Set initial value to missing 
 !-----------------------------------------------------------------------
 !
-      ptr = MISSING_R8
+      ptr2d = MISSING_R8
 !
 !-----------------------------------------------------------------------
 !     Put data to export field 
@@ -1669,103 +2261,103 @@
       case ('psfc')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%psfc(n,m)
+            ptr2d(m,n) = exportFields%psfc(n,m)
           end do
         end do
       case ('tsfc')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%tsfc(n,m)
+            ptr2d(m,n) = exportFields%tsfc(n,m)
           end do
         end do
       case ('qsfc')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%qsfc(n,m)
+            ptr2d(m,n) = exportFields%qsfc(n,m)
           end do
         end do
       case ('lwrd')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%lwrd(n,m)
+            ptr2d(m,n) = exportFields%lwrd(n,m)
           end do
         end do
       case ('dlwr')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%dlwr(n,m)
+            ptr2d(m,n) = exportFields%dlwr(n,m)
           end do
         end do
       case ('lhfx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%lhfx(n,m)
+            ptr2d(m,n) = exportFields%lhfx(n,m)
           end do
         end do
       case ('shfx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%shfx(n,m)
+            ptr2d(m,n) = exportFields%shfx(n,m)
           end do
         end do
       case ('prec')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%prec(n,m)
+            ptr2d(m,n) = exportFields%prec(n,m)
           end do
         end do
       case ('wndu')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%wndu(n,m)
+            ptr2d(m,n) = exportFields%wndu(n,m)
           end do
         end do
       case ('wndv')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%wndv(n,m)
+            ptr2d(m,n) = exportFields%wndv(n,m)
           end do
         end do
       case ('swrd')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%swrd(n,m)
+            ptr2d(m,n) = exportFields%swrd(n,m)
           end do
         end do
       case ('dswr')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%dswr(n,m)
+            ptr2d(m,n) = exportFields%dswr(n,m)
           end do
         end do
       case ('rnof')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%rnof(n,m)
+            ptr2d(m,n) = exportFields%rnof(n,m)
           end do
         end do
       case ('snof')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%snof(n,m)
+            ptr2d(m,n) = exportFields%snof(n,m)
           end do
         end do
       case ('taux')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%taux(n,m)
+            ptr2d(m,n) = exportFields%taux(n,m)
           end do
         end do
       case ('tauy')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%tauy(n,m)
+            ptr2d(m,n) = exportFields%tauy(n,m)
           end do
         end do
       case ('wspd')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%wspd(n,m)
+            ptr2d(m,n) = exportFields%wspd(n,m)
           end do
         end do
       case ('wdir')
@@ -1773,31 +2365,31 @@
           do n = jci1, jci2
             dd = atan2(exportFields%wndu(n,m), exportFields%wndv(n,m))
             if (dd < ZERO_R8) dd = dd+pi2
-            ptr(m,n) = dd
+            ptr2d(m,n) = dd
           end do
         end do
       case ('ustr')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%ustr(n,m)
+            ptr2d(m,n) = exportFields%ustr(n,m)
           end do
         end do
       case ('nflx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%nflx(n,m)
+            ptr2d(m,n) = exportFields%nflx(n,m)
           end do
         end do
       case ('sflx')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%sflx(n,m)
+            ptr2d(m,n) = exportFields%sflx(n,m)
           end do
         end do
       case ('snow')
         do m = ici1, ici2
           do n = jci1, jci2
-            ptr(m,n) = exportFields%snow(n,m)
+            ptr2d(m,n) = exportFields%snow(n,m)
           end do
         end do
       end select
@@ -1811,7 +2403,7 @@
         write(ofile,90) 'atm_export', trim(itemNameList(i)),            &
                         iyear, imonth, iday, ihour, localPet, j
         open(unit=iunit, file=trim(ofile)//'.txt') 
-        call print_matrix(transpose(ptr), ici1, ici2, jci1, jci2,       &
+        call print_matrix(transpose(ptr2d), ici1, ici2, jci1, jci2,     &
                           1, 1, localPet, iunit, "PTR/ATM/EXP")
         close(unit=iunit)
       end if 
@@ -1821,8 +2413,76 @@
 !     part in the memory 
 !-----------------------------------------------------------------------
 !
-      if (associated(ptr)) then
-        nullify(ptr)
+      if (associated(ptr2d)) then
+        nullify(ptr2d)
+      end if
+!
+      end do
+!
+      else if (models(Iatmos)%exportField(k)%rank .eq. 3) then
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid3d,                          &
+                        localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get field from export state 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(exportState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over decomposition elements (DEs) 
+!-----------------------------------------------------------------------
+!
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr3d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set initial value to missing 
+!-----------------------------------------------------------------------
+!
+      ptr3d = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Put data to export field 
+!-----------------------------------------------------------------------
+!
+      kz = models(Iatmos)%nLevs
+!
+      select case (trim(adjustl(itemNameList(i))))
+      case ('tlev')
+        do k = 1 , kz
+          do m = ici1, ici2
+            do n = jci1, jci2
+              ptr3d(m,n,k) = exportFields3d%t(n,m,k)
+            end do
+          end do
+        end do  
+      end select
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr3d)) then
+        nullify(ptr3d)
       end if
 !
       end do
@@ -1833,10 +2493,14 @@
 !
       if (debugLevel == 3) then
         write(ofile,100) 'atm_export', trim(itemNameList(i)),           &
-                        iyear, imonth, iday, ihour, localPet
-        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+                         iyear, imonth, iday, ihour, iminute, isec
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc',                 &
+                             variableName='data', overwrite=.true.,     &
+                             rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
+      end if
+!
       end if
 !
       end do
@@ -1852,8 +2516,10 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
- 100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+ 90   format(A10,'_',A,'_',                                             &
+             I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
+ 100  format(A10,'_',A,'_',                                             &
+             I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I2.2)
 !
       end subroutine ATM_Put
 !

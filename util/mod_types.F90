@@ -93,6 +93,7 @@
 !
       type ESM_Field
         integer :: fid
+        integer :: rank
         integer :: gtype        
         integer :: itype
         character(len=100) :: short_name
@@ -127,6 +128,8 @@
         integer :: nPets
         logical :: modActive
         integer :: tile(2)
+        integer :: nLevs
+        real(ESMF_KIND_R8), allocatable :: levs(:)
         integer, allocatable :: petList(:) 
         integer :: isLand
         integer :: isOcean
@@ -134,6 +137,7 @@
         type(ESM_Field), allocatable :: importField(:)
         type(ESM_Field), allocatable :: exportField(:)
         type(ESMF_Grid) :: grid
+        type(ESMF_Grid) :: grid3d
       end type ESM_Model
 !
 !-----------------------------------------------------------------------

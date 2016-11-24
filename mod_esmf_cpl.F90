@@ -358,6 +358,11 @@
 !
       end if
 !
+!-----------------------------------------------------------------------
+!     Interacting with other earth system model components (ATM, OCN), 
+!     co-processing component is not active.
+!-----------------------------------------------------------------------
+!
       else
 !
 !-----------------------------------------------------------------------
@@ -790,6 +795,19 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
 !
+      if (models(iSrc)%exportField(idSrc)%rank .eq. 2) then
+      call ESMF_FieldWrite(srcField, 'dumm_2d.nc',&
+                           variableName='data', overwrite=.true.,&
+                           rc=rc)
+      else if (models(iSrc)%exportField(idSrc)%rank .eq. 3) then 
+      call ESMF_FieldWrite(srcField, 'dumm_3d.nc',&
+                           variableName='data', overwrite=.true.,&
+                           rc=rc)
+      end if
+!
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+          line=__LINE__, file=FILENAME)) return
+
       else
 !
 !-----------------------------------------------------------------------
