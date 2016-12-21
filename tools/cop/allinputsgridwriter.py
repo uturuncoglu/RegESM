@@ -8,9 +8,9 @@ outputfrequency = 1 #5
 # the name of the inputs that the adaptor provides
 # for most it will just be 'input' by convention
 #namedinputs = ['ocn_input2d']
-namedinputs = ['atm_input2d']
+#namedinputs = ['atm_input2d']
 #namedinputs = ['atm_input2d', 'ocn_input2d']
-#namedinputs = ['atm_input2d', 'atm_input3d']
+namedinputs = ['atm_input2d', 'atm_input3d']
 #namedinputs = ['atm_input2d', 'atm_input3d', 'ocn_input2d']
 #namedinputs = ['atm_input2d', 'atm_input3d', 'ocn_input2d', 'ocn_input3d']
 
@@ -50,6 +50,7 @@ def CreateCoProcessor():
   coprocessor = CoProcessor()
   freqs = {}
   for name in namedinputs:
+    print name
     freqs[name] = [outputfrequency]
 
   coprocessor.SetUpdateFrequencies(freqs)

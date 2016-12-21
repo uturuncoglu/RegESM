@@ -26,6 +26,7 @@ namespace ESMFAdaptor {
     GridName(NULL),
     NProc(-1), 
     MPIRank(-1), 
+    NPoints(0),
     NCells(0),
     NLon(0), 
     NLat(0), 
@@ -63,26 +64,29 @@ namespace ESMFAdaptor {
     // insert grid coordinate to points
     //
     points->SetDataTypeToDouble();
-    points->SetNumberOfPoints(this->NCells);
-    if (this->Lev == NULL) {
-      for (int i = 0; i < this->NCells; i++) {
+    points->SetNumberOfPoints(this->NPoints);
+    if (this->Lev == NULL) { // 2d
+      for (int i = 0; i < this->NPoints; i++) {
         points->SetPoint(i, this->Lon[i], this->Lat[i], 0);
       }
-    } else {
-      for (int i = 0; i < this->NCells; i++) {
+    } else { // 3d
+      for (int i = 0; i < this->NPoints; i++) {
         points->SetPoint(i, this->Lon[i], this->Lat[i], this->Lev[i]);
       }
     }
     grid->SetPoints(points);
-    if (this->Lev == NULL) {
+    if (this->Lev == NULL) { // 2d
       grid->SetExtent(this->IndLonL-1, this->IndLonU-1, 
                       this->IndLatL-1, this->IndLatU-1, 
                       0, 0);
-    } else {
+    } else { // 3d
       grid->SetExtent(this->IndLonL-1, this->IndLonU-1, 
                       this->IndLatL-1, this->IndLatU-1, 
                       this->IndLevL-1, this->IndLevU-1);
     }
+    
+    //std::cout << this->MPIRank << " " << this->IndLonL-1 << " " << this->IndLonU-1 << " " << this->IndLatL-1 << " " << this->IndLatU-1 << " " << this->IndLevL-1 << " " << this->IndLevU-1<< " " << NPoints << " " << grid->GetNumberOfPoints() << " " << grid->GetNumberOfCells() << " " << name << std::endl;
+    //std::cout << "There are " << grid->GetNumberOfPoints() << " points and " << grid->GetNumberOfCells() << " cells in " << name << " " << this->MPIRank << std::endl;
 
     //
     // create multi-block grid 
@@ -99,7 +103,6 @@ namespace ESMFAdaptor {
 
   template<GridType gridType>
   void Grid<gridType>::SetAttributeValue(vtkCPDataDescription* coprocessorData, double* data, const char* vname, const char* pname, int* size, int* mpiSize, int* mpiRank) {
-
     //
     // Get grid
     //
@@ -109,6 +112,12 @@ namespace ESMFAdaptor {
       vtkGenericWarningMacro("No adaptor grid to attach field data to.");
       return;
     }
+   
+    // OBSERVATION: GetNumberOfFields return non-zero if AddPointField is used 
+    //coprocessorData->GetInputDescriptionByName(pname)->AddPointField(vname);
+    //unsigned int nofid = coprocessorData->GetInputDescriptionByName(pname)->GetNumberOfFields();
+    //std::cout << pname << " " << nofid << std::endl;
+    //std::cout << *mpiRank << " of " << *mpiSize << " " << vname << " " << pname << std::endl;
 
     //
     // Create dataset and fill with input data
@@ -116,8 +125,17 @@ namespace ESMFAdaptor {
     vtkMultiPieceDataSet *multiPiece = vtkMultiPieceDataSet::SafeDownCast(grid->GetBlock(0));
     vtkDataSet *dataSet = vtkDataSet::SafeDownCast(multiPiece->GetPiece(*mpiRank));
 
+    //
+    // Check variable
+    //
+    //if (dataSet->GetPointData()->HasArray(vname)) {
+    //  dataSet->GetPointData()->RemoveArray(vname);
+    //  std::cout << "variable removed = " << vname << std::endl; 
+    //}
+
     // BUG: idd->IsFieldNeeded(vname) always return False after first time step
     // FIX: the control is removed to solve it temporary. need to revisit again
+    //std::cout <<  vname << " " << idd->IsFieldNeeded(vname) << std::endl;
     //if (idd->IsFieldNeeded(vname)) {
       //std::cout << "update variable " << vname << " " << coprocessorData->GetTime() << std::endl;
       vtkSmartPointer<vtkDoubleArray> field = vtkSmartPointer<vtkDoubleArray>::New();
@@ -130,7 +148,10 @@ namespace ESMFAdaptor {
         field->SetValue(i, data[i]);
       } 
 
-      dataSet->GetPointData()->AddArray(field);
+      int i = dataSet->GetPointData()->AddArray(field);
+      //std::cout << *mpiRank << " " << vname << " " << i << " " << dataSet->GetPointData()->GetNumberOfArrays() << std::endl;
+      //field->Delete();
+
       //for (int i = 0; i < *size; i++) {
       //  std::cout << vname << " = " << *mpiRank << " " << i << " " << data[i] << std::endl;
       //}
@@ -166,30 +187,35 @@ namespace ESMFAdaptor {
     this->NCells = ncells;
   }
 
+  template<GridType gridType>
+  void Grid<gridType>::SetNPoints(int npoints) {
+    this->NPoints = npoints;
+  }
+
   template<GridType gridType>  
-  void Grid<gridType>::SetLon(int nlon, int ncells, double* lon) {
+  void Grid<gridType>::SetLon(int nlon, int npoints, double* lon) {
     this->NLon = nlon;
     if (lon) {
-      this->Lon = new double[ncells];
-      std::copy(lon, lon + ncells, this->Lon);
+      this->Lon = new double[npoints];
+      std::copy(lon, lon + npoints, this->Lon);
     }
   }
   
   template<GridType gridType>  
-  void Grid<gridType>::SetLat(int nlat, int ncells, double* lat) { 
+  void Grid<gridType>::SetLat(int nlat, int npoints, double* lat) { 
     this->NLat = nlat;
     if (lat) {
-      this->Lat = new double[ncells];
-      std::copy(lat, lat + ncells, this->Lat);
+      this->Lat = new double[npoints];
+      std::copy(lat, lat + npoints, this->Lat);
     }
   }
 
   template<GridType gridType>
-  void Grid<gridType>::SetLev(int nlev, int ncells, double* lev) {
+  void Grid<gridType>::SetLev(int nlev, int npoints, double* lev) {
     this->NLev = nlev;
     if (lev) {
-      this->Lev = new double[ncells];
-      std::copy(lev, lev + ncells, this->Lev);
+      this->Lev = new double[npoints];
+      std::copy(lev, lev + npoints, this->Lev);
     }
   }
 
@@ -198,11 +224,17 @@ namespace ESMFAdaptor {
     if (lb) {
       this->IndLonL = lb[0];
       this->IndLatL = lb[1];
+      //this->IndLatL = lb[0];
+      //this->IndLonL = lb[1];
+      //this->IndLevL = 0;
       if (lb[2] > 0) this->IndLevL = lb[2]; 
     }
     if (ub) {
       this->IndLonU = ub[0];
       this->IndLatU = ub[1];
+      //this->IndLatU = ub[0];
+      //this->IndLonU = ub[1];
+      //this->IndLevU = 0;
       if (ub[2] > 0) this->IndLevU = ub[2]; 
     }
   }
@@ -213,8 +245,10 @@ namespace ESMFAdaptor {
     if (idd) {
       if (dims[2] == 0) {
         idd->SetWholeExtent(0, dims[0]-1, 0, dims[1]-1, 0, 0);
+        //idd->SetWholeExtent(0, dims[1]-1, 0, dims[0]-1, 0, 0);
       } else {
         idd->SetWholeExtent(0, dims[0]-1, 0, dims[1]-1, 0, dims[2]-1);
+        //idd->SetWholeExtent(0, dims[1]-1, 0, dims[0]-1, 0, dims[2]-1);
       }
       idd->SetGrid(grid);
       return true;
@@ -231,9 +265,12 @@ namespace ESMFAdaptor {
   // returns the grid
   template<GridType gridType>
   char* Grid<gridType>::GetName() {
-    //char* buf = new char[strlen(this->GridName)];
-    //strcpy(buf, this->GridName);  
     return this->GridName;
+  }
+
+  template<GridType gridType>
+  int Grid<gridType>::GetNPoints() {
+    return this->NPoints;
   }
 
   template<GridType gridType>

@@ -677,7 +677,7 @@
       if (i == 1) then
       models(Iatmos)%grid = ESMF_GridCreate(distgrid=distGrid,          &
                                             indexflag=ESMF_INDEX_GLOBAL,&
-                                            name="atm_grid",            &
+                                            name="atm_grid2d",          &
                                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1009,7 +1009,7 @@
       if (i == 1) then
       models(Iatmos)%grid3d = ESMF_GridCreate(distgrid=distGrid,        &
                                             indexflag=ESMF_INDEX_GLOBAL,&
-                                            name="atm_grid",            &
+                                            name="atm_grid3d",          &
                                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1105,17 +1105,23 @@
         end do
 !
         if (ma%has_bdyright) then
-           ptrX(:,jde2+1,:) = ptrX(:,jde2,:)+(ptrX(:,jde2,:)-           &
-                              ptrX(:,jde2-1,:))
-           ptrY(:,jde2+1,:) = ptrY(:,jde2,:)+(ptrY(:,jde2,:)-           &
-                              ptrY(:,jde2-1,:))
+          do k0 = 1 , kz
+            ptrX(:,jde2+1,k0) = ptrX(:,jde2,k0)+(ptrX(:,jde2,k0)-       &
+                                ptrX(:,jde2-1,k0))
+            ptrY(:,jde2+1,k0) = ptrY(:,jde2,k0)+(ptrY(:,jde2,k0)-       &
+                                ptrY(:,jde2-1,k0))
+            ptrZ(:,jde2+1,k0) = models(Iatmos)%levs(k0)
+          end do
         end if
 !
         if (ma%has_bdytop) then
-          ptrX(ide2+1,:,:) = ptrX(ide2,:,:)+(ptrX(ide2,:,:)-            &
-                             ptrX(ide2-1,:,:))
-          ptrY(ide2+1,:,:) = ptrY(ide2,:,:)+(ptrY(ide2,:,:)-            &
-                             ptrY(ide2-1,:,:))
+          do k0 = 1 , kz
+            ptrX(ide2+1,:,k0) = ptrX(ide2,:,k0)+(ptrX(ide2,:,k0)-       &
+                                ptrX(ide2-1,:,k0))
+            ptrY(ide2+1,:,k0) = ptrY(ide2,:,k0)+(ptrY(ide2,:,k0)-       &
+                                ptrY(ide2-1,:,k0))
+            ptrZ(ide2+1,:,k0) = models(Iatmos)%levs(k0)
+          end do
         end if
       else if (models(Iatmos)%mesh(i)%gtype == Icross) then
         if (debugLevel > 0) then
@@ -1136,17 +1142,23 @@
         end do
 !
         if (ma%has_bdyright) then
-           ptrX(:,jce2+1,:) = ptrX(:,jce2,:)+(ptrX(:,jce2,:)-           &
-                              ptrX(:,jce2-1,:))
-           ptrY(:,jce2+1,:) = ptrY(:,jce2,:)+(ptrY(:,jce2,:)-           &
-                              ptrY(:,jce2-1,:))
+          do k0 = 1 , kz
+            ptrX(:,jce2+1,k0) = ptrX(:,jce2,k0)+(ptrX(:,jce2,k0)-       &
+                                ptrX(:,jce2-1,k0))
+            ptrY(:,jce2+1,k0) = ptrY(:,jce2,k0)+(ptrY(:,jce2,k0)-       &
+                                ptrY(:,jce2-1,k0))
+            ptrZ(:,jce2+1,k0) = models(Iatmos)%levs(k0) 
+          end do
         end if
 !
         if (ma%has_bdytop) then
-          ptrX(ice2+1,:,:) = ptrX(ice2,:,:)+(ptrX(ice2,:,:)-            &
-                             ptrX(ice2-1,:,:))
-          ptrY(ice2+1,:,:) = ptrY(ice2,:,:)+(ptrY(ice2,:,:)-            &
-                             ptrY(ice2-1,:,:))
+          do k0 = 1 , kz
+            ptrX(ice2+1,:,k0) = ptrX(ice2,:,k0)+(ptrX(ice2,:,k0)-       &
+                                ptrX(ice2-1,:,k0))
+            ptrY(ice2+1,:,k0) = ptrY(ice2,:,k0)+(ptrY(ice2,:,k0)-       &
+                                ptrY(ice2-1,:,k0))
+            ptrZ(ice2+1,:,k0) = models(Iatmos)%levs(k0) 
+          end do
         end if
       end if
 !
@@ -2110,8 +2122,14 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
+      use mod_hgt, only : htsig_o
+      use mod_mppparam, only : ma
       use mod_update, only : exportFields, exportFields3d
       use mod_dynparam, only : ici1, ici2, jci1, jci2
+      use mod_dynparam, only : ice1, ice2, jce1, jce2
+      use mod_dynparam, only : kz, ptop 
+      use mod_atm_interface, only : mddom
+      use mod_domain, only : mddom_io
 !
       implicit none
 !
@@ -2126,13 +2144,14 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, k, ii, jj, dd, m, n, imin, imax, jmin, jmax, kz
+      integer :: i, j, k, ii, jj, dd, m, n, imin, imax, jmin, jmax
       integer :: iyear, iday, imonth, ihour, iminute, isec, iunit
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8), pointer :: ptr2d(:,:)
       real(ESMF_KIND_R8), pointer :: ptr3d(:,:,:)
+      real(ESMF_KIND_R8), allocatable :: hzvar(:,:,:) 
       integer(ESMF_KIND_I8) :: tstep
 !
       type(ESMF_VM) :: vm
@@ -2206,8 +2225,6 @@
       do i = 1, itemCount
 !
       k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
-!
-      print*, i, trim(itemNameList(i)), models(Iatmos)%exportField(k)%rank
 !
 !-----------------------------------------------------------------------
 !     Check rank of the export field 
@@ -2395,6 +2412,28 @@
       end select
 !
 !-----------------------------------------------------------------------
+!     Fill domain boundaries with data 
+!-----------------------------------------------------------------------
+!
+      if (ma%has_bdytop) then ! right 
+        ptr2d(ice2,:) = ptr2d(ice2-1,:)
+        ptr2d(ice2+1,:) = ptr2d(ice2-1,:)
+      end if 
+!
+      if (ma%has_bdybottom) then ! left
+        ptr2d(ice1,:) = ptr2d(ice1+1,:)
+      end if
+!
+      if (ma%has_bdyright) then !top
+        ptr2d(:,jce2) = ptr2d(:,jce2-1)
+        ptr2d(:,jce2+1) = ptr2d(:,jce2-1)
+      end if
+!
+      if (ma%has_bdyleft) then ! bottom
+        ptr2d(:,jce1) = ptr2d(:,jce1+1)
+      end if
+!
+!-----------------------------------------------------------------------
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
 !
@@ -2460,6 +2499,19 @@
       ptr3d = MISSING_R8
 !
 !-----------------------------------------------------------------------
+!     Calculate heights on sigma surfaces
+!-----------------------------------------------------------------------
+!
+!      if (.not. allocated(hzvar)) then
+!        allocate(hzvar(jce2-jce1+1,ice2-ice1+1,kz))
+!      end if    
+!
+!      call htsig_o(exportFields3d%t, hzvar, exportFields%psfc, mddom%ht, mddom_io%sigma, ptop,jce2-jce1+1,ice2-ice1+1,kz)
+!
+!      sfs%psa(j,i) atm0%ps(j,i)
+!      call htsig_o(exportFields3d%t, hzvar, ps, topo, sigma, ptop,   
+!
+!-----------------------------------------------------------------------
 !     Put data to export field 
 !-----------------------------------------------------------------------
 !
@@ -2468,13 +2520,67 @@
       select case (trim(adjustl(itemNameList(i))))
       case ('tlev')
         do k = 1 , kz
-          do m = ici1, ici2
-            do n = jci1, jci2
+          do m = ice1, ice2
+            do n = jce1, jce2
               ptr3d(m,n,k) = exportFields3d%t(n,m,k)
             end do
           end do
         end do  
+      case ('qlev')
+        do k = 1 , kz
+          do m = ice1, ice2
+            do n = jce1, jce2
+              ptr3d(m,n,k) = exportFields3d%q(n,m,k)
+            end do
+          end do
+        end do
+      case ('ulev')
+        do k = 1 , kz
+          do m = ice1, ice2
+            do n = jce1, jce2
+              ptr3d(m,n,k) = exportFields3d%u(n,m,k)
+            end do
+          end do
+        end do
+      case ('vlev')
+        do k = 1 , kz
+          do m = ice1, ice2
+            do n = jce1, jce2
+              ptr3d(m,n,k) = exportFields3d%v(n,m,k)
+            end do
+          end do
+        end do
       end select
+!
+!-----------------------------------------------------------------------
+!     Fill domain boundaries with data 
+!-----------------------------------------------------------------------
+!
+      if (ma%has_bdytop) then ! right 
+        do k = 1 , kz
+          ptr3d(ice2,:,k) = ptr3d(ice2-1,:,k)
+          ptr3d(ice2+1,:,k) = ptr3d(ice2-1,:,k)
+        end do
+      end if
+!
+      if (ma%has_bdybottom) then ! left
+        do k = 1 , kz
+          ptr3d(ice1,:,k) = ptr3d(ice1+1,:,k)
+        end do
+      end if
+!
+      if (ma%has_bdyright) then !top
+        do k = 1 , kz
+          ptr3d(:,jce2,k) = ptr3d(:,jce2-1,k)
+          ptr3d(:,jce2+1,k) = ptr3d(:,jce2-1,k)
+        end do
+      end if
+!
+      if (ma%has_bdyleft) then ! bottom
+        do k = 1 , kz
+          ptr3d(:,jce1,k) = ptr3d(:,jce1+1,k)
+        end do
+      end if
 !
 !-----------------------------------------------------------------------
 !     Nullify pointer to make sure that it does not point on a random 
@@ -2486,6 +2592,8 @@
       end if
 !
       end do
+!
+      end if
 !
 !-----------------------------------------------------------------------
 !     Debug: write field in netCDF format    
@@ -2499,8 +2607,6 @@
                              rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
-      end if
-!
       end if
 !
       end do

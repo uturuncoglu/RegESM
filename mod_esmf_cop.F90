@@ -243,8 +243,8 @@
         if (localPet == models(Icopro)%petList(1)) then
           write(*,20) "[ERROR "//trim(models(Icopro)%name)//"] - "//    &
                       trim(coproc_fname)//" not found! exiting ..."
-          call ESMF_Finalize(endflag=ESMF_END_ABORT)
         end if
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
 !
 !-----------------------------------------------------------------------
@@ -253,8 +253,6 @@
 !
   10  format(A,I02,A)
   20  format(A)
-!
-      print*, "COP_SetInitializeP0"
 !
       end subroutine COP_SetInitializeP0
 !
@@ -310,8 +308,6 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end do
-!
-      print*, "COP_SetInitializeP1"
 !
       end subroutine COP_SetInitializeP1
 !
@@ -436,7 +432,7 @@
 !
       do k = 1, dimCount
         if (k < 3) then
-          regDecompPTile(k, 1) = models(Icopro)%tile(k)
+          regDecompPTile(k, 1) = models(Icopro)%tile(3-k)
         else
           regDecompPTile(k, 1) = 1
         end if
@@ -491,8 +487,6 @@
 !
       end do
 !
-      print*, "COP_SetInitializeP4"
-!
       end subroutine COP_SetInitializeP4
 !
       subroutine COP_SetInitializeP5(gcomp,                             &
@@ -515,8 +509,10 @@
 !     Local variable declarations
 !-----------------------------------------------------------------------
 !
-      integer :: i, itemCount
+      integer :: i, j, k, itemCount, localDECount
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+      real(ESMF_KIND_R8), pointer :: ptr2d(:,:)
+      real(ESMF_KIND_R8), pointer :: ptr3d(:,:,:)
 !
       type(ESMF_Field) :: field
 !
@@ -542,6 +538,8 @@
 !
       do i = 1, itemCount
 !
+      k = get_varid(models(Icopro)%importField, trim(itemNameList(i)))
+!
 !-----------------------------------------------------------------------
 !     Get field from import state
 !-----------------------------------------------------------------------
@@ -559,9 +557,75 @@
                                    rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get local DE count 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over decomposition elements (DEs) 
+!-----------------------------------------------------------------------
+!
+      do j = 0, localDECount-1
+      if (models(Icopro)%importField(k)%rank .eq. 2) then
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr2d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set initial value to missing 
+!-----------------------------------------------------------------------
+!
+      ptr2d = MISSING_R8      
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr2d)) then
+        nullify(ptr2d)
+      end if
+!
+      else if (models(Icopro)%importField(k)%rank .eq. 3) then
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr3d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set initial value to missing 
+!-----------------------------------------------------------------------
+!
+      ptr3d = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr3d)) then
+        nullify(ptr3d)
+      end if
+!
+      end if
+!
       end do
 !
-      print*, "COP_SetInitializeP5"
+      end do
 !
       end subroutine COP_SetInitializeP5
 !
@@ -593,8 +657,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      print*, "COP_DataInit"
-!
       end subroutine COP_DataInit
 !
       subroutine COP_ModelAdvance(gcomp, rc)
@@ -611,12 +673,12 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, k, tileX, tileY 
+      integer :: i, j, k, its, tileX, tileY 
       integer :: localPet, petCount, itemCount, dimCount, tileCount
       integer :: nPoints2D, nPoints3D  
       integer :: cc2d(2), cc3d(3), lb(3), ub(3)
       integer, allocatable :: minIndexPTile(:,:), maxIndexPTile(:,:)
-      character(ESMF_MAXSTR) :: gname
+      character(ESMF_MAXSTR) :: gname, str1, str2
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       logical :: hasRight, hasTop, flag
       real(ESMF_KIND_R8) :: dtime
@@ -644,7 +706,7 @@
       type(ESMF_Field) :: field
       type(ESMF_Array) :: arrX, arrY, arrZ
       type(ESMF_Clock) :: clock
-      type(ESMF_TimeInterval) :: elapsedTime
+      type(ESMF_TimeInterval) :: elapsedTime, timeStep
       type(ESMF_Time) :: startTime, currTime
       type(ESMF_DistGrid) :: distgrid
       type(ESMF_State) :: importState 
@@ -722,12 +784,25 @@
                              line=__LINE__, file=__FILE__)) return
 !
 !-----------------------------------------------------------------------
+!     Change grid name to be consistent with input ports of Catalyst
+!-----------------------------------------------------------------------
+!
+      if (dimCount == 2) then
+        gname = replace_str(gname, "_grid2d", "_input2d")
+      else
+        gname = replace_str(gname, "_grid3d", "_input3d")
+      end if
+!
+!-----------------------------------------------------------------------
 !     allocate minIndexPTile, maxIndexPTile and connectionList
 !-----------------------------------------------------------------------
 !
       if (.not. allocated(minIndexPTile)) then
-        allocate(minIndexPTile(dimCount, tileCount),                    &
-                 maxIndexPTile(dimCount, tileCount))
+        allocate(minIndexPTile(dimCount, tileCount))
+      end if
+!
+      if (.not. allocated(maxIndexPTile)) then
+        allocate(maxIndexPTile(dimCount, tileCount)) 
       end if
 !
 !-----------------------------------------------------------------------
@@ -749,10 +824,10 @@
       tileY = models(Icopro)%tile(2)
 !
       hasRight = .false.
-      if (mod(localPet,tileX) < tileX-1) hasRight = .true.
+      if ((localPet/tileY+1) < tileX) hasRight = .true.
 !
       hasTop = .false.
-      if ((localPet/tileX+1) < tileY) hasTop = .true.
+      if (mod(localPet+1,tileY) /= 0) hasTop = .true.
 !
 !-----------------------------------------------------------------------
 !     Define grid in co-processor side if it is not already defined
@@ -810,8 +885,8 @@
 !-----------------------------------------------------------------------
 !
       nPoints2D = 1
-      if (hasRight) cc2d(1) = cc2d(1)+1
-      if (hasTop) cc2d(2) = cc2d(2)+1
+      if (hasTop) cc2d(1) = cc2d(1)+1
+      if (hasRight) cc2d(2) = cc2d(2)+1
       do k = 1, 2
         nPoints2D = nPoints2D*cc2d(k)
       end do
@@ -823,8 +898,20 @@
       lb = (/ lbound(ptr2X,dim=1), lbound(ptr2X,dim=2), 0 /)
       ub = (/ ubound(ptr2X,dim=1), ubound(ptr2X,dim=2), 0 /)
 !
-      if (hasRight) ub(1) = ub(1)+1
-      if (hasTop) ub(2) = ub(2)+1
+      if (hasTop) ub(1) = ub(1)+1
+      if (hasRight) ub(2) = ub(2)+1
+!
+      if (debugLevel > 1) then
+        if (localPet == 0) then
+        write(*,fmt="(A)") "---------------------------------------"
+        write(*,fmt="(A)") trim(to_upper(gname))//" GRID DEFINITION"
+        write(*,fmt="(A)") "---------------------------------------"
+        end if
+        write(*,fmt="(I3,4I5,2I8,I10,2I5,2L3)") localPet, lb(1), ub(1), &
+                             lb(2), ub(2), cc2d(1), cc2d(2), nPoints2D, &
+                             maxIndexPTile(1,1),maxIndexPTile(2,1),     &
+                             hasRight, hasTop
+      end if
 !
       if (.not. allocated(lon1d)) then
         allocate(lon1d(nPoints2D))
@@ -839,8 +926,6 @@
 !-----------------------------------------------------------------------
 !     Define grid (2d) in co-porcessing side via Catalyst adaptor
 !-----------------------------------------------------------------------
-!
-      gname = replace_str(gname, "_grid", "_input2d")
 !
       flag = catalyst_create_grid(0, 0.0d0, trim(gname)//char(0),       &
                                   petCount, localPet,                   &
@@ -860,6 +945,8 @@
 !     Deallocate temporary arrays to free the memory
 !-----------------------------------------------------------------------
 !
+      if (allocated(lon1d)) deallocate(lon1d)
+      if (allocated(lat1d)) deallocate(lat1d)
       if (allocated(lon2d)) deallocate(lon2d)
       if (allocated(lat2d)) deallocate(lat2d)
 !
@@ -932,8 +1019,8 @@
 !-----------------------------------------------------------------------
 !
       nPoints3D = 1
-      if (hasRight) cc3d(1) = cc3d(1)+1
-      if (hasTop) cc3d(2) = cc3d(2)+1
+      if (hasRight) cc3d(2) = cc3d(2)+1
+      if (hasTop) cc3d(1) = cc3d(1)+1
       do k = 1, 3
         nPoints3D = nPoints3D*cc3d(k)
       end do
@@ -947,8 +1034,21 @@
       ub = (/ ubound(ptr3X,dim=1), ubound(ptr3X,dim=2),                 &
               ubound(ptr3X,dim=3) /)
 !
-      if (hasRight) ub(1) = ub(1)+1
-      if (hasTop) ub(2) = ub(2)+1
+      if (hasRight) ub(2) = ub(2)+1
+      if (hasTop) ub(1) = ub(1)+1
+!
+      if (debugLevel > 1) then
+        if (localPet == 0) then
+        write(*,fmt="(A)") "---------------------------------------"
+        write(*,fmt="(A)") trim(to_upper(gname))//" GRID DEFINITION"
+        write(*,fmt="(A)") "---------------------------------------"
+        end if
+        write(*,fmt="(I3,6I5,3I8,I10,3I5,2L3)") localPet, lb(1), ub(1), &
+                             lb(2), ub(2), lb(3), ub(3),                &
+                             cc3d(1), cc3d(2), cc3d(3), nPoints3D,      &
+                             maxIndexPTile(1,1),maxIndexPTile(2,1),     &
+                             maxIndexPTile(3,1), hasRight, hasTop
+      end if
 !
       if (.not. allocated(lon1d)) then
         allocate(lon1d(nPoints3D))
@@ -967,11 +1067,9 @@
 !     Define grid (2d) in co-porcessing side via Catalyst adaptor
 !-----------------------------------------------------------------------
 !
-      gname = replace_str(gname, "_grid", "_input3d")
-!
       flag = catalyst_create_grid(0, 0.0d0, trim(gname)//char(0),       &
                                   petCount, localPet,                   &
-                                  (/maxIndexPTile(:,1),0/),             &
+                                  maxIndexPTile(:,1),                   &
                                   lb, ub, nPoints3D,                    &
                                   lon1d, lat1d, lev1d)
 !
@@ -988,6 +1086,9 @@
 !     Deallocate temporary arrays to free the memory
 !-----------------------------------------------------------------------
 !
+      if (allocated(lon1d)) deallocate(lon1d)
+      if (allocated(lat1d)) deallocate(lat1d)
+      if (allocated(lev1d)) deallocate(lev1d)
       if (allocated(lon3d)) deallocate(lon3d)
       if (allocated(lat3d)) deallocate(lat3d)
       if (allocated(lev3d)) deallocate(lev3d)
@@ -1000,6 +1101,16 @@
 !
       gridnames(j) = trim(gname)
       j = j+1
+!
+!-----------------------------------------------------------------------
+!     Debug: write out component grid in VTK format 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+      call ESMF_GridWriteVTK(grid,filename="coproc_"//trim(gname),rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
       end if
 !
@@ -1031,8 +1142,8 @@
       lb = (/ lbound(ptr2d,dim=1), lbound(ptr2d,dim=2), 0 /)
       ub = (/ ubound(ptr2d,dim=1), ubound(ptr2d,dim=2), 0 /)
 !
-      if (hasRight) ub(1) = ub(1)+1
-      if (hasTop) ub(2) = ub(2)+1
+      if (hasRight) ub(2) = ub(2)+1
+      if (hasTop) ub(1) = ub(1)+1
 !
       nPoints2D = 1
       do k = 1, 2
@@ -1050,7 +1161,7 @@
 !     Add field to co-processor
 !-----------------------------------------------------------------------
 !
-      gname = replace_str(gname, "_grid", "_input2d")
+      gname = replace_str(gname, "_grid2d", "_input2d")
 !
       call add_scalar(var1d, trim(itemNameList(i))//char(0), nPoints2D, &
                       petCount, localPet, trim(gname)//char(0))
@@ -1096,8 +1207,8 @@
       ub = (/ ubound(ptr3d,dim=1), ubound(ptr3d,dim=2),                 &
               ubound(ptr3d,dim=3) /)
 !
-      if (hasRight) ub(1) = ub(1)+1
-      if (hasTop) ub(2) = ub(2)+1
+      if (hasRight) ub(2) = ub(2)+1
+      if (hasTop) ub(1) = ub(1)+1
 !
       nPoints3D = 1
       do k = 1, 3
@@ -1115,7 +1226,7 @@
 !     Add field to Catalyst
 !-----------------------------------------------------------------------
 !
-      gname = replace_str(gname, "_grid", "_input3d")
+      gname = replace_str(gname, "_grid3d", "_input3d")
 !
       call add_scalar(var1d, trim(itemNameList(i))//char(0), nPoints3D, &
                       petCount, localPet, trim(gname)//char(0))
@@ -1136,6 +1247,13 @@
 !
       end if
 !
+!-----------------------------------------------------------------------
+!     Deallocate temporary arrays to free the memory
+!-----------------------------------------------------------------------
+!
+      if (allocated(minIndexPTile)) deallocate(minIndexPTile)
+      if (allocated(maxIndexPTile)) deallocate(maxIndexPTile)
+!
       end do
 !
 !-----------------------------------------------------------------------
@@ -1149,9 +1267,19 @@
 !-----------------------------------------------------------------------
 !
       call ESMF_ClockGet(clock, currTime=currTime,                      &
-                         startTime=startTime, rc=rc)
+                         startTime=startTime, timeStep=timeStep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_TimeGet(currTime,                                       &
+                        timeStringISOFrac=str1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime+timeStep,                              &
+                        timeStringISOFrac=str2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
       elapsedTime = currTime-startTime
 !
@@ -1163,12 +1291,26 @@
 !     Call co-processing
 !-----------------------------------------------------------------------
 !
-      call my_requestdatadescription(int(dtime), dtime, flag)
+      its = int(elapsedTime/timeStep)
+      call my_requestdatadescription(its, dtime, flag)
       if (flag) then
         call my_coprocess()
       end if
 !
-      print*, "COP_ModelAdvance = ", int(dtime), dtime, flag
+!-----------------------------------------------------------------------
+!     Debug: write time information 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel >= 0 .and. localPet == 0) then
+        write(*,40) trim(str1), trim(str2), its, dtime
+      end if
+!
+!-----------------------------------------------------------------------
+!     Formats 
+!-----------------------------------------------------------------------
+!
+ 40   format(' Running COP Component: ',A,' --> ',A,                    &
+             ' Time Step:',I6,' [',F15.2,']')
 !
       end subroutine COP_ModelAdvance
 !
@@ -1301,8 +1443,6 @@
       if (flag1) then
         continueProcessing = .true.
         call my_needtocreategrid(flag2, name//char(0))
-        write(*,'(A," ",I2," ",I2)') "NEED TO CREATE GRID",             &
-                                     localPet, flag2
         if (present(lev1d)) then
           call create_grid(name//char(0), petCount, localPet,           &
                            dims, lb, ub, nPoints, lon1d, lat1d, lev1d)
@@ -1310,6 +1450,7 @@
           call create_grid(name//char(0), petCount, localPet,           &
                            dims, lb, ub, nPoints, lon1d, lat1d)
         end if
+        !write(*,fmt="(A,6I5,I8)") name//char(0), lb, ub, nPoints 
       else
         continueProcessing = .false.
       end if

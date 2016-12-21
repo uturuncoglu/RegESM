@@ -316,7 +316,8 @@
 !     Check routehandle (i.e. rh_ATM-COP_redist)
 !-----------------------------------------------------------------------
 !
-      rname = trim(cname)//'_redist'
+      write(rname, fmt="(A,'_',I1,'d_redist')") trim(cname),            &
+            models(iSrc)%exportField(idSrc)%rank
 !
       call ESMF_StateGet(state, itemSearch='rh_'//trim(rname),          &
                          itemCount=itemCount, rc=rc)
@@ -785,7 +786,8 @@
 !     Perform redistribute
 !-----------------------------------------------------------------------
 !
-      rname = trim(cname)//'_redist'
+      write(rname, fmt="(A,'_',I1,'d_redist')") trim(cname),            &
+            models(iSrc)%exportField(idSrc)%rank
 !
       call ESMF_StateGet(state, 'rh_'//trim(rname), routeHandle, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -795,19 +797,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
 !
-      if (models(iSrc)%exportField(idSrc)%rank .eq. 2) then
-      call ESMF_FieldWrite(srcField, 'dumm_2d.nc',&
-                           variableName='data', overwrite=.true.,&
-                           rc=rc)
-      else if (models(iSrc)%exportField(idSrc)%rank .eq. 3) then 
-      call ESMF_FieldWrite(srcField, 'dumm_3d.nc',&
-                           variableName='data', overwrite=.true.,&
-                           rc=rc)
-      end if
-!
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
-          line=__LINE__, file=FILENAME)) return
-
       else
 !
 !-----------------------------------------------------------------------

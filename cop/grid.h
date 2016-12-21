@@ -27,6 +27,9 @@ namespace ESMFAdaptor {
       // total number of MPI processes
       int NProc;
 
+      // total number of points on a MPI process
+      int NPoints;
+
       // total number of cells on a MPI process
       int NCells;
 
@@ -68,6 +71,10 @@ namespace ESMFAdaptor {
       // sets MPI rank
       void SetMPIRank(int rank);
 
+      // sets total number of points on a MPI processor
+      void SetNPoints(int ncells);
+      int GetNPoints();
+      
       // sets total number of cells on a MPI processor
       void SetNCells(int ncells);
       int GetNCells();
