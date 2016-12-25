@@ -46,6 +46,7 @@ AC_ARG_WITH([atm],
             [Path to ATM model installation (default: none)]),
   [ATM_PREFIX="$withval"], [ATM_PREFIX="none"]
 )
+
 AM_CONDITIONAL(DO_COMPILE_LIBATM, [test -d "$ATM_PREFIX"])
 AC_SUBST(ATM_PREFIX)
 
@@ -54,13 +55,23 @@ if eval "test x$ATM_PREFIX != xnone"; then
     AC_MSG_ERROR([check atmosphere model installation path $ATM_PREFIX])
   fi
 
-  NO_ATM_SUPPORT=1
+  # check RegCM model is installed with coupling support or not?
+  NO_RCM_SUPPORT=1
   AC_CHECK_FILE([$ATM_PREFIX/Main/mod_update.o],
-                [NO_ATM_SUPPORT=0; AC_MSG_NOTICE([compiling with atmosphere model - RegCM - support])])
-  if eval "test x$NO_ATM_SUPPORT = x1"; then
-    AC_MSG_ERROR([required source file 'mod_update.o' is not found! atmosphere model should be installed with coupling support.])
+                [NO_RCM_SUPPORT=0; AC_MSG_NOTICE([compiling with atmosphere model - RegCM - support])])
+
+  # check WRF model is installed with coupling support or not?
+  NO_WRF_SUPPORT=1
+  AC_CHECK_FILE([$ATM_PREFIX/main/real_em.o],
+                [NO_WRF_SUPPORT=0; AC_MSG_NOTICE([compiling with atmosphere model - WRF - support])])
+
+  if eval "test x$NO_RCM_SUPPORT = x1 -a x$NO_WRF_SUPPORT = x1"; then
+    AC_MSG_ERROR([required source files 'mod_update.o' or 'real_em.o' are not found! atmosphere model should be installed with coupling support.])
   fi
 fi
+
+AM_CONDITIONAL(DO_COMPILE_RCM, [test x"$NO_RCM_SUPPORT" = x0])
+AM_CONDITIONAL(DO_COMPILE_WRF, [test x"$NO_WRF_SUPPORT" = x0])
 
 # check OCN
 AC_ARG_WITH([ocn],
@@ -105,6 +116,7 @@ if eval "test x$OCN_PREFIX != xnone"; then
   #           [AM_CPPFLAGS="-DOCNWETDRY $AM_CPPFLAGS"; AC_MSG_NOTICE([compiling ocean model with wetting-drying support])],
   #            AC_MSG_WARN([compiling ocean model without wetting-drying support !!!]))
 fi
+
 AM_CONDITIONAL(DO_COMPILE_MIT, [test x"$NO_MIT_SUPPORT" = x0])  
 AM_CONDITIONAL(DO_COMPILE_ROMS, [test x"$NO_ROMS_SUPPORT" = x0])
 

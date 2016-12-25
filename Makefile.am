@@ -33,14 +33,33 @@ noinst_LIBRARIES =
 
 if DO_COMPILE_LIBATM
 LIBS += ${PWD}/libatm.a
-CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib \
-            -I$(ATM_PREFIX)/Main/batslib -I$(ATM_PREFIX)/Share
 noinst_LIBRARIES += libatm.a
 libatm_a_SOURCES = 
-libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/Main/*.o)     \
-                  $(wildcard $(ATM_PREFIX)/Main/*/*.o)   \
+
+if DO_COMPILE_RCM
+CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib \
+            -I$(ATM_PREFIX)/Main/batslib -I$(ATM_PREFIX)/Share
+libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/Main/*.o) \
+                  $(wildcard $(ATM_PREFIX)/Main/*/*.o) \
                   $(wildcard $(ATM_PREFIX)/Main/*/*/*.o) \
                   $(wildcard $(ATM_PREFIX)/Share/*.o)
+endif
+if DO_COMPILE_WRF
+CPPFLAGS += -I$(ATM_PREFIX)/Registry -I$(ATM_PREFIX)/inc \
+            -I$(ATM_PREFIX)/arch -I$(ATM_PREFIX)/frame
+libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/external/RSL_LITE/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/io_netcdf/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/io_grib1/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/io_grib1/*/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/io_int/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/io_grib_share/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/esmf_time_f90/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/fftpack/*/*.o) \
+                  $(wildcard $(ATM_PREFIX)/phys/*.o) \
+                  $(wildcard $(ATM_PREFIX)/share/*.o) \
+                  $(wildcard $(ATM_PREFIX)/frame/*.o) \
+                  $(wildcard $(ATM_PREFIX)/dyn_em/*.o)
+endif
 endif
 
 SFILES = ""
@@ -89,7 +108,12 @@ bin_PROGRAMS = regesm.x
 regesm_x_SOURCES = regesm.F90 mod_esmf_esm.F90 mod_esmf_cpl.F90
 
 if DO_COMPILE_LIBATM
-regesm_x_SOURCES += mod_esmf_atm.F90
+if DO_COMPILE_RCM
+regesm_x_SOURCES += mod_esmf_atm_rcm.F90
+endif
+if DO_COMPILE_WRF
+regesm_x_SOURCES += mod_esmf_atm_wrf.F90
+endif
 else
 regesm_x_SOURCES += mod_esmf_atm_void.F90
 endif
@@ -139,8 +163,14 @@ clean-local:
 #
 OBJ=
 if DO_COMPILE_LIBATM
-mod_esmf_atm.o: mod_esmf_atm.F90 mod_types.o mod_shared.o
-OBJ+=mod_esmf_atm.o
+if DO_COMPILE_RCM
+mod_esmf_atm_rcm.o: mod_esmf_atm_rcm.F90 mod_types.o mod_shared.o
+OBJ+=mod_esmf_atm_rcm.o
+endif
+if DO_COMPILE_WRF
+mod_esmf_atm_wrf.o: mod_esmf_atm_wrf.F90 mod_types.o mod_shared.o
+OBJ+=mod_esmf_atm_wrf.o
+endif
 else
 mod_esmf_atm_void.o: mod_esmf_atm_void.F90
 OBJ+=mod_esmf_atm_void.o

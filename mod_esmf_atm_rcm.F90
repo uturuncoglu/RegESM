@@ -16,7 +16,7 @@
 !     along with ITU RegESM.  If not, see <http://www.gnu.org/licenses/>.
 !
 !-----------------------------------------------------------------------
-#define FILENAME "mod_esmf_atm.F90"
+#define FILENAME "mod_esmf_atm_rcm.F90"
 !
 !-----------------------------------------------------------------------
 !     ATM gridded component code 
