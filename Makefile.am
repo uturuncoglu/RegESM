@@ -34,7 +34,7 @@ noinst_LIBRARIES =
 if DO_COMPILE_LIBATM
 LIBS += ${PWD}/libatm.a
 noinst_LIBRARIES += libatm.a
-libatm_a_SOURCES = 
+libatm_a_SOURCES =  
 
 if DO_COMPILE_RCM
 CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib \
@@ -46,19 +46,22 @@ libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/Main/*.o) \
 endif
 if DO_COMPILE_WRF
 CPPFLAGS += -I$(ATM_PREFIX)/Registry -I$(ATM_PREFIX)/inc \
-            -I$(ATM_PREFIX)/arch -I$(ATM_PREFIX)/frame
+            -I$(ATM_PREFIX)/arch -I$(ATM_PREFIX)/frame \
+            -I$(ATM_PREFIX)/external/esmf_time_f90 \
+            -I$(ATM_PREFIX)/main -I$(ATM_PREFIX)/share 
 libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/external/RSL_LITE/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/io_netcdf/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/io_grib1/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/io_grib1/*/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/io_int/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/io_grib_share/*.o) \
-                  $(wildcard $(ATM_PREFIX)/external/esmf_time_f90/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/fftpack/*/*.o) \
+                  $(wildcard $(ATM_PREFIX)/external/esmf_time_f90/*.o) \
                   $(wildcard $(ATM_PREFIX)/phys/*.o) \
                   $(wildcard $(ATM_PREFIX)/share/*.o) \
                   $(wildcard $(ATM_PREFIX)/frame/*.o) \
-                  $(wildcard $(ATM_PREFIX)/dyn_em/*.o)
+                  $(wildcard $(ATM_PREFIX)/dyn_em/*.o) \
+                  $(ATM_PREFIX)/main/module_wrf_top.o
 endif
 endif
 
@@ -150,10 +153,10 @@ FCLD = $(MPIFC)
 	$(FC) $(CPPFLAGS) $(SVNDEF) $(FCFLAGS) -c $<
 
 distclean-local:
-	rm -f *.mod mod_mit_gcm.F90
+	rm -f *.mod mod_mit_gcm.F90 prefix.def
 
 clean-local:
-	rm -f *.mod mod_mit_gcm.F90 
+	rm -f *.mod mod_mit_gcm.F90 prefix.def 
 
 # ----------------------------------------------------------------------
 # DO NOT DELETE THIS LINE -- make depend depends on it.
@@ -168,7 +171,7 @@ mod_esmf_atm_rcm.o: mod_esmf_atm_rcm.F90 mod_types.o mod_shared.o
 OBJ+=mod_esmf_atm_rcm.o
 endif
 if DO_COMPILE_WRF
-mod_esmf_atm_wrf.o: mod_esmf_atm_wrf.F90 mod_types.o mod_shared.o
+mod_esmf_atm_wrf.o: modify_libatm mod_esmf_atm_wrf.F90 mod_types.o mod_shared.o
 OBJ+=mod_esmf_atm_wrf.o
 endif
 else
@@ -184,7 +187,7 @@ endif
 if DO_COMPILE_MIT
 mod_mit_gcm.F90: $(OCN_PREFIX)/DUMMY.f
 	tools/other/create.sh $(OCN_PREFIX)/DUMMY.f | \
-        awk -f tools/other/awk.prog | sed -e 's/\([0-9]\) d \([0-9]\)/\1d\2/g' > mod_mit_gcm.F90	
+        $(AWK) -f tools/other/awk.prog | $(SED) -e 's/\([0-9]\) d \([0-9]\)/\1d\2/g' > mod_mit_gcm.F90	
 
 mod_esmf_ocn_mit.o: mod_esmf_ocn_mit.F90 mod_types.o mod_shared.o mod_mit_gcm.o
 mod_mit_gcm.o: mod_mit_gcm.F90
@@ -211,9 +214,13 @@ mod_esmf_wav_void.o: mod_esmf_wav_void.F90 mod_types.o
 OBJ+=mod_esmf_wav_void.o
 endif
 
+modify_libatm:
+	nm libatm.a | $(GREP) -v "r __" | $(GREP) -v ".o:" | $(GREP) -e "^0" | $(GREP) -e "esmf" | $(SED) -e 's/^ *//' -e 's/ *$$//' -e '/^$$/d' | sort | uniq | $(AWK) '{print $$3" wrf_"$$3}' > prefix.def
+	objcopy --redefine-syms=prefix.def libatm.a
+
 mod_esmf_cpl.o: mod_esmf_cpl.F90 mod_types.o mod_utils.o
 
 mod_esmf_esm.o: mod_esmf_esm.F90 mod_types.o $(OBJ) mod_esmf_cpl.o
 
-regesm.o: regesm.F90 $(OBJ) mod_esmf_esm.o mod_esmf_cpl.o $(UTILLIBPTH)/libesmutil.a 
+regesm.o: regesm.F90 $(OBJ) mod_esmf_esm.o mod_esmf_cpl.o $(UTILLIBPTH)/libesmutil.a
 	$(MPIFC) $(CPPFLAGS) $(FCFLAGS) -c $<

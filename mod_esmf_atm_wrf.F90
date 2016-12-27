@@ -147,7 +147,7 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-!      use module_dm, only : wrf_set_dm_communicator
+      use module_wrf_top, only : wrf_init 
 !
       implicit none
 !
@@ -189,9 +189,8 @@
 !     Initialize the gridded component 
 !-----------------------------------------------------------------------
 !
-       call wrf_set_dm_communicator()
-!      call ATM_Initialize(mpiCommunicator=comm)
-!      call ATM_Allocate()
+       call wrf_set_dm_communicator(comm)
+       call wrf_init()
 !
 !-----------------------------------------------------------------------
 !     Set-up grid and load coordinate data 
@@ -210,6 +209,68 @@
 !                             line=__LINE__, file=FILENAME)) return
 !
       end subroutine ATM_SetInitializeP2
+!
+      subroutine ATM_SetGridArrays(gcomp, localPet, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use module_domain, only : head_grid, get_ijk_from_grid
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp), intent(inout) :: gcomp
+      integer :: localPet 
+      integer :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: ids, ide, jds, jde, kds, kde,                          &
+                 ims, ime, jms, jme, kms, kme,                          &
+                 ips, ipe, jps, jpe, kps, kpe
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get variables related with grid partitioning
+!     Domain extent: ids, ide, jds, jde, kds, kde
+!     Memory extent: ims, ime, jms, jme, kms, kme
+!     Patch extent : ips, ipe, jps, jpe, kps, kpe
+!-----------------------------------------------------------------------
+!
+!      call get_ijk_from_grid(head_grid, ids, ide, jds, jde, kds, kde,   &
+!                                        ims, ime, jms, jme, kms, kme,   &
+!                                        ips, ipe, jps, jpe, kps, kpe)
+      print*, "turuncu --", localPet, ids, ide, jds, jde
+!
+!-----------------------------------------------------------------------
+!     Calculate number of CPUs in each direction 
+!-----------------------------------------------------------------------
+!
+!      print*, PatchStart(1), PatchStart(2)
+!      if (.not. allocated(dimXCount)) allocate(dimXCount(
+!
+!-----------------------------------------------------------------------
+!     Create ESMF Grid
+!-----------------------------------------------------------------------
+!
+!      models(Iatmos)%grid = ESMF_GridCreate(  &
+!                 countsPerDEDim1=dimXCount , &
+!                 countsPerDEDim2=dimYcount , &
+!                 coordDep1=(/1/) , &
+!                 coordDep2=(/2/) , &
+!                 indexflag=ESMF_INDEX_GLOBAL, & ! use global indices
+!                 name=TRIM(gridname), &
+!                 rc = rc )
+
+      end subroutine ATM_SetGridArrays
 !
       end module mod_esmf_atm
 
