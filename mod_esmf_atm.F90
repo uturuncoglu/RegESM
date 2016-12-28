@@ -2122,14 +2122,16 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_hgt, only : htsig_o
+      use mod_constants, only : regrav, d_100
+      use mod_hgt, only : htsig_s !, nonhydrost_s
+      use mod_vertint, only : intlinregz
       use mod_mppparam, only : ma
       use mod_update, only : exportFields, exportFields3d
       use mod_dynparam, only : ici1, ici2, jci1, jci2
       use mod_dynparam, only : ice1, ice2, jce1, jce2
-      use mod_dynparam, only : kz, ptop 
+      use mod_dynparam, only : kz, ptop, idynamic 
       use mod_atm_interface, only : mddom
-      use mod_domain, only : mddom_io
+      use mod_runparams, only : sigma
 !
       implicit none
 !
@@ -2144,14 +2146,14 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, k, ii, jj, dd, m, n, imin, imax, jmin, jmax
+      integer :: i, j, k, ii, jj, dd, m, n, nz, imin, imax, jmin, jmax
       integer :: iyear, iday, imonth, ihour, iminute, isec, iunit
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8), pointer :: ptr2d(:,:)
       real(ESMF_KIND_R8), pointer :: ptr3d(:,:,:)
-      real(ESMF_KIND_R8), allocatable :: hzvar(:,:,:) 
+      real(ESMF_KIND_R8), allocatable :: zvar(:,:,:), hzvar(:,:,:) 
       integer(ESMF_KIND_I8) :: tstep
 !
       type(ESMF_VM) :: vm
@@ -2502,82 +2504,90 @@
 !     Calculate heights on sigma surfaces
 !-----------------------------------------------------------------------
 !
-!      if (.not. allocated(hzvar)) then
-!        allocate(hzvar(jce2-jce1+1,ice2-ice1+1,kz))
-!      end if    
+      if (.not. allocated(hzvar)) then
+        allocate(hzvar(jce1:jce2,ice1:ice2,kz))
+        hzvar = ZERO_R8
+      end if    
 !
-!      call htsig_o(exportFields3d%t, hzvar, exportFields%psfc, mddom%ht, mddom_io%sigma, ptop,jce2-jce1+1,ice2-ice1+1,kz)
+      if (idynamic == 1) then
+        call htsig_s(exportFields3d%t, hzvar, exportFields%psfc*d_100,&
+                     mddom%ht(jce1:jce2,ice1:ice2)*regrav,              &
+                     sigma, ptop*d_100, jce1, jce2, ice1, ice2, kz)
+!      else
+!        call nonhydrost_s(hzvar, exportFields3d%t,                      &
+!                          (exportFields%psfc-ptop)*d_100, ptop*d_100,   &
+!                          mddom%ht(jce1:jce2,ice1:ice2), sigma,         &
+!                          jce1, jce2, ice1, ice2, kz)
+      end if
 !
-!      sfs%psa(j,i) atm0%ps(j,i)
-!      call htsig_o(exportFields3d%t, hzvar, ps, topo, sigma, ptop,   
+!-----------------------------------------------------------------------
+!     Perform vertical interpolation from sigma to height 
+!-----------------------------------------------------------------------
+!
+      nz = models(Iatmos)%nLevs
+!
+      if (.not. allocated(zvar)) then
+        allocate(zvar(jce1:jce2,ice1:ice2,nz))
+        zvar = ZERO_R8
+      end if
+!
+      select case (trim(adjustl(itemNameList(i))))
+      case ('tlev')
+        call intlinregz(zvar, exportFields3d%t, hzvar, sigma,           &
+                        jce1, jce2, ice1, ice2, kz,                     &
+                        models(Iatmos)%levs,nz)
+      case ('qlev')
+        call intlinregz(zvar, exportFields3d%q, hzvar, sigma,           &
+                        jce1, jce2, ice1, ice2, kz,                     &
+                        models(Iatmos)%levs,nz)
+      case ('ulev')
+        call intlinregz(zvar, exportFields3d%u, hzvar, sigma,           &
+                        jce1, jce2, ice1, ice2, kz,                     &
+                        models(Iatmos)%levs,nz)
+      case ('vlev')
+        call intlinregz(zvar, exportFields3d%v, hzvar, sigma,           &
+                        jce1, jce2, ice1, ice2, kz,                     &
+                        models(Iatmos)%levs,nz)
+      end select
 !
 !-----------------------------------------------------------------------
 !     Put data to export field 
 !-----------------------------------------------------------------------
 !
-      kz = models(Iatmos)%nLevs
-!
-      select case (trim(adjustl(itemNameList(i))))
-      case ('tlev')
-        do k = 1 , kz
-          do m = ice1, ice2
-            do n = jce1, jce2
-              ptr3d(m,n,k) = exportFields3d%t(n,m,k)
-            end do
-          end do
-        end do  
-      case ('qlev')
-        do k = 1 , kz
-          do m = ice1, ice2
-            do n = jce1, jce2
-              ptr3d(m,n,k) = exportFields3d%q(n,m,k)
-            end do
+      do k = 1 , nz
+        do m = ice1, ice2
+          do n = jce1, jce2
+            ptr3d(m,n,k) = zvar(n,m,k)
           end do
         end do
-      case ('ulev')
-        do k = 1 , kz
-          do m = ice1, ice2
-            do n = jce1, jce2
-              ptr3d(m,n,k) = exportFields3d%u(n,m,k)
-            end do
-          end do
-        end do
-      case ('vlev')
-        do k = 1 , kz
-          do m = ice1, ice2
-            do n = jce1, jce2
-              ptr3d(m,n,k) = exportFields3d%v(n,m,k)
-            end do
-          end do
-        end do
-      end select
+      end do
 !
 !-----------------------------------------------------------------------
 !     Fill domain boundaries with data 
 !-----------------------------------------------------------------------
 !
       if (ma%has_bdytop) then ! right 
-        do k = 1 , kz
+        do k = 1 , nz
           ptr3d(ice2,:,k) = ptr3d(ice2-1,:,k)
           ptr3d(ice2+1,:,k) = ptr3d(ice2-1,:,k)
         end do
       end if
 !
       if (ma%has_bdybottom) then ! left
-        do k = 1 , kz
+        do k = 1 , nz
           ptr3d(ice1,:,k) = ptr3d(ice1+1,:,k)
         end do
       end if
 !
       if (ma%has_bdyright) then !top
-        do k = 1 , kz
+        do k = 1 , nz
           ptr3d(:,jce2,k) = ptr3d(:,jce2-1,k)
           ptr3d(:,jce2+1,k) = ptr3d(:,jce2-1,k)
         end do
       end if
 !
       if (ma%has_bdyleft) then ! bottom
-        do k = 1 , kz
+        do k = 1 , nz
           ptr3d(:,jce1,k) = ptr3d(:,jce1+1,k)
         end do
       end if
@@ -2617,6 +2627,8 @@
 !
       if (allocated(itemNameList)) deallocate(itemNameList)
       if (allocated(itemTypeList)) deallocate(itemTypeList)
+      if (allocated(zvar)) deallocate(zvar)
+      if (allocated(hzvar)) deallocate(hzvar)
 !
 !-----------------------------------------------------------------------
 !     Format definition 
