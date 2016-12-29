@@ -50,7 +50,6 @@ def CreateCoProcessor():
   coprocessor = CoProcessor()
   freqs = {}
   for name in namedinputs:
-    print name
     freqs[name] = [outputfrequency]
 
   coprocessor.SetUpdateFrequencies(freqs)

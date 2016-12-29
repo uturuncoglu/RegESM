@@ -2411,6 +2411,22 @@
             ptr2d(m,n) = exportFields%snow(n,m)
           end do
         end do
+      case ('topo')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            ptr2d(m,n) = mddom%ht(n,m)*regrav
+          end do
+        end do
+      case ('mask')
+        do m = ici1, ici2
+          do n = jci1, jci2
+            if ((mddom%mask(n,m) > ONE_R8)) then
+              ptr2d(m,n) = ONE_R8
+            else
+              ptr2d(m,n) = ZERO_R8
+            end if
+          end do
+        end do
       end select
 !
 !-----------------------------------------------------------------------
