@@ -156,6 +156,8 @@
 !-----------------------------------------------------------------------
 !
       integer :: i
+      character(ESMF_MAXSTR), pointer :: impConnectedList(:)
+      character(ESMF_MAXSTR), pointer :: impStdNameList(:)
 !
       rc = ESMF_SUCCESS
 !
@@ -170,6 +172,16 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end do 
+!
+!      call NUOPC_GetStateMemberLists(importState,                       &
+!                                     StandardNameList=impStdNameList,   &
+!                                     ConnectedList=impConnectedList,    &
+!                                     rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!      do i=1, size(impConnectedList)
+!        print*, trim(impStdNameList(i)), trim(impConnectedList(i))
+!      end do 
 !
 !-----------------------------------------------------------------------
 !     Set export fields 
@@ -874,7 +886,7 @@
                                             gridEdgeLWidth=(/1,1/),     &
                                             gridEdgeUWidth=(/1,1/),     &
                                             indexflag=ESMF_INDEX_GLOBAL,&
-                                            name="ocn_grid",            &
+                                            name="ocn_grid2d",          &
                                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return

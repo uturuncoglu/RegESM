@@ -797,6 +797,20 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
          line=__LINE__, file=FILENAME)) return
 !
+!
+!-----------------------------------------------------------------------
+!     Debug: print out exchange fields    
+!-----------------------------------------------------------------------
+!
+      if ((debugLevel > 0) .and. (localPet == 0)) then
+      write(*,80) trim(cname),                                          &
+                  trim(models(iSrc)%exportField(idSrc)%short_name),     &
+                  trim(GRIDDES(models(iSrc)%exportField(idSrc)%gtype)), &
+                  trim(models(iDst)%importField(idDst)%short_name),     &
+                  trim(GRIDDES(models(iDst)%importField(idDst)%gtype))
+      end if
+
+!
       else
 !
 !-----------------------------------------------------------------------
@@ -1039,6 +1053,7 @@
              I2.2,'_',I2.2,'_',I2.2,']')
  60   format(A10,': regrid ',A4,' [',A,'] to ',A4,' [',A,']',' >> ',A)
  70   format(" PET(",I3.3,") - ",A," = ",E14.5," (",A,")")
+ 80   format(A10,': redist ',A4,' [',A,'] to ',A4,' [',A,']')
 !
       end subroutine CPL_ExecuteRH
 !

@@ -115,7 +115,6 @@ extern "C" void my_needtocreategrid_(int* needGrid, const char* name) {
     *needGrid = 0;
     return;
   }
-
   // check grids
   if (g_coprocessorData->GetInputDescriptionByName(name)->GetGrid()) {
     *needGrid = 0;

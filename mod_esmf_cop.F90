@@ -339,6 +339,7 @@
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       character(ESMF_MAXSTR) :: gname
 !
+      type(ESMF_Array) :: arrX
       type(ESMF_Field) :: field
       type(ESMF_Grid) :: grid
       type(ESMF_DistGrid) :: distgrid
@@ -676,7 +677,7 @@
       integer :: i, j, k, its, tileX, tileY 
       integer :: localPet, petCount, itemCount, dimCount, tileCount
       integer :: nPoints2D, nPoints3D  
-      integer :: cc2d(2), cc3d(3), lb(3), ub(3)
+      integer :: cc2d(2), cc3d(3), lb(3), ub(3), dims(3)
       integer, allocatable :: minIndexPTile(:,:), maxIndexPTile(:,:)
       character(ESMF_MAXSTR) :: gname, str1, str2
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
@@ -785,6 +786,7 @@
 !
 !-----------------------------------------------------------------------
 !     Change grid name to be consistent with input ports of Catalyst
+!     NOTE: Component grids must be named as ocn_grid2d, ocn_grid3d, ...
 !-----------------------------------------------------------------------
 !
       if (dimCount == 2) then
@@ -809,8 +811,12 @@
 !     Get minIndex and maxIndex arrays
 !-----------------------------------------------------------------------
 !
-      call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile,      &
-                            maxIndexPTile=maxIndexPTile, rc=rc)
+      call ESMF_GridGetCoord(grid, coordDim=1, array=arrX, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_ArrayGet(arrX, minIndexPTile=minIndexPTile,             &
+                         maxIndexPTile=maxIndexPTile, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
 !
@@ -850,7 +856,8 @@
                              line=__LINE__, file=__FILE__)) return
 !
       if (.not. allocated(lon2d)) then
-        allocate(lon2d(maxIndexPTile(1,1),maxIndexPTile(2,1)))
+        allocate(lon2d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+                       minIndexPTile(2,1):maxIndexPTile(2,1)))
       end if
 !
       do k = 1, models(Icopro)%nPets
@@ -870,7 +877,8 @@
                              line=__LINE__, file=__FILE__)) return
 !
       if (.not. allocated(lat2d)) then
-        allocate(lat2d(maxIndexPTile(1,1),maxIndexPTile(2,1)))
+        allocate(lat2d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+                       minIndexPTile(2,1):maxIndexPTile(2,1)))
       end if
 !
       do k = 1, models(Icopro)%nPets
@@ -927,9 +935,12 @@
 !     Define grid (2d) in co-porcessing side via Catalyst adaptor
 !-----------------------------------------------------------------------
 !
+      dims(1) = maxIndexPTile(1,1)-minIndexPTile(1,1)+1
+      dims(2) = maxIndexPTile(2,1)-minIndexPTile(2,1)+1
+      dims(3) = 0
+!
       flag = catalyst_create_grid(0, 0.0d0, trim(gname)//char(0),       &
-                                  petCount, localPet,                   &
-                                  (/maxIndexPTile(:,1),0/),             &
+                                  petCount, localPet, dims,             &
                                   lb, ub, nPoints2D,                    &
                                   lon1d, lat1d)
 !
@@ -960,9 +971,15 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
 !
+      call ESMF_ArrayGet(arrX, minIndexPTile=minIndexPTile,             &
+                         maxIndexPTile=maxIndexPTile, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
       if (.not. allocated(lon3d)) then
-        allocate(lon3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
-                       maxIndexPTile(3,1)))
+        allocate(lon3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+                       minIndexPTile(2,1):maxIndexPTile(2,1),           &
+                       minIndexPTile(3,1):maxIndexPTile(3,1)))
       end if
 !
       do k = 1, models(Icopro)%nPets
@@ -981,8 +998,9 @@
                              line=__LINE__, file=__FILE__)) return
 !
       if (.not. allocated(lat3d)) then
-        allocate(lat3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
-                       maxIndexPTile(3,1)))
+        allocate(lat3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+                       minIndexPTile(2,1):maxIndexPTile(2,1),           &
+                       minIndexPTile(3,1):maxIndexPTile(3,1)))
       end if
 !
       do k = 1, models(Icopro)%nPets
@@ -1003,8 +1021,9 @@
                              line=__LINE__, file=__FILE__)) return
 !                             
       if (.not. allocated(lev3d)) then
-        allocate(lev3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
-                       maxIndexPTile(3,1)))
+        allocate(lev3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+                       minIndexPTile(2,1):maxIndexPTile(2,1),           &
+                       minIndexPTile(3,1):maxIndexPTile(3,1)))
       end if
 !
       do k = 1, models(Icopro)%nPets
@@ -1064,12 +1083,15 @@
                       lev3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), lev1d)
 !
 !-----------------------------------------------------------------------
-!     Define grid (2d) in co-porcessing side via Catalyst adaptor
+!     Define grid (3d) in co-porcessing side via Catalyst adaptor
 !-----------------------------------------------------------------------
 !
+      dims(1) = maxIndexPTile(1,1)-minIndexPTile(1,1)+1
+      dims(2) = maxIndexPTile(2,1)-minIndexPTile(2,1)+1
+      dims(3) = maxIndexPTile(3,1)-minIndexPTile(3,1)+1
+!
       flag = catalyst_create_grid(0, 0.0d0, trim(gname)//char(0),       &
-                                  petCount, localPet,                   &
-                                  maxIndexPTile(:,1),                   &
+                                  petCount, localPet, dims,             &
                                   lb, ub, nPoints3D,                    &
                                   lon1d, lat1d, lev1d)
 !
@@ -1121,7 +1143,8 @@
       if (dimCount == 2) then ! 2d
 !
       if (.not. allocated(var2d)) then
-        allocate(var2d(maxIndexPTile(1,1),maxIndexPTile(2,1)))
+        allocate(var2d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+                       minIndexPTile(2,1):maxIndexPTile(2,1)))
       end if
 !
       do k = 1, models(Icopro)%nPets
@@ -1183,8 +1206,9 @@
       else if (dimCount == 3) then ! 3d     
 !
       if (.not. allocated(var3d)) then
-        allocate(var3d(maxIndexPTile(1,1), maxIndexPTile(2,1),          &
-                       maxIndexPTile(3,1)))
+        allocate(var3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+                       minIndexPTile(2,1):maxIndexPTile(2,1),           &
+                       minIndexPTile(3,1):maxIndexPTile(3,1)))
       end if
 !
       do k = 1, models(Icopro)%nPets
@@ -1438,7 +1462,10 @@
 !     Create grid in co-processing module 
 !-----------------------------------------------------------------------
 !
+      flag1 = .false.
+      flag2 = 0
       continueProcessing = .false.
+!
       call my_requestdatadescription(step, time, flag1)
       if (flag1) then
         continueProcessing = .true.
