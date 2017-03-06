@@ -556,9 +556,15 @@
 !     Modify component clock time step 
 !-----------------------------------------------------------------------
 !
-      fac1 = maxval(connectors(Iatmos,:)%divDT,mask=models(:)%modActive)
-      fac2 = maxval(connectors(:,Iatmos)%divDT,mask=models(:)%modActive)
-      maxdiv = max(fac1, fac2)
+!      if (models(Icopro)%modActive) then
+!        maxdiv = 1
+!      else
+        fac1 = maxval(connectors(Iatmos,:)%divDT,                       &
+                      mask=models(:)%modActive)
+        fac2 = maxval(connectors(:,Iatmos)%divDT,                       &
+                      mask=models(:)%modActive)
+        maxdiv = max(fac1, fac2)
+!      end if
 !
       call ESMF_ClockSet(cmpClock, name='atm_clock',                    &
                          timeStep=timeStep/maxdiv, rc=rc)

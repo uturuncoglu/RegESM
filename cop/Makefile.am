@@ -49,6 +49,7 @@ CXXFLAGS += -I$(PVSRC)/VTK/Common/Core \
             -I$(PVDIR)/ParaViewCore/VTKExtensions/Core \
             -I$(PVDIR)/CoProcessing/PythonCatalyst \
             -I$(PVDIR)/VTK/Parallel/MPI \
+            -I$(PVDIR)/VTK/IO/Image \
             -I.
 
 %.o: %.cpp
