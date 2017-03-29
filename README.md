@@ -23,7 +23,7 @@ Supported Components
 Prerequisites
 =============
 
-* RegESM itself (as a driver; 2.0.0)
+* RegESM itself (as a driver)
 * Earth System Modeling Framework (ESMF) Library: version [7.1.0](http://www.earthsystemmodeling.org/download/data/releases.shtml#v7_1_0)
 * Model Components (patched and installed with coupling support - see README file under doc/ directory)
 
@@ -50,6 +50,6 @@ Previous publications with early version of the two-component (atmosphere-ocean)
 
 Release Notes
 =============
-##Updates
-###New in Version 1.1
+## Updates
+### New in Version 1.1
 * New co-processing component is introduced to allow in situ visualization applications for multi-component earth system model configurations
