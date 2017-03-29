@@ -2570,6 +2570,10 @@
         call intlinregz(zvar, exportFields3d%v, hzvar, sigma,           &
                         jce1, jce2, ice1, ice2, kz,                     &
                         models(Iatmos)%levs,nz)
+      case ('wlev')
+        call intlinregz(zvar, exportFields3d%w, hzvar, sigma,           &
+                        jce1, jce2, ice1, ice2, kz,                     &
+                        models(Iatmos)%levs,nz)
       case ('cldfrc')
         call intlinregz(zvar, exportFields3d%cldfrc, hzvar, sigma,      &
                         jce1, jce2, ice1, ice2, kz,                     &
