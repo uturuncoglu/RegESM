@@ -30,9 +30,9 @@ gcc -march=native -Q --help=target
 
 # install zlib
 cd ${PROGS}
-wget "http://zlib.net/zlib-${ZLIB_VER}.tar.gz"
-tar -zxvf zlib-${ZLIB_VER}.tar.gz > extract.log
-rm -f zlib-${ZLIB_VER}.tar.gz
+wget "https://github.com/madler/zlib/archive/v${ZLIB_VER}.tar.gz"
+tar -zxvf v${ZLIB_VER}.tar.gz > extract.log
+rm -f v${ZLIB_VER}.tar.gz
 cd zlib-${ZLIB_VER}
 ./configure --prefix=${PROGS}/zlib-${ZLIB_VER}
 make > make.log 
