@@ -18,6 +18,7 @@
 #-----------------------------------------------------------------------
 include $(ESMF_LIB)/esmf.mk
 
+if DO_COMPILE_PARAVIEW
 noinst_LIBRARIES = libcop.a
 libcop_a_SOURCES = adaptor.cpp \
                    grid.cpp
@@ -51,6 +52,7 @@ CXXFLAGS += -I$(PVSRC)/VTK/Common/Core \
             -I$(PVDIR)/VTK/Parallel/MPI \
             -I$(PVDIR)/VTK/IO/Image \
             -I.
+endif
 
 %.o: %.cpp
 	$(ESMF_CXXCOMPILER) $(ESMF_CXXCOMPILEPATHS) $(CXXFLAGS) -c $<
@@ -64,5 +66,7 @@ clean-local:
 # ----------------------------------------------------------------------
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
+if DO_COMPILE_PARAVIEW
 adaptor.o: adaptor.cpp grid.o
 grid.o: grid.cpp grid.h
+endif

@@ -33,7 +33,8 @@
       use NUOPC_Model,                                                  &
           NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
-          NUOPC_Label_DataInitialize => label_DataInitialize
+          NUOPC_Label_DataInitialize => label_DataInitialize,           &
+          NUOPC_Label_SetClock       => label_SetClock
 !
       use mod_types
       use mod_shared
@@ -136,6 +137,11 @@
       call NUOPC_CompSpecialize(gcomp,                                  &
                                 specLabel=NUOPC_Label_DataInitialize,   &
                                 specRoutine=COP_DataInit, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_SetClock,  &
+                                specRoutine=COP_SetClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
@@ -660,6 +666,54 @@
 !
       end subroutine COP_DataInit
 !
+      subroutine COP_SetClock(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: fac1, fac2, maxdiv
+!
+      type(ESMF_Clock) :: cmpClock 
+      type(ESMF_TimeInterval) :: timeStep
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get component clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, clock=cmpClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(cmpClock, timeStep=timeStep, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Modify component clock time step 
+!-----------------------------------------------------------------------
+!
+      fac1 = maxval(connectors(Icopro,:)%divDT,mask=models(:)%modActive)
+      fac2 = maxval(connectors(:,Icopro)%divDT,mask=models(:)%modActive)
+      maxdiv = max(fac1, fac2)
+!
+      call ESMF_ClockSet(cmpClock, name='cop_clock',                    &
+                         timeStep=timeStep/maxdiv, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end subroutine COP_SetClock
+!
       subroutine COP_ModelAdvance(gcomp, rc)
       implicit none
 !
@@ -682,7 +736,7 @@
       character(ESMF_MAXSTR) :: gname, str1, str2
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       logical :: hasRight, hasTop, flag
-      real(ESMF_KIND_R8) :: dtime
+      real(ESMF_KIND_R8) :: stime, etime, dtime
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2X
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2Y
       real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3X
@@ -730,6 +784,33 @@
       call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
+!     Calculate elapsed time
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, currTime=currTime,                      &
+                         startTime=startTime, timeStep=timeStep, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__)) return
+!
+      call ESMF_TimeGet(currTime,                                       &
+                        timeStringISOFrac=str1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(currTime+timeStep,                              &
+                        timeStringISOFrac=str2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      elapsedTime = currTime-startTime
+!
+      call ESMF_TimeIntervalGet(elapsedTime, s_r8=dtime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=__FILE__)) return
+!
+      its = int(elapsedTime/timeStep)
 !
 !-----------------------------------------------------------------------
 !     Get list of import fields
@@ -847,6 +928,12 @@
 !
       if (dimCount == 2) then ! 2d
 !
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(stime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end if
+!
       call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=ptr2X, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
@@ -961,7 +1048,27 @@
       if (allocated(lon2d)) deallocate(lon2d)
       if (allocated(lat2d)) deallocate(lat2d)
 !
+!-----------------------------------------------------------------------
+!     Measure performance of creating 2d grid 
+!-----------------------------------------------------------------------
+!
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(etime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+        if (localPet == 0) then
+          write(*,fmt="(A,F15.8,A)") "[PERFLOG] :: CREATE "//           &
+               trim(to_upper(gname)), etime-stime, " SEC."
+        end if
+      end if
+!
       else if (dimCount == 3) then ! 3d
+!
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(stime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end if
 !
       call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=ptr3X, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1115,6 +1222,20 @@
       if (allocated(lat3d)) deallocate(lat3d)
       if (allocated(lev3d)) deallocate(lev3d)
 !
+!-----------------------------------------------------------------------
+!     Measure performance of creating 3d grid 
+!-----------------------------------------------------------------------
+!
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(etime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+        if (localPet == 0) then
+          write(*,fmt="(A,F15.8,A)") "[PERFLOG] :: CREATE "//           &
+               trim(to_upper(gname)), etime-stime, " SEC."
+        end if
+      end if
+!
       end if
 !
 !-----------------------------------------------------------------------
@@ -1139,6 +1260,12 @@
 !-----------------------------------------------------------------------
 !     Get pointer from field and serialize data to pass co-processing
 !-----------------------------------------------------------------------
+!
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(stime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end if
 !
       if (dimCount == 2) then ! 2d
 !
@@ -1202,6 +1329,16 @@
 !
       if (allocated(var1d)) deallocate(var1d)
       if (allocated(var2d)) deallocate(var2d)
+!
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(etime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+        if (localPet == 0) then
+          write(*,fmt="(A,I10,F15.8,A)") "[PERFLOG] :: ADD FIELD "//    &
+          trim(to_upper(itemNameList(i))), its, etime-stime, " SEC."
+        end if
+      end if
 !
       else if (dimCount == 3) then ! 3d     
 !
@@ -1269,6 +1406,16 @@
       if (allocated(var1d)) deallocate(var1d)
       if (allocated(var3d)) deallocate(var3d)
 !
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(etime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+        if (localPet == 0) then
+          write(*,fmt="(A,I10,F15.8,A)") "[PERFLOG] :: ADD FIELD "//    &
+          trim(to_upper(itemNameList(i))), its, etime-stime, " SEC."
+        end if
+      end if
+!
       end if
 !
 !-----------------------------------------------------------------------
@@ -1287,38 +1434,28 @@
       if (allocated(itemNameList)) deallocate(itemNameList)
 !
 !-----------------------------------------------------------------------
-!     Calculate elapsed time
-!-----------------------------------------------------------------------
-!
-      call ESMF_ClockGet(clock, currTime=currTime,                      &
-                         startTime=startTime, timeStep=timeStep, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=__FILE__)) return
-!
-      call ESMF_TimeGet(currTime,                                       &
-                        timeStringISOFrac=str1, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_TimeGet(currTime+timeStep,                              &
-                        timeStringISOFrac=str2, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      elapsedTime = currTime-startTime
-!
-      call ESMF_TimeIntervalGet(elapsedTime, s_r8=dtime, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=__FILE__)) return
-!
-!-----------------------------------------------------------------------
 !     Call co-processing
 !-----------------------------------------------------------------------
 !
-      its = int(elapsedTime/timeStep)
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(stime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+      end if
+!
       call my_requestdatadescription(its, dtime, flag)
       if (flag) then
         call my_coprocess()
+      end if
+!
+      if (enablePerfCheck) then
+        call ESMF_VMWtime(etime, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=__FILE__)) return
+        if (localPet == 0) then
+          write(*,fmt="(A,I10,F15.8,A)") "[PERFLOG] :: COPROC ", its,   &
+               etime-stime, "SEC."
+        end if
       end if
 !
 !-----------------------------------------------------------------------

@@ -184,6 +184,15 @@
           line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Set performance check flag
+!-----------------------------------------------------------------------
+!
+      call ESMF_ConfigGetAttribute(cf, enablePerfCheck,                 &
+                                   label='EnablePerfCheck:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
 !     Set calendar 
 !-----------------------------------------------------------------------
 !

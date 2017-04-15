@@ -701,14 +701,14 @@
       end if
 
 !
-      if (.not. atCorrectTime) then
-        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
-                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
-                              "Import Fields not at correct time",      &
-                              line=__LINE__, file=FILENAME,             &
-                              rcToReturn=rc)
-        return
-      end if
+!      if (.not. atCorrectTime) then
+!        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
+!                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
+!                              "Import Fields not at correct time",      &
+!                              line=__LINE__, file=FILENAME,             &
+!                              rcToReturn=rc)
+!        return
+!      end if
       end if
 !
 !-----------------------------------------------------------------------
@@ -726,14 +726,14 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-      if (.not. atCorrectTime) then
-        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
-                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
-                              "Import Fields not at correct time",      &
-                              line=__LINE__, file=FILENAME,             &
-                              rcToReturn=rc)
-        return
-      end if
+!      if (.not. atCorrectTime) then
+!        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
+!                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
+!                              "Import Fields not at correct time",      &
+!                              line=__LINE__, file=FILENAME,             &
+!                              rcToReturn=rc)
+!        return
+!      end if
       end if
 !
       end subroutine OCN_CheckImport
@@ -1867,11 +1867,11 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      if ((currTime /= refTime) .or. restarted) then
-        call OCN_Get(gcomp, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-      end if
+!      if ((currTime /= refTime) .or. restarted) then
+!        call OCN_Get(gcomp, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!      end if
 !
 !-----------------------------------------------------------------------
 !     Run OCN component

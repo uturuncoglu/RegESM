@@ -270,8 +270,6 @@
         end do
       end do 
 !
-      runid = 1
-!
       if (localPet == 0) then
         write(*,fmt="(A,I5)") "RUN ID = ", runid
       end if

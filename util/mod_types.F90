@@ -253,6 +253,7 @@
       integer :: runMod
       integer :: cplType
       integer :: debugLevel
+      logical :: enablePerfCheck
       logical :: restarted
       integer :: riverOpt
 !

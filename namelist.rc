@@ -72,6 +72,14 @@ UnmappedFill: 1
 DebugLevel: 1 
 #
 #-----------------------------------------------------------------------
+#     Performance check mode
+#     0  : no performance information
+#     1  : performance information
+#-----------------------------------------------------------------------
+#
+EnablePerfCheck: 1
+#
+#-----------------------------------------------------------------------
 #     Coupled model run information
 #
 #     Calendar   : calendar information (gregorian | noleap | 360_day)
