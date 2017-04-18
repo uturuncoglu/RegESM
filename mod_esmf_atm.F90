@@ -591,26 +591,23 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: itemCount, localPet, ddt
-      logical :: atCorrectTime
+      integer :: i, itemCount, localPet, div, rsec
+      logical :: isUpdated, atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
       type(ESMF_VM) :: vm
-      type(ESMF_Time)  :: startTime, currTime
-      type(ESMF_TimeInterval) :: timeStep
-      type(ESMF_Clock) :: driverClock
+      type(ESMF_Time)  :: currTimeCmp, currTimeDrv
+      type(ESMF_Time)  :: strTimeCmp
+      type(ESMF_TimeInterval) :: timeStepCmp, timeStepDrv
+      type(ESMF_Clock) :: modelClock, driverClock
       type(ESMF_Field) :: field
       type(ESMF_State) :: importState
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Query component for the driverClock
+!     Query component
 !-----------------------------------------------------------------------
-!
-      call NUOPC_ModelGet(gcomp, driverClock=driverClock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
 !
       call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -621,13 +618,42 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Get the start time and current time out of the clock
+!     Query driver and model clocks
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(driverClock, startTime=startTime,              &
-                         currTime=currTime, timeStep=timeStep, rc=rc)
+      call NUOPC_ModelGet(gcomp, driverClock=driverClock,               &
+                          modelClock=modelClock, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get current time and time step out of the clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(driverClock, currTime=currTimeDrv,             &
+                         timeStep=timeStepDrv, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(modelClock, currTime=currTimeCmp,              &
+                         startTime=strTimeCmp, timeStep=timeStepCmp,    &
+                         rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Check import field or not? 
+!-----------------------------------------------------------------------
+!
+      div = maxval(connectors(:,Iatmos)%divDT, mask=models(:)%modActive)
+!
+      call ESMF_TimeIntervalGet(mod((currTimeCmp-strTimeCmp),           &
+                                    esmTimeStep/div),                   &
+                                    s=rsec, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (rsec == 0) then
 !
 !-----------------------------------------------------------------------
 !     Query component for its clock and importState
@@ -658,40 +684,46 @@
 !-----------------------------------------------------------------------
 !
       if (itemCount > 0) then
-      call ESMF_StateGet(importState, itemName=trim(itemNameList(1)),   &
+!
+      do i = 1, itemCount
+!
+      call ESMF_StateGet(importState, itemName=trim(itemNameList(i)),   &
                          field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
-!      ddt = maxval(connectors(Iatmos,:)%divDT, mask=models(:)%modActive)
-!
       if (cplType == 1) then
-        atCorrectTime = NUOPC_IsAtTime(field, currTime, rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTimeCmp, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
-        call print_timestamp(field, currTime, localPet, "ATM", rc)
+        call print_timestamp(field, currTimeCmp, localPet, "ATM", rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else
-        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTimeCmp+timeStepCmp,  &
+                                       rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
-        call print_timestamp(field, currTime+timeStep,                  &
+        call print_timestamp(field, currTimeCmp+timeStepCmp,            &
                              localPet, "ATM", rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       end if
 !
-!      if (.not. atCorrectTime) then
-!        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
-!                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
-!                              "Import Fields not at correct time",      &
-!                              line=__LINE__, file=FILENAME,             &
-!                              rcToReturn=rc)
-!        return
-!      end if
+      if (.not. atCorrectTime) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
+                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
+                              "Import Fields not at correct time",      &
+                              line=__LINE__, file=FILENAME,             &
+                              rcToReturn=rc)
+        return
+      end if
+!
+      end do
+      end if
+!
       end if
 !
       end subroutine ATM_CheckImport
@@ -1953,9 +1985,10 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      ddt = maxval(connectors(Iatmos,:)%divDT, mask=models(:)%modActive)
-      if (((currTime /= refTime) .or. restarted) .and.                  &
-         ((currTime-startTime)/timeStep .eq. ddt)) then
+!      ddt = maxval(connectors(Iatmos,:)%divDT, mask=models(:)%modActive)
+!      if (((currTime /= refTime) .or. restarted) .and.                  &
+!         ((currTime-startTime)/timeStep .eq. ddt)) then
+      if ((currTime /= refTime) .or. restarted) then
         call ATM_Get(gcomp, rc=rc)
       end if
 !
