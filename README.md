@@ -7,7 +7,7 @@ Supported Components
 ====================
 
 * Atmosphere (ATM):
-    * [RegCM](http://gforge.ictp.it/gf/project/regcm/) version 4.5 
+    * [RegCM](http://gforge.ictp.it/gf/project/regcm/) version >4.5 (it needs extra patch for co-processing)
     * [WRF](http://www2.mmm.ucar.edu/wrf/users/download/get_source.html) version 3.8.1 (under development)
 * Ocean (OCN): 
     * [ROMS](http://www.myroms.org) revision 809
@@ -16,9 +16,9 @@ Supported Components
 * River Routing (RTM): 
     * [HD](http://www.mpimet.mpg.de/en/science/the-land-in-the-earth-system/terrestrial-hydrology/hd-model.html) version 1.0.2
 * Wave (WAV):
-    * [WAM](http://journals.ametsoc.org/doi/pdf/10.1175/1520-0485(1988)018%3C1775:TWMTGO%3E2.0.CO%3B2) version Cycle_4.5.3\_MPI
+    * [WAM](http://journals.ametsoc.org/doi/pdf/10.1175/1520-0485(1988)018%3C1775:TWMTGO%3E2.0.CO%3B2) version Cycle\_4.5.3\_MPI
 * Co-processing (COP):
-    * [ParaView](http://www.paraview.org) version 5.3.0: It requires [Catalyst](http://www.paraview.org/in-situ/) module and also GPU with graphics mode enabled (under development).
+    * [ParaView](http://www.paraview.org) version 5.3.0: It requires [Catalyst](http://www.paraview.org/in-situ/) module and also GPU with graphics mode enabled.
 
 Prerequisites
 =============
@@ -42,7 +42,7 @@ References
 
 Please cite following publications in case of using RegESM coupled modeling system or any variants of it: 
 
-* Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, i48(9), 2919–2947, doi:10.1007/s00382-016-3241-1 [link](http://link.springer.com/article/10.1007/s00382-016-3241-1)
+* Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, 48(9), 2919–2947, doi:10.1007/s00382-016-3241-1 [link](http://link.springer.com/article/10.1007/s00382-016-3241-1)
 
 Previous publications with early version of the two-component (atmosphere-ocean) coupled model:
 
