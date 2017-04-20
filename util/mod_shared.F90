@@ -508,9 +508,17 @@
 !-----------------------------------------------------------------------
 !
       integer :: vl1(9), vl2(9)
-      character(ESMF_MAXSTR) :: str1, str2
+      character(ESMF_MAXSTR) :: fname, str1, str2
 !
       rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get field name 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, name=fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get field TimeStamp attribute 
@@ -541,10 +549,10 @@
 !
       if (localPet == 0) then
         if (trim(str1) /= trim(str2)) then
-          print*, trim(str), ": TIMESTAMP = ", trim(str1), " /= ",      &
-                  trim(str2), " ERROR !!!" 
+          write(*,20) trim(str), trim(str1), trim(str2),                &
+                      to_upper(trim(fname))
         else
-          print*, trim(str), ": TIMESTAMP = ", trim(str1)
+          write(*,30) trim(str), trim(str1), to_upper(trim(fname))
         end if
       end if
 !
@@ -553,6 +561,8 @@
 !-----------------------------------------------------------------------
 !
 10    format(I4,'-',I2.2,'-',I2.2,'_',I2.2,':',I2.2,':',I2.2)
+20    format(A,': TIMESTAMP = ',A,' /= ',A,' FOR ',A,' ERROR !!!')
+30    format(A,': TIMESTAMP = ',A,' FOR ',A)
 !
       end subroutine print_timestamp
 !

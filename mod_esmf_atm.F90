@@ -592,7 +592,7 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, itemCount, localPet, div, rsec
-      logical :: isUpdated, atCorrectTime
+      logical :: atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
       type(ESMF_VM) :: vm
@@ -1903,7 +1903,7 @@
 !-----------------------------------------------------------------------
 !
       real*8 :: tstr, tend, tint
-      integer :: localPet, petCount, phase, ddt 
+      integer :: localPet, petCount, phase
       character(ESMF_MAXSTR) :: str1, str2
 !     
       type(ESMF_VM) :: vm
@@ -1985,9 +1985,6 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-!      ddt = maxval(connectors(Iatmos,:)%divDT, mask=models(:)%modActive)
-!      if (((currTime /= refTime) .or. restarted) .and.                  &
-!         ((currTime-startTime)/timeStep .eq. ddt)) then
       if ((currTime /= refTime) .or. restarted) then
         call ATM_Get(gcomp, rc=rc)
       end if

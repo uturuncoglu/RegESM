@@ -42,7 +42,7 @@ References
 
 Please cite following publications in case of using RegESM coupled modeling system or any variants of it: 
 
-* Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, doi:10.1007/s00382-016-3241-1 [link](http://link.springer.com/article/10.1007/s00382-016-3241-1)
+* Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, i48(9), 2919–2947, doi:10.1007/s00382-016-3241-1 [link](http://link.springer.com/article/10.1007/s00382-016-3241-1)
 
 Previous publications with early version of the two-component (atmosphere-ocean) coupled model:
 

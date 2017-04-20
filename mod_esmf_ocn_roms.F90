@@ -610,26 +610,23 @@
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: itemCount, localPet
+      integer :: i, itemCount, localPet, div, rsec
       logical :: atCorrectTime
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
 !
       type(ESMF_VM) :: vm
-      type(ESMF_Time)  :: startTime, currTime
-      type(ESMF_TimeInterval) :: timeStep
-      type(ESMF_Clock) :: driverClock
+      type(ESMF_Time)  :: currTimeCmp, currTimeDrv
+      type(ESMF_Time)  :: strTimeCmp
+      type(ESMF_TimeInterval) :: timeStepCmp, timeStepDrv
+      type(ESMF_Clock) :: modelClock, driverClock
       type(ESMF_Field) :: field
       type(ESMF_State) :: importState
 !
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Query component for the driverClock
+!     Query component
 !-----------------------------------------------------------------------
-!
-      call NUOPC_ModelGet(gcomp, driverClock=driverClock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
 !
       call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -640,13 +637,42 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
+!     Query component for the driverClock
+!-----------------------------------------------------------------------
+!
+      call NUOPC_ModelGet(gcomp, driverClock=driverClock,               &
+                          modelClock=modelClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
 !     Get the start time and current time out of the clock
 !-----------------------------------------------------------------------
 !
-      call ESMF_ClockGet(driverClock, startTime=startTime,              &
-                         currTime=currTime, timeStep=timeStep, rc=rc)
+      call ESMF_ClockGet(driverClock, currTime=currTimeDrv,             &
+                         timeStep=timeStepDrv, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(modelClock, currTime=currTimeCmp,              &
+                         startTime=strTimeCmp, timeStep=timeStepCmp,    &
+                         rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Check import field or not? 
+!-----------------------------------------------------------------------
+!
+      div = maxval(connectors(:,Iocean)%divDT, mask=models(:)%modActive)
+!
+      call ESMF_TimeIntervalGet(mod((currTimeCmp-strTimeCmp),           &
+                                    esmTimeStep/div),                   &
+                                    s=rsec, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (rsec == 0) then
 !
 !-----------------------------------------------------------------------
 !     Query component for its clock and importState
@@ -677,54 +703,62 @@
 !-----------------------------------------------------------------------
 !
       if (itemCount > 0) then
-      call ESMF_StateGet(importState, itemName=trim(itemNameList(1)),   &
+!
+      do i = 1, itemCount
+!
+      call ESMF_StateGet(importState, itemName=trim(itemNameList(i)),   &
                          field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
 !
       if (cplType == 1) then
-        atCorrectTime = NUOPC_IsAtTime(field, currTime, rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTimeCmp, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
-        call print_timestamp(field, currTime, localPet, "OCN", rc)
+        call print_timestamp(field, currTimeCmp, localPet, "OCN", rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else
-        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, rc=rc)
+        atCorrectTime = NUOPC_IsAtTime(field, currTimeCmp+timeStepCmp,  &
+                                       rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
 !
-        call print_timestamp(field, currTime+timeStep, localPet, "OCN", rc)
+        call print_timestamp(field, currTimeCmp+timeStepCmp, localPet,  &
+                             "OCN", rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       end if
-
 !
-!      if (.not. atCorrectTime) then
-!        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
-!                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
-!                              "Import Fields not at correct time",      &
-!                              line=__LINE__, file=FILENAME,             &
-!                              rcToReturn=rc)
-!        return
-!      end if
+      if (.not. atCorrectTime) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
+                              msg="NUOPC INCOMPATIBILITY DETECTED: "//  &
+                              "Import Fields not at correct time",      &
+                              line=__LINE__, file=FILENAME,             &
+                              rcToReturn=rc)
+        return
+      end if
+!
+      end do
+      end if
+!
       end if
 !
 !-----------------------------------------------------------------------
 !     Check fields in the importState (slow time step) 
 !-----------------------------------------------------------------------
 !
-      if (models(Iriver)%modActive) then
+!      if (models(Iriver)%modActive) then
 !
-      call ESMF_StateGet(importState, itemName="rdis",                  &
-                         field=field, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+!      call ESMF_StateGet(importState, itemName="rdis",                  &
+!                         field=field, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return
 !
-      atCorrectTime = NUOPC_IsAtTime(field, startTime, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+!      atCorrectTime = NUOPC_IsAtTime(field, startTime, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!          line=__LINE__, file=FILENAME)) return
 !
 !      if (.not. atCorrectTime) then
 !        call ESMF_LogSetError(ESMF_RC_ARG_BAD,                          &
@@ -734,7 +768,7 @@
 !                              rcToReturn=rc)
 !        return
 !      end if
-      end if
+!      end if
 !
       end subroutine OCN_CheckImport
 !
