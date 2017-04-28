@@ -568,6 +568,8 @@
 !     Read co-processing component tiles in x and y direction 
 !-----------------------------------------------------------------------
 !
+      if (models(Icopro)%modActive) then
+!
       call ESMF_ConfigFindLabel(cf, 'CoProcessorTile:', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
           line=__LINE__, file=FILENAME)) return
@@ -589,6 +591,8 @@
       if (localPet == 0) then
         write(*, fmt='(A12,I2,A,I2)') "Co-processing Tiles: ",          &
               models(Icopro)%tile(1),"x",models(Icopro)%tile(2)
+      end if
+!
       end if
 !
 !-----------------------------------------------------------------------

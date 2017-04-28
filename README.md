@@ -53,3 +53,4 @@ Release Notes
 ## Updates
 ### New in Version 1.1
 * New co-processing component is introduced to allow in situ visualization applications for multi-component earth system model configurations
+* Updated and revisited documentation (under doc/ directory)
