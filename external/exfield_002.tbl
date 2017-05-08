@@ -1,8 +1,0 @@
-5 atm2ocn T
-wndu:eastward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
-wndv:northward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
-psfc:surface_air_pressure:bilinear:cross:cross:mb:N/m^2:0.01:0.0:F
-sflx:water_flux_into_sea_water:bilinear:cross:cross:mm/s:m/s:0.001:0.0:T
-nflx:surface_upward_heat_flux:bilinear:cross:cross:W/m^2:W/m^2:-1.0:0.0:T
-1 ocn2atm T
-sst:sea_surface_temperature:bilinear:cross:cross:C:K:1.0:273.16:F
