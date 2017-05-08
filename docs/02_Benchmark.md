@@ -1,4 +1,4 @@
-#2. Benchmark Results
+# Chapter 2: Benchmark
 
 This section mainly aims to give detaied information about the benchmark results performed with different workload and also computing environment. The results that are presented here will also include details about used model components (i.e. versions, domain configuration etc.) as well as driver configuration and the computing resource.
 

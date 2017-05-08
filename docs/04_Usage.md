@@ -1,4 +1,4 @@
-#Chapter 4: Usage
+# Chapter 4: Usage
 
 To run the RegESM model, user needs to modify two driver configuration files in addition to the configuration files of individual model components:
 * Exchange field table ([exfield.tbl](https://github.com/uturuncoglu/RegESM/blob/master/external/exfield_000.tbl))* Driver configuration file ([namelist.rc](https://github.com/uturuncoglu/RegESM/blob/master/namelist.rc))Then, user can run the RegESM coupled modeling system. Also note that both file (exchange field definition and the driver configuration) must be placed with the same directory as RegESM executable file.

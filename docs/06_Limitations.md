@@ -1,4 +1,4 @@
-#Chapter 6: Limitations
+# Chapter 6: Limitations
 
 ## 6.1 Conservation of the exchange fields
 
