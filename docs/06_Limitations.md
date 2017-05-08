@@ -1,0 +1,9 @@
+#Chapter 6: Limitations
+
+## 6.1 Conservation of the exchange fields
+
+In the current version of the coupled modeling system, a customized version of the conservation algorithm is implemented. In this case, the conservation algorithm ensures that the global integral of the source and destination fields (over the matched regions) will remain same but it does not guarantee local conservation of the exchange fields. It just applies the difference of the global integral of source and destination fields to the destination field across the domain.
+The implemented conservation algorithm works as following:1. The algorithm finds the matched grid points between the model components (atmosphere and ocean models).2. It calculates the global integral of the source and destination fields3. It calculates the difference of the global integrals (destination – source)4. Then, it calculates the unit difference (by dividing the difference to the total surface area in the destination grid)5. Then, it applies the unit difference to each grid cellThe local conservation feature might be implemented in the future version of the modeling system with availability of the high-order conservative type interpolation in the ESMF side. 
+
+**Note 1:** The first-order conservative interpolation technique, which is currently supported by ESMF, might create artifacts (square like shapes in the destination field) in the interpolation when the ration between grid resolution of components is high (i.e. 50 km ATM and 5-7km in **OCN**).
+**Note 2:** The current conservation algorithm is only works with bilinear type interpolation (It can be defined in the exchange field table for each variable separately) and also only supports data exchange between atmosphere and ocean components (**ATM-OCN** and **OCN-ATM**) when extrapolation is activated.

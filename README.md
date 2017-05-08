@@ -27,6 +27,18 @@ Prerequisites
 * Earth System Modeling Framework (ESMF) Library: version [7.1.0](http://www.earthsystemmodeling.org/download/data/releases.shtml#v7_1_0)
 * Model Components (patched and installed with coupling support - see README file under doc/ directory)
 
+Documentation
+=============
+**Table of Contents:**
+
+1. [Model Design](docs/01_Model_Design.md)
+2. [Benchmark](docs/02_Benchmark.md)
+3. [Installation](docs/03_Installation.md)
+4. [Usage](docs/04_Usage.md)
+5. [Co-processing](docs/05_Co_Processing.md)
+6. [Limitations](docs/06_Limitations.md)
+7. [Known Issues](docs/07_Known_Issues.md)
+
 Tutorial
 ========
 
@@ -53,4 +65,4 @@ Release Notes
 ## Updates
 ### New in Version 1.1
 * New co-processing component is introduced to allow in situ visualization applications for multi-component earth system model configurations
-* Updated and revisited documentation (under doc/ directory)
+* Updated and revisited model documentation (under doc/ directory)
