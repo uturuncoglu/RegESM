@@ -2284,7 +2284,7 @@
 !-----------------------------------------------------------------------
 !
       use mod_constants, only : regrav, d_100
-      use mod_hgt, only : htsig_s !, nonhydrost_s
+      use mod_hgt, only : htsig_s, nonhydrost_s
       use mod_vertint, only : intlinregz
       use mod_mppparam, only : ma
       use mod_update, only : exportFields, exportFields3d
@@ -2690,11 +2690,11 @@
         call htsig_s(exportFields3d%t, hzvar, exportFields%psfc*d_100,&
                      mddom%ht(jce1:jce2,ice1:ice2)*regrav,              &
                      sigma, ptop*d_100, jce1, jce2, ice1, ice2, kz)
-!      else
-!        call nonhydrost_s(hzvar, exportFields3d%t,                      &
-!                          (exportFields%psfc-ptop)*d_100, ptop*d_100,   &
-!                          mddom%ht(jce1:jce2,ice1:ice2), sigma,         &
-!                          jce1, jce2, ice1, ice2, kz)
+      else
+        call nonhydrost_s(hzvar, exportFields3d%t,                      &
+                          (exportFields%psfc-ptop)*d_100, ptop*d_100,   &
+                          mddom%ht(jce1:jce2,ice1:ice2), sigma,         &
+                          jce1, jce2, ice1, ice2, kz)
       end if
 !
 !-----------------------------------------------------------------------
