@@ -1,0 +1,523 @@
+diff -Naur -X exclude.pats r6146_org/Main/mod_atm_interface.F90 r6146/Main/mod_atm_interface.F90
+--- r6146_org/Main/mod_atm_interface.F90	2017-04-24 11:13:24.000000000 +0300
++++ r6146/Main/mod_atm_interface.F90	2017-05-16 11:37:06.000000000 +0300
+@@ -57,6 +57,7 @@
+   public :: allocate_mod_atm_interface , allocate_uwstate_tendency
+   public :: allocate_v3dbound , allocate_v2dbound
+   public :: setup_boundaries , setup_model_indexes
++  public :: export_data_from_atm
+ 
+   real(rkx) , public , pointer , dimension(:,:,:) :: dstor
+   real(rkx) , public , pointer , dimension(:,:,:) :: hstor
+@@ -989,6 +990,39 @@
+ 
+     end subroutine allocate_mod_atm_interface
+ 
++    subroutine export_data_from_atm(expfie)
++      implicit none
++      type(exp_data3d) , intent(inout) :: expfie
++      integer(ik4) :: k, j, i
++!
++      call exchange(atm1%u,1,jde1,jde2,ide1,ide2,1,kz)
++      call exchange(atm1%v,1,jde1,jde2,ide1,ide2,1,kz)
++!
++      do k = 1 , kz
++        do i = ici1, ici2
++          do j = jci1, jci2
++            expfie%u(j,i,k) = d_rfour*(atm1%u(j,i,k)+atm1%u(j+1,i,k) + &
++                              atm1%u(j,i+1,k)+atm1%u(j+1,i+1,k)) /     &
++                              sfs%psa(j,i)
++            expfie%v(j,i,k) = d_rfour*(atm1%v(j,i,k)+atm1%v(j+1,i,k) + &
++                              atm1%v(j,i+1,k)+atm1%v(j+1,i+1,k)) /     &
++                              sfs%psa(j,i)  
++            if ( idynamic == 2 ) then
++              expfie%w(j,i,k) = d_half*(atm1%w(j,i,k+1)+atm1%w(j,i,k))/&
++                                sfs%psa(j,i)
++            else 
++              expfie%w(j,i,k) = (-1.0d0*omega(j,i,k)*d_1000)/          &
++                                (atm1%rho(j,i,k)*egrav)
++            end if
++            expfie%t(j,i,k) = atm1%t(j,i,k)/sfs%psa(j,i)
++            !expfie%q(j,i,k) = atm1%qx(j,i,k,iqv)/sfs%psa(j,i)
++            expfie%q(j,i,k) = atms%rhb3d(j,i,k)
++          end do
++        end do
++      end do
++!
++    end subroutine export_data_from_atm
++
+ end module mod_atm_interface
+ 
+ ! vim: tabstop=8 expandtab shiftwidth=2 softtabstop=2
+diff -Naur -X exclude.pats r6146_org/Main/mod_rad_interface.F90 r6146/Main/mod_rad_interface.F90
+--- r6146_org/Main/mod_rad_interface.F90	2017-04-24 11:13:39.000000000 +0300
++++ r6146/Main/mod_rad_interface.F90	2017-04-24 13:33:13.000000000 +0300
+@@ -46,6 +46,7 @@
+   public :: inito3
+   public :: updateo3
+   public :: closeo3
++  public :: export_data_from_rad
+ 
+   ! Procedures exported from internal modules
+   public :: set_scenario
+@@ -154,5 +155,21 @@
+     call close_o3data
+   end subroutine closeo3
+ 
++  subroutine export_data_from_rad(expfie)
++    implicit none
++    type(exp_data3d) , intent(inout) :: expfie
++    integer(ik4) :: k, j, i
++!
++    do k = 1, kz
++      do i = ici1, ici2
++        do j = jci1, jci2
++          expfie%cldfrc(j,i,k) = m2r%cldfrc(j,i,k)
++          expfie%cldlwc(j,i,k) = m2r%cldlwc(j,i,k)
++        end do
++      end do
++    end do
++!
++  end subroutine export_data_from_rad
++
+ end module mod_rad_interface
+ ! vim: tabstop=8 expandtab shiftwidth=2 softtabstop=2
+diff -Naur -X exclude.pats r6146_org/Main/mod_update.F90 r6146/Main/mod_update.F90
+--- r6146_org/Main/mod_update.F90	2017-04-24 11:13:39.000000000 +0300
++++ r6146/Main/mod_update.F90	2017-04-24 13:51:16.000000000 +0300
+@@ -25,6 +25,8 @@
+   use mod_intkinds, only : ik4
+   use mod_realkinds, only : rkx
+   use mod_regcm_types , only : exp_data , imp_data
++  use mod_realkinds, only : rk4, rk8
++  use mod_regcm_types , only : exp_data , imp_data, exp_data3d
+   use mod_memutil
+ 
+   implicit none
+@@ -35,6 +37,7 @@
+   public :: imp_data
+   type(imp_data) , public :: importFields
+   type(exp_data) , public :: exportFields
++  type(exp_data3d) , public :: exportFields3d
+ !
+   integer(ik4) , pointer :: ldmskb(:,:)
+   integer(ik4) , pointer :: wetdry(:,:)
+@@ -70,8 +73,11 @@
+ !-----------------------------------------------------------------------
+ !
+     use mod_atm_interface , only : mddom
++    use mod_dynparam, only : kz
+     use mod_dynparam, only : ice1, ice2, jce1, jce2
+     use mod_dynparam, only : ici1, ici2, jci1, jci2
++    use mod_dynparam, only : jde1ga, jde2ga, ide1ga, ide2ga
++    use mod_dynparam, only : jce1ga, jce2ga, ice1ga, ice2ga
+ !
+     implicit none
+ !
+@@ -79,7 +85,7 @@
+ !     Local variable declarations
+ !-----------------------------------------------------------------------
+ !
+-    integer :: i, j
++    integer :: i, j, k
+     real(rkx), parameter :: initval = 1.0e20_rkx
+     real(rkx), parameter :: zeroval = 0.0e20_rkx
+ !
+@@ -120,6 +126,14 @@
+     call getmem2d(ldmskb,jci1,jci2,ici1,ici2,'cpl:ldmsk')
+     call getmem2d(wetdry,jci1,jci2,ici1,ici2,'cpl:wetdry')
+ !
++    call getmem3d(exportFields3d%u,jce1,jce2,ice1,ice2,1,kz,'cpl:u')
++    call getmem3d(exportFields3d%v,jce1,jce2,ice1,ice2,1,kz,'cpl:v')
++    call getmem3d(exportFields3d%w,jce1,jce2,ice1,ice2,1,kz,'cpl:w')
++    call getmem3d(exportFields3d%t,jce1,jce2,ice1,ice2,1,kz,'cpl:t')
++    call getmem3d(exportFields3d%q,jce1,jce2,ice1,ice2,1,kz,'cpl:q')
++    call getmem3d(exportFields3d%cldfrc,jce1,jce2,ice1,ice2,1,kz,'cpl:cldfrc')
++    call getmem3d(exportFields3d%cldlwc,jce1,jce2,ice1,ice2,1,kz,'cpl:cldlwc')
++!
+ !-----------------------------------------------------------------------
+ !     Initialize arrays
+ !-----------------------------------------------------------------------
+@@ -161,6 +175,20 @@
+       end do
+     end do
+ !
++    do k = 1 , kz
++      do i = ici1, ici2
++        do j = jci1, jci2
++          exportFields3d%u(j,i,k) = initval
++          exportFields3d%v(j,i,k) = initval
++          exportFields3d%w(j,i,k) = initval
++          exportFields3d%t(j,i,k) = initval
++          exportFields3d%q(j,i,k) = initval
++          exportFields3d%cldfrc(j,i,k) = initval
++          exportFields3d%cldlwc(j,i,k) = initval
++        end do
++      end do
++    end do
++!
+   end subroutine RCM_Allocate
+ !
+   subroutine RCM_Get(localPet)
+@@ -196,6 +224,8 @@
+ !-----------------------------------------------------------------------
+ !
+     use mod_lm_interface, only : export_data_from_surface
++    use mod_atm_interface, only : export_data_from_atm
++    use mod_rad_interface, only : export_data_from_rad
+ !
+     implicit none
+ !
+@@ -206,10 +236,17 @@
+     integer, intent(in) :: localPet
+ !
+ !-----------------------------------------------------------------------
+-!     Send information to OCN component
++!     Send information to OCN, WAV and RTM component
+ !-----------------------------------------------------------------------
+ !
+     call export_data_from_surface(exportFields)
++!
++!-----------------------------------------------------------------------
++!     Send information to COP component
++!-----------------------------------------------------------------------
++!
++    call export_data_from_atm(exportFields3d)
++    call export_data_from_rad(exportFields3d)
+ 
+   end subroutine RCM_Put
+ !
+diff -Naur -X exclude.pats r6146_org/Main/mpplib/mod_regcm_types.F90 r6146/Main/mpplib/mod_regcm_types.F90
+--- r6146_org/Main/mpplib/mod_regcm_types.F90	2017-04-24 11:13:22.000000000 +0300
++++ r6146/Main/mpplib/mod_regcm_types.F90	2017-04-24 13:36:50.000000000 +0300
+@@ -325,6 +325,16 @@
+     real(rkx) , pointer , dimension(:,:) :: rhoa
+   end type exp_data
+ 
++  type exp_data3d
++    real(rk8) , pointer , dimension(:,:,:) :: u
++    real(rk8) , pointer , dimension(:,:,:) :: v
++    real(rk8) , pointer , dimension(:,:,:) :: w
++    real(rk8) , pointer , dimension(:,:,:) :: t
++    real(rk8) , pointer , dimension(:,:,:) :: q
++    real(rk8) , pointer , dimension(:,:,:) :: cldfrc
++    real(rk8) , pointer , dimension(:,:,:) :: cldlwc
++  end type exp_data3d
++
+   type imp_data
+     real(rkx) , pointer , dimension(:,:) :: sst
+     real(rkx) , pointer , dimension(:,:) :: sit
+diff -Naur -X exclude.pats r6146_org/Share/mod_hgt.F90 r6146/Share/mod_hgt.F90
+--- r6146_org/Share/mod_hgt.F90	2017-04-24 11:13:44.000000000 +0300
++++ r6146/Share/mod_hgt.F90	2017-04-24 13:38:38.000000000 +0300
+@@ -52,9 +52,9 @@
+     module procedure nonhydrost_single
+   end interface nonhydrost
+ 
+-  public :: hydrost , nonhydrost , mslp2ps
++  public :: hydrost , nonhydrost , nonhydrost_s , mslp2ps
+   public :: height , height_o
+-  public :: htsig , htsig_o
++  public :: htsig , htsig_o, htsig_s
+   public :: psig , mslp , gs_filter
+ 
+   contains
+@@ -136,6 +136,40 @@
+     end do
+   end subroutine nonhydrost_double
+ 
++  subroutine nonhydrost_s(h,t0,p0,ptop,topo,sigmah,i1,i2,j1,j2,nk)
++    implicit none
++    integer(ik4) , intent(in) :: i1 , i2 , j1 , j2 , nk
++    real(rk8) , intent(in) :: ptop
++    real(rk8) , intent(in) , dimension(nk) :: sigmah
++    real(rk8) , intent(in) , dimension(i1:i2,j1:j2,nk) :: t0
++    real(rk8) , intent(in) , dimension(i1:i2,j1:j2) :: p0 , topo
++    real(rk8) , intent(out) , dimension(i1:i2,j1:j2,nk) :: h
++
++    integer(ik4) :: i , j , k
++    real(rk8) :: cell
++    !
++    ! ROUTINE TO COMPUTE HEIGHT FOR THE NON-HYDROSTATIC CORE
++    ! THE METHOD UTILIZED HERE IS CONSISTENT WITH THE WAY THE
++    ! HEIGHT IS COMPUTED IN THE RCM MODEL.
++    !
++    do j = j1 , j2
++      do i = i1 , i2
++        cell = (ptop * d_100) / p0(i,j)
++        h(i,j,nk) = rovg * t0(i,j,nk) * &
++                 log((d_one+cell)/(sigmah(nk)+cell)) + topo(i,j)
++      end do
++    end do
++    do k = nk-1 , 1 , -1
++      do j = j1 , j2
++        do i = i1 , i2
++          cell = (ptop * d_100) / p0(i,j)
++          h(i,j,k) = h(i,j,k+1) + rovg * t0(i,j,k) * &
++                   log((sigmah(k+1)+cell)/(sigmah(k)+cell))
++        end do
++      end do
++    end do
++  end subroutine nonhydrost_s
++
+   subroutine nonhydrost_single(h,t0,p0,ptop,topo,sigmah,ni,nj,nk)
+     implicit none
+     integer(ik4) , intent(in) :: ni , nj , nk
+@@ -611,6 +645,34 @@
+     end do
+   end subroutine htsig_o_single
+ 
++  subroutine htsig_s(t,h,pstar,ht,sig,ptop,i1,i2,j1,j2,km)
++    implicit none
++    integer(ik4) , intent(in) :: i1, i2 , j1 , j2, km
++    real(rk8) , intent(in) :: ptop
++    real(rk8) , intent(in) , dimension(i1:i2,j1:j2,km) :: t
++    real(rk8) , intent(in) , dimension(i1:i2,j1:j2) :: ht , pstar
++    real(rk8) , intent(in) , dimension(km) :: sig
++    real(rk8) , intent(out) , dimension(i1:i2,j1:j2,km) :: h
++    real(rk8) :: tbar
++    integer(ik4) :: i , j , k
++    do j = j1 , j2
++      do i = i1 , i2
++        h(i,j,km) = ht(i,j) + &
++          rovg*t(i,j,km)*dlog(pstar(i,j)/((pstar(i,j)-ptop)*sig(km)+ptop))
++      end do
++    end do
++    do k = km - 1 , 1 , -1
++      do j = j1 , j2
++        do i = i1 , i2
++          tbar = d_half*(t(i,j,k)+t(i,j,k+1))
++          h(i,j,k) = h(i,j,k+1) + &
++            rovg*tbar*dlog(((pstar(i,j)-ptop)*sig(k+1)+ptop)/ &
++                           ((pstar(i,j)-ptop)*sig(k)+ptop))
++        end do
++      end do
++    end do
++  end subroutine htsig_s
++
+   subroutine mslp2ps(h,t,slp,ht,ps,im,jm,km)
+     implicit none
+     integer(ik4) , intent(in) :: im , jm , km
+diff -Naur -X exclude.pats r6146_org/Share/mod_vertint.F90 r6146/Share/mod_vertint.F90
+--- r6146_org/Share/mod_vertint.F90	2017-04-24 11:13:44.000000000 +0300
++++ r6146/Share/mod_vertint.F90	2017-04-24 13:40:17.000000000 +0300
+@@ -39,6 +39,7 @@
+     module procedure intlin_single
+     module procedure intlin_o_double
+     module procedure intlin_o_single
++    module procedure intlin_z_o_double
+     module procedure intlin_z_o_single
+   end interface intlin
+ 
+@@ -51,7 +52,7 @@
+ 
+   public :: intlin , intgtb , intlog
+   public :: intpsn , intv0 , intv1 , intvp , intv2 , intv3
+-  public :: intlinreg , intlinprof
++  public :: intlinreg , intlinprof , intlinregz
+ 
+   contains
+ 
+@@ -863,6 +864,202 @@
+     end if
+   end subroutine intlin_o_single
+ 
++  subroutine intlinregz(fz,f,hz,sig,i1,i2,j1,j2,km,z,kz)
++    implicit none
++    integer(ik4) , intent(in) :: i1 , i2 , j1 , j2 , km , kz
++    real(rk8) , dimension(i1:i2,j1:j2,km) , intent(in) :: f , hz
++    real(rk8) , dimension(kz) , intent(in) :: z
++    real(rk8) , dimension(km) , intent(in) :: sig
++    real(rk8) , dimension(i1:i2,j1:j2,kz) , intent(out) :: fz
++    integer(ik4) :: i , j , k , kx , knx , n
++    real(rk8) :: w1 , wz
++    !
++    ! INTLIN IS FOR VERTICAL INTERPOLATION OF U, V, AND RELATIVE
++    ! HUMIDITY. THE INTERPOLATION IS LINEAR IN Z.  WHERE EXTRAPOLATION
++    ! IS NECESSARY, FIELDS ARE CONSIDERED TO HAVE 0 VERTICAL DERIVATIVE.
++    !
++    ! HERE BOTTOM TO TOP
++    !
++    if ( sig(1) < sig(2) ) then
++      !
++      ! Loop over points
++      !
++      do j = j1 , j2
++        do i = i1 , i2
++          !
++          ! For each of the requested levels
++          !
++          do n = 1 , kz
++            !
++            ! Over the top or below bottom level
++            !
++            if ( z(n) <= hz(i,j,km) ) then
++              fz(i,j,n) = f(i,j,km)
++              cycle
++            else if ( z(n) >= hz(i,j,1) ) then
++              fz(i,j,n) = f(i,j,1)
++              cycle
++            end if
++            !
++            ! Search k level below the requested one
++            !
++            kx = 0
++            do k = 1 , km-1
++              if ( z(n) > hz(i,j,k) ) exit
++              kx = k
++            end do
++            !
++            ! This is the above level
++            !
++            knx = kx + 1
++            wz = (z(n)-hz(i,j,kx))/(hz(i,j,knx)-hz(i,j,kx))
++            w1 = 1.0 - wz
++            fz(i,j,n) = w1*f(i,j,kx) + wz*f(i,j,knx)
++          end do
++        end do
++      end do
++    !
++    ! HERE TOP TO BOTTOM
++    !
++    else
++      !
++      ! Loop over points
++      !
++      do j = j1 , j2
++        do i = i1 , i2
++          !
++          ! For each of the requested levels
++          !
++          do n = 1 , kz
++            !
++            ! Over the top or below bottom level
++            !
++            if ( z(n) <= hz(i,j,1) ) then
++              fz(i,j,n) = f(i,j,1)
++              cycle
++            else if ( z(n) >= hz(i,j,km) ) then
++              fz(i,j,n) = f(i,j,km)
++              cycle
++            end if
++            !
++            ! Search k level below the requested one
++            !
++            kx = km + 1
++            do k = km , 2 , -1
++              if ( z(n) > hz(i,j,k) ) exit
++              kx = k
++            end do
++            !
++            ! This is the above level
++            !
++            knx = kx - 1
++            wz = (z(n)-hz(i,j,kx))/(hz(i,j,knx)-hz(i,j,kx))
++            w1 = 1.0 - wz
++            fz(i,j,n) = w1*f(i,j,kx) + wz*f(i,j,knx)
++          end do
++        end do
++      end do
++    end if
++  end subroutine intlinregz
++
++  subroutine intlin_z_o_double(fz,f,hz,sig,im,jm,km,z,kz)
++    implicit none
++    integer(ik4) , intent(in) :: im , jm , km , kz
++    real(rk8) , dimension(im,jm,km) , intent(in) :: f , hz
++    real(rk8) , dimension(kz) , intent(in) :: z
++    real(rk8) , dimension(km) , intent(in) :: sig
++    real(rk8) , dimension(im,jm,kz) , intent(out) :: fz
++    integer(ik4) :: i , j , k , kx , knx , n
++    real(rk8) :: w1 , wz
++    !
++    ! INTLIN IS FOR VERTICAL INTERPOLATION OF U, V, AND RELATIVE
++    ! HUMIDITY. THE INTERPOLATION IS LINEAR IN Z.  WHERE EXTRAPOLATION
++    ! IS NECESSARY, FIELDS ARE CONSIDERED TO HAVE 0 VERTICAL DERIVATIVE.
++    !
++    ! HERE BOTTOM TO TOP
++    !
++    if ( sig(1) < sig(2) ) then
++      !
++      ! Loop over points
++      !
++      do j = 1 , jm
++        do i = 1 , im
++          !
++          ! For each of the requested levels
++          !
++          do n = 1 , kz
++            !
++            ! Over the top or below bottom level
++            !
++            if ( z(n) <= hz(i,j,km) ) then
++              fz(i,j,n) = f(i,j,km)
++              cycle
++            else if ( z(n) >= hz(i,j,1) ) then
++              fz(i,j,n) = f(i,j,1)
++              cycle
++            end if
++            !
++            ! Search k level below the requested one
++            !
++            kx = 0
++            do k = 1 , km-1
++              if ( z(n) > hz(i,j,k) ) exit
++              kx = k
++            end do
++            !
++            ! This is the above level
++            !
++            knx = kx + 1
++            wz = (z(n)-hz(i,j,kx))/(hz(i,j,knx)-hz(i,j,kx))
++            w1 = 1.0 - wz
++            fz(i,j,n) = w1*f(i,j,kx) + wz*f(i,j,knx)
++          end do
++        end do
++      end do
++    !
++    ! HERE TOP TO BOTTOM
++    !
++    else
++      !
++      ! Loop over points
++      !
++      do j = 1 , jm
++        do i = 1 , im
++          !
++          ! For each of the requested levels
++          !
++          do n = 1 , kz
++            !
++            ! Over the top or below bottom level
++            !
++            if ( z(n) <= hz(i,j,1) ) then
++              fz(i,j,n) = f(i,j,1)
++              cycle
++            else if ( z(n) >= hz(i,j,km) ) then
++              fz(i,j,n) = f(i,j,km)
++              cycle
++            end if
++            !
++            ! Search k level below the requested one
++            !
++            kx = km + 1
++            do k = km , 2 , -1
++              if ( z(n) > hz(i,j,k) ) exit
++              kx = k
++            end do
++            !
++            ! This is the above level
++            !
++            knx = kx - 1
++            wz = (z(n)-hz(i,j,kx))/(hz(i,j,knx)-hz(i,j,kx))
++            w1 = 1.0 - wz
++            fz(i,j,n) = w1*f(i,j,kx) + wz*f(i,j,knx)
++          end do
++        end do
++      end do
++    end if
++  end subroutine intlin_z_o_double
++
+   subroutine intlin_z_o_single(fz,f,hz,sig,im,jm,km,z,kz)
+     implicit none
+     integer(ik4) , intent(in) :: im , jm , km , kz
