@@ -33,7 +33,6 @@ cd ${PROGS}
 wget "https://github.com/madler/zlib/archive/v${ZLIB_VER}.tar.gz"
 tar -zxvf v${ZLIB_VER}.tar.gz > extract.log
 rm -f v${ZLIB_VER}.tar.gz
-mv v${ZLIB_VER} zlib-${ZLIB_VER}
 cd zlib-${ZLIB_VER}
 ./configure --prefix=${PROGS}/zlib-${ZLIB_VER}
 make > make.log 
