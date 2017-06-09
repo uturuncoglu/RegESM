@@ -1901,11 +1901,11 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-!      if ((currTime /= refTime) .or. restarted) then
-!        call OCN_Get(gcomp, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=FILENAME)) return
-!      end if
+      if ((currTime /= refTime) .or. restarted) then
+        call OCN_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Run OCN component
