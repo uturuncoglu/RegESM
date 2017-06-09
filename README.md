@@ -25,7 +25,7 @@ Prerequisites
 
 * RegESM itself (as a driver)
 * Earth System Modeling Framework (ESMF) Library: version [7.1.0](http://www.earthsystemmodeling.org/download/data/releases.shtml#v7_1_0)
-* Model Components (patched and installed with coupling support - see README file under doc/ directory)
+* Model Components (patched and installed with coupling support - see documentation for more information)
 
 Documentation
 =============
@@ -47,7 +47,7 @@ A tutorial for two component coupling (RegCM+ROMS) over Black Sea can be found i
 Talks
 =====
 
-* Turuncoglu, U.U., 2017. Towards in situ visualization integrated model coupling framework for earth system science, Fourth Workshop on Coupling Technologies for Earth System Models, Princeton, NJ, USA. [pdf](https://www.earthsystemcog.org/projects/cw2017/program)
+* Turuncoglu, U.U., 2017. Towards in situ visualization integrated model coupling framework for earth system science, [Fourth Workshop on Coupling Technologies for Earth System Models](https://www.earthsystemcog.org/projects/cw2017/), Princeton, NJ, USA. [pdf](https://drive.google.com/open?id=0B9HveJUZae21MHhkMjB0al93SDQ)
 
 References
 =============

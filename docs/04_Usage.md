@@ -25,46 +25,46 @@ sst:sea_surface_temperature:2d:bilinear:cross:cross:C:K:1.0:273.16:F
 
 ```
 2 atm2wav T
-wndu:eastward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
-wndv:northward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+wndu:eastward_10m_wind:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+wndv:northward_10m_wind:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
 1 wav2atm T
-zo:roughness_length:bilinear:cross:cross:m:m:1.0:0.0:F
+zo:roughness_length:2d:bilinear:cross:cross:m:m:1.0:0.0:F
 ```
 
 ```
 2 atm2wav T
-wndu:eastward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
-wndv:northward_10m_wind:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+wndu:eastward_10m_wind:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+wndv:northward_10m_wind:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
 2 wav2atm T
-zo:roughness_length:bilinear:cross:cross:m:m:1.0:0.0:F
-ustar:friction_velocity:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+zo:roughness_length:2d:bilinear:cross:cross:m:m:1.0:0.0:F
+ustar:friction_velocity:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
 ```
 
 ```
 2 atm2wav T
-wdir:wind_direction:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
-ustr:friction_velocity:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+wdir:wind_direction:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+ustr:friction_velocity:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
 2 wav2atm T
-zo:roughness_length:bilinear:cross:cross:m:m:1.0:0.0:F
+zo:roughness_length:2d:bilinear:cross:cross:m:m:1.0:0.0:F
 ```
 
 **ATM-OCN-RTM:**
 
 ```
 6 atm2ocn T
-taux:eastward_10m_wind_stress:bilinear:cross:u:N/m2:m2/s2:cf3:0.0:F
-tauy:northward_10m_wind_stress:bilinear:cross:v:N/m2:m2/s2:cf3:0.0:F
-psfc:surface_air_pressure:bilinear:cross:cross:mb:mb:1.0:0.0:F
-swrd:shortwave_radiation:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
-sflx:water_flux_into_sea_water:bilinear:cross:cross:kg/m^2s:m/s:0.001:0.0:T
-nflx:surface_heat_flux:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
+taux:eastward_10m_wind_stress:2d:bilinear:cross:u:N/m2:m2/s2:cf3:0.0:F
+tauy:northward_10m_wind_stress:2d:bilinear:cross:v:N/m2:m2/s2:cf3:0.0:F
+psfc:surface_air_pressure:2d:bilinear:cross:cross:mb:mb:1.0:0.0:F
+swrd:shortwave_radiation:2d:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
+sflx:water_flux_into_sea_water:2d:bilinear:cross:cross:kg/m^2s:m/s:0.001:0.0:T
+nflx:surface_heat_flux:2d:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
 1 ocn2atm T
-sst:sea_surface_temperature:bilinear:cross:cross:C:K:1.0:273.16:F
+sst:sea_surface_temperature:2d:bilinear:cross:cross:C:K:1.0:273.16:F
 2 atm2rtm F
-rnof:surface_runoff:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
-snof:subsurface_runoff:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
+rnof:surface_runoff:2d:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
+snof:subsurface_runoff:2d:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
 1 rtm2ocn F
-rdis:river_discharge:nearstod:cross:cross:m^3:m^3:1.0:0.0:F
+rdis:river_discharge:2d:nearstod:cross:cross:m^3:m^3:1.0:0.0:F
 ```
 
 **ATM-OCN-COP:**
@@ -105,24 +105,24 @@ sst:sea_surface_temperature:2d:bilinear:cross:cross:C:K:1.0:273.16:F
 
 ```
 6 atm2ocn T
-taux:eastward_10m_wind_stress:bilinear:cross:u:N/m2:m2/s2:cf3:0.0:F
-tauy:northward_10m_wind_stress:bilinear:cross:v:N/m2:m2/s2:cf3:0.0:F
-psfc:surface_air_pressure:bilinear:cross:cross:mb:mb:1.0:0.0:F
-swrd:shortwave_radiation:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
-sflx:water_flux_into_sea_water:bilinear:cross:cross:kg/m^2s:m/s:0.001:0.0:T
-nflx:surface_heat_flux:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
+taux:eastward_10m_wind_stress:2d:bilinear:cross:u:N/m2:m2/s2:cf3:0.0:F
+tauy:northward_10m_wind_stress:2d:bilinear:cross:v:N/m2:m2/s2:cf3:0.0:F
+psfc:surface_air_pressure:2d:bilinear:cross:cross:mb:mb:1.0:0.0:F
+swrd:shortwave_radiation:2d:bilinear:cross:cross:W/m^2:Cm/s:cf2:0.0:T
+sflx:water_flux_into_sea_water:2d:bilinear:cross:cross:kg/m^2s:m/s:0.001:0.0:T
+nflx:surface_heat_flux:bilinear:2d:cross:cross:W/m^2:Cm/s:cf2:0.0:T
 1 ocn2atm T
-sst:sea_surface_temperature:bilinear:cross:cross:C:K:1.0:273.16:F
+sst:sea_surface_temperature:2d:bilinear:cross:cross:C:K:1.0:273.16:F
 2 atm2rtm F
-rnof:surface_runoff:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
-snof:subsurface_runoff:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
+rnof:surface_runoff:2d:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
+snof:subsurface_runoff:2d:bilinear:cross:cross:mm/s:m/s:0.001:0.0:F
 1 rtm2ocn F
-rdis:river_discharge:nearstod:cross:cross:m^3:m^3:1.0:0.0:F
+rdis:river_discharge:2d:nearstod:cross:cross:m^3:m^3:1.0:0.0:F
 2 atm2wav T
-wdir:wind_direction:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
-ustr:friction_velocity:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+wdir:wind_direction:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
+ustr:friction_velocity:2d:bilinear:cross:cross:m/s:m/s:1.0:0.0:F
 2 wav2atm T
-zo:roughness_length:bilinear:cross:cross:m:m:1.0:0.0:F
+zo:roughness_length:2d:bilinear:cross:cross:m:m:1.0:0.0:F
 
 ```
 
