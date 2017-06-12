@@ -687,7 +687,7 @@ diff -Naur -X exclude.pats day2/src/roms-r809/Master/ocean_coupler.F day3/src/oc
 +      integer :: i, j
 +      real(r8) :: OutFmin, OutFmax
 +      real(r8), parameter :: Large = 1.0E+20_r8
-+      real(r8), parameter :: Large2 = Large/2.0_r8
++      real(r8), parameter :: Large2 = sqrt(Large)
 +      real(r8), dimension(2) :: range
 +# ifdef DISTRIBUTE
 +      character (len=3), dimension(2) :: op_handle
