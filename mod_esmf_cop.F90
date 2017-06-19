@@ -54,7 +54,9 @@
 !
       integer :: nports
       character(255), allocatable :: input_ports(:)
-      character(ESMF_MAXSTR), save :: gridnames(20)
+      character(ESMF_MAXSTR), allocatable, save :: gridnames(:)
+!
+      type(ESMF_RouteHandle), allocatable :: routeHandle(:)
 !
       interface
         subroutine create_grid(name, nProc, myRank, dims, lb, ub,       &
@@ -216,6 +218,9 @@
 !
         nports = k*2
         allocate(input_ports(nports))
+        input_ports = ""
+        allocate(gridnames(nports))
+        gridnames = ""
 !
         k = 1
         do i = 1, nModels
@@ -235,6 +240,14 @@
                       "input port [", i, "] is defined as "//           &
                       trim(input_ports(i))
         end do
+      end if
+!
+!-----------------------------------------------------------------------
+!     Allocate routehandle array for halo update
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(routeHandle)) then
+        allocate(routeHandle(nports))
       end if
 !
 !-----------------------------------------------------------------------
@@ -516,12 +529,27 @@
 !     Local variable declarations
 !-----------------------------------------------------------------------
 !
-      integer :: i, j, k, itemCount, localDECount
+      integer :: i, j, k, localPet, rank, itemCount, localDECount
+      integer :: tileX, tileY, tuw(3)
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       real(ESMF_KIND_R8), pointer :: ptr2d(:,:)
       real(ESMF_KIND_R8), pointer :: ptr3d(:,:,:)
+      logical :: hasRight, hasTop
 !
+      type(ESMF_VM) :: vm
       type(ESMF_Field) :: field
+!
+!-----------------------------------------------------------------------
+!     Query component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Get list of import fields
@@ -546,6 +574,7 @@
       do i = 1, itemCount
 !
       k = get_varid(models(Icopro)%importField, trim(itemNameList(i)))
+      rank = models(Icopro)%importField(k)%rank
 !
 !-----------------------------------------------------------------------
 !     Get field from import state
@@ -557,10 +586,26 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Allocate data for data by complete
+!     Allocate data by complete 
+!     It also adds extra halo regions to top and right
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8,    &
+      tileX = models(Icopro)%tile(1)
+      tileY = models(Icopro)%tile(2)
+!
+      hasRight = .false.
+      if ((localPet/tileY+1) < tileX) hasRight = .true.
+!
+      hasTop = .false.
+      if (mod(localPet+1,tileY) /= 0) hasTop = .true.
+!
+      tuw = 0
+      if (hasTop) tuw(1) = 1
+      if (hasRight) tuw(2) = 1
+!
+      call ESMF_FieldEmptyComplete(field,                               &
+                                   typekind=ESMF_TYPEKIND_R8,           &
+                                   totalUWidth=tuw(:rank),              &
                                    rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -733,7 +778,7 @@
       integer :: nPoints2D, nPoints3D  
       integer :: cc2d(2), cc3d(3), lb(3), ub(3), dims(3)
       integer, allocatable :: minIndexPTile(:,:), maxIndexPTile(:,:)
-      character(ESMF_MAXSTR) :: gname, str1, str2
+      character(ESMF_MAXSTR) :: gname, rname, str1, str2
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
       logical :: hasRight, hasTop, flag
       real(ESMF_KIND_R8) :: stime, etime, dtime
@@ -995,6 +1040,7 @@
 !
       if (hasTop) ub(1) = ub(1)+1
       if (hasRight) ub(2) = ub(2)+1
+      write(*,fmt="(A,8I6)") "G_"//trim(gname), localPet, cc2d(1), cc2d(2), nPoints2D, lb(1), ub(1), lb(2), ub(2)
 !
       if (debugLevel > 1) then
         if (localPet == 0) then
@@ -1239,6 +1285,20 @@
       end if
 !
 !-----------------------------------------------------------------------
+!     Create routehandle for halo update 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldHaloStore(field, routehandle=routeHandle(j), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      rname = trim(gname)//'_uphalo'
+!
+      call ESMF_RouteHandleSet(routeHandle(j), name=rname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
 !     Save defined grid name in lookup table 
 !-----------------------------------------------------------------------
 !
@@ -1258,6 +1318,26 @@
       end if
 !
 !-----------------------------------------------------------------------
+!     Perform halo update 
+!-----------------------------------------------------------------------
+!
+      do k = 1, ubound(routeHandle, dim=1)
+        if (ESMF_RouteHandleIsCreated(routeHandle(k))) then
+          call ESMF_RouteHandleGet(routeHandle(k), name=rname, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=__FILE__)) return
+!
+          if (trim(rname) == trim(gname)//'_uphalo') then
+            call ESMF_FieldHalo(field, routehandle=routeHandle(k),      &
+                                checkflag=.true., rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc,                        &
+                                   msg=ESMF_LOGERR_PASSTHRU,            &
+                                   line=__LINE__, file=__FILE__)) return
+          end if
+        end if
+      end do
+!
+!-----------------------------------------------------------------------
 !     Get pointer from field and serialize data to pass co-processing
 !-----------------------------------------------------------------------
 !
@@ -1269,17 +1349,17 @@
 !
       if (dimCount == 2) then ! 2d
 !
-      if (.not. allocated(var2d)) then
-        allocate(var2d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
-                       minIndexPTile(2,1):maxIndexPTile(2,1)))
-      end if
+!      if (.not. allocated(var2d)) then
+!        allocate(var2d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+!                       minIndexPTile(2,1):maxIndexPTile(2,1)))
+!      end if
 !
-      do k = 1, models(Icopro)%nPets
-        call ESMF_FieldGather(field, farray=var2d,                      &
-                              rootPet=k-1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=__FILE__)) return
-      end do
+!      do k = 1, models(Icopro)%nPets
+!        call ESMF_FieldGather(field, farray=var2d,                      &
+!                              rootPet=k-1, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=__FILE__)) return
+!      end do
 !
       call ESMF_FieldGet(field, localDE=0, farrayPtr=ptr2d, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1292,20 +1372,22 @@
       lb = (/ lbound(ptr2d,dim=1), lbound(ptr2d,dim=2), 0 /)
       ub = (/ ubound(ptr2d,dim=1), ubound(ptr2d,dim=2), 0 /)
 !
-      if (hasRight) ub(2) = ub(2)+1
-      if (hasTop) ub(1) = ub(1)+1
+!      if (hasRight) ub(2) = ub(2)+1
+!      if (hasTop) ub(1) = ub(1)+1
 !
       nPoints2D = 1
       do k = 1, 2
         nPoints2D = nPoints2D*(ub(k)-lb(k)+1)
       end do
+      write(*,fmt="(A,8I6)") "F_"//trim(gname), localPet, cc2d(1), cc2d(2), nPoints2D, lb(1), ub(1), lb(2), ub(2)
 !
       if (.not. allocated(var1d)) then
         allocate(var1d(nPoints2D))
       end if
 !
-      call ntooned_2d(lb(1:2), ub(1:2),                                 &
-                      var2d(lb(1):ub(1),lb(2):ub(2)), var1d)
+!      call ntooned_2d(lb(1:2), ub(1:2),                                 &
+!                      var2d(lb(1):ub(1),lb(2):ub(2)), var1d)
+      call ntooned_2d(lb(1:2), ub(1:2), ptr2d, var1d)
 !
 !-----------------------------------------------------------------------
 !     Add field to co-processor
@@ -1342,18 +1424,18 @@
 !
       else if (dimCount == 3) then ! 3d     
 !
-      if (.not. allocated(var3d)) then
-        allocate(var3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
-                       minIndexPTile(2,1):maxIndexPTile(2,1),           &
-                       minIndexPTile(3,1):maxIndexPTile(3,1)))
-      end if
+!      if (.not. allocated(var3d)) then
+!        allocate(var3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
+!                       minIndexPTile(2,1):maxIndexPTile(2,1),           &
+!                       minIndexPTile(3,1):maxIndexPTile(3,1)))
+!      end if
 !
-      do k = 1, models(Icopro)%nPets
-        call ESMF_FieldGather(field, farray=var3d,                      &
-                              rootPet=k-1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=__FILE__)) return
-      end do
+!      do k = 1, models(Icopro)%nPets
+!        call ESMF_FieldGather(field, farray=var3d,                      &
+!                              rootPet=k-1, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=__FILE__)) return
+!      end do
 !
       call ESMF_FieldGet(field, localDE=0, farrayPtr=ptr3d, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1368,8 +1450,8 @@
       ub = (/ ubound(ptr3d,dim=1), ubound(ptr3d,dim=2),                 &
               ubound(ptr3d,dim=3) /)
 !
-      if (hasRight) ub(2) = ub(2)+1
-      if (hasTop) ub(1) = ub(1)+1
+!      if (hasRight) ub(2) = ub(2)+1
+!      if (hasTop) ub(1) = ub(1)+1
 !
       nPoints3D = 1
       do k = 1, 3
@@ -1380,8 +1462,9 @@
         allocate(var1d(nPoints3D))
       end if
 !
-      call ntooned_3d(lb, ub,                                           &
-                      var3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), var1d)
+!      call ntooned_3d(lb, ub,                                           &
+!                      var3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), var1d)
+      call ntooned_2d(lb, ub, ptr3d, var1d)
 !
 !-----------------------------------------------------------------------
 !     Add field to Catalyst
