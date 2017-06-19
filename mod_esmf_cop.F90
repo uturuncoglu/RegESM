@@ -798,8 +798,6 @@
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d
       real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3d
       real(ESMF_KIND_R8), allocatable, dimension(:) :: var1d
-      real(ESMF_KIND_R8), allocatable, dimension(:,:) :: var2d
-      real(ESMF_KIND_R8), allocatable, dimension(:,:,:) :: var3d
 !
       type(ESMF_VM) :: vm
       type(ESMF_Grid) :: grid
@@ -1040,7 +1038,6 @@
 !
       if (hasTop) ub(1) = ub(1)+1
       if (hasRight) ub(2) = ub(2)+1
-      write(*,fmt="(A,8I6)") "G_"//trim(gname), localPet, cc2d(1), cc2d(2), nPoints2D, lb(1), ub(1), lb(2), ub(2)
 !
       if (debugLevel > 1) then
         if (localPet == 0) then
@@ -1349,18 +1346,6 @@
 !
       if (dimCount == 2) then ! 2d
 !
-!      if (.not. allocated(var2d)) then
-!        allocate(var2d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
-!                       minIndexPTile(2,1):maxIndexPTile(2,1)))
-!      end if
-!
-!      do k = 1, models(Icopro)%nPets
-!        call ESMF_FieldGather(field, farray=var2d,                      &
-!                              rootPet=k-1, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=__FILE__)) return
-!      end do
-!
       call ESMF_FieldGet(field, localDE=0, farrayPtr=ptr2d, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
@@ -1372,21 +1357,15 @@
       lb = (/ lbound(ptr2d,dim=1), lbound(ptr2d,dim=2), 0 /)
       ub = (/ ubound(ptr2d,dim=1), ubound(ptr2d,dim=2), 0 /)
 !
-!      if (hasRight) ub(2) = ub(2)+1
-!      if (hasTop) ub(1) = ub(1)+1
-!
       nPoints2D = 1
       do k = 1, 2
         nPoints2D = nPoints2D*(ub(k)-lb(k)+1)
       end do
-      write(*,fmt="(A,8I6)") "F_"//trim(gname), localPet, cc2d(1), cc2d(2), nPoints2D, lb(1), ub(1), lb(2), ub(2)
 !
       if (.not. allocated(var1d)) then
         allocate(var1d(nPoints2D))
       end if
 !
-!      call ntooned_2d(lb(1:2), ub(1:2),                                 &
-!                      var2d(lb(1):ub(1),lb(2):ub(2)), var1d)
       call ntooned_2d(lb(1:2), ub(1:2), ptr2d, var1d)
 !
 !-----------------------------------------------------------------------
@@ -1410,7 +1389,6 @@
 !-----------------------------------------------------------------------
 !
       if (allocated(var1d)) deallocate(var1d)
-      if (allocated(var2d)) deallocate(var2d)
 !
       if (enablePerfCheck) then
         call ESMF_VMWtime(etime, rc=rc)
@@ -1423,19 +1401,6 @@
       end if
 !
       else if (dimCount == 3) then ! 3d     
-!
-!      if (.not. allocated(var3d)) then
-!        allocate(var3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
-!                       minIndexPTile(2,1):maxIndexPTile(2,1),           &
-!                       minIndexPTile(3,1):maxIndexPTile(3,1)))
-!      end if
-!
-!      do k = 1, models(Icopro)%nPets
-!        call ESMF_FieldGather(field, farray=var3d,                      &
-!                              rootPet=k-1, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-!                               line=__LINE__, file=__FILE__)) return
-!      end do
 !
       call ESMF_FieldGet(field, localDE=0, farrayPtr=ptr3d, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
@@ -1450,9 +1415,6 @@
       ub = (/ ubound(ptr3d,dim=1), ubound(ptr3d,dim=2),                 &
               ubound(ptr3d,dim=3) /)
 !
-!      if (hasRight) ub(2) = ub(2)+1
-!      if (hasTop) ub(1) = ub(1)+1
-!
       nPoints3D = 1
       do k = 1, 3
         nPoints3D = nPoints3D*(ub(k)-lb(k)+1)
@@ -1462,8 +1424,6 @@
         allocate(var1d(nPoints3D))
       end if
 !
-!      call ntooned_3d(lb, ub,                                           &
-!                      var3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), var1d)
       call ntooned_2d(lb, ub, ptr3d, var1d)
 !
 !-----------------------------------------------------------------------
@@ -1487,7 +1447,6 @@
 !-----------------------------------------------------------------------
 !
       if (allocated(var1d)) deallocate(var1d)
-      if (allocated(var3d)) deallocate(var3d)
 !
       if (enablePerfCheck) then
         call ESMF_VMWtime(etime, rc=rc)
