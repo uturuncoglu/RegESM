@@ -552,17 +552,33 @@
 !     Read name of co-processing script
 !-----------------------------------------------------------------------
 !
-      call ESMF_ConfigFindLabel(cf, 'CoProcessorScript:', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+        call ESMF_ConfigGetDim(cf, lineCount, columnCount,              &
+                               label='CoProcessorScript::', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
 !
-      call ESMF_ConfigGetAttribute(cf, coproc_fname, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-          line=__LINE__, file=FILENAME)) return
+        call ESMF_ConfigFindLabel(cf, 'CoProcessorScript::', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+            line=__LINE__, file=FILENAME)) return
 !
-      if (localPet == 0) then
-        write(*, fmt='(A12,A)') "Co-processing Script: ", trim(coproc_fname)
-      end if
+        if (.not. allocated(coproc_fnames)) then
+          allocate(coproc_fnames(lineCount))
+        end if
+!
+        do i = 1, lineCount
+          call ESMF_ConfigNextLine(cf, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+!
+          call ESMF_ConfigGetAttribute(cf, coproc_fnames(i), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+              line=__LINE__, file=FILENAME)) return
+!
+          if (localPet == 0) then
+            write(*, fmt='(A,I3.3,A)') "Co-processing Pipeline [", i,   &
+                 "] = "//trim(coproc_fnames(i))
+          end if
+        end do
 !
 !-----------------------------------------------------------------------
 !     Read co-processing component tiles in x and y direction 

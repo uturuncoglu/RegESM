@@ -52,16 +52,18 @@ namespace {
 
 //////////////////////////////////////////////////////////////////////
 
-extern "C" void my_coprocessorinitializewithpython_(int *fcomm, const char* pythonScriptName, const char strarr[][255], int *size) {
-  if (pythonScriptName != NULL) {
+extern "C" void my_coprocessorinitializewithpython_(int *fcomm, const char pythonScriptNames[][255], int *nscript, const char strarr[][255], int *size) {
+  if (pythonScriptNames != NULL) {
     if (!g_coprocessor) {
       g_coprocessor = vtkCPProcessor::New();
       MPI_Comm handle = MPI_Comm_f2c(*fcomm);
       vtkMPICommunicatorOpaqueComm *Comm = new vtkMPICommunicatorOpaqueComm(&handle);
       g_coprocessor->Initialize(*Comm);
       vtkSmartPointer<vtkCPPythonScriptPipeline> pipeline = vtkSmartPointer<vtkCPPythonScriptPipeline>::New();
-      pipeline->Initialize(pythonScriptName);
-      g_coprocessor->AddPipeline(pipeline); 
+      for (int i = 0; i < *nscript; i++) {
+        pipeline->Initialize(pythonScriptNames[i]);
+        g_coprocessor->AddPipeline(pipeline);
+      }
       //pipeline->FastDelete();
     }
 

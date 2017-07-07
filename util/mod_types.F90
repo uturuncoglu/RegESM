@@ -241,7 +241,7 @@
 !-----------------------------------------------------------------------
 !
       character(ESMF_MAXSTR) :: config_fname="namelist.rc"
-      character(ESMF_MAXSTR) :: coproc_fname="tools/cop/allinputsgridwriter.py"
+      character(ESMF_MAXSTR), allocatable :: coproc_fnames(:)
       character(ESMF_MAXSTR) :: petLayoutOption
       type(ESMF_Time) :: esmStartTime
       type(ESMF_Time) :: esmRestartTime

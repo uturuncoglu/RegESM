@@ -2691,14 +2691,18 @@
                      mddom%ht(jce1:jce2,ice1:ice2)*regrav,              &
                      sigma, ptop*d_100, jce1, jce2, ice1, ice2, kz)
       else
+!        call nonhydrost_s(hzvar, exportFields3d%t,                      &
+!                          (exportFields%psfc-ptop)*d_100, ptop*d_100,   &
+!                          mddom%ht(jce1:jce2,ice1:ice2), sigma,         &
+!                          jce1, jce2, ice1, ice2, kz)
         call nonhydrost_s(hzvar, exportFields3d%t,                      &
-                          (exportFields%psfc-ptop)*d_100, ptop*d_100,   &
-                          mddom%ht(jce1:jce2,ice1:ice2), sigma,         &
+                          (exportFields%psfc-ptop)*d_100, ptop,         &
+                          mddom%ht(jce1:jce2,ice1:ice2)*regrav, sigma,  &
                           jce1, jce2, ice1, ice2, kz)
       end if
 !
 !-----------------------------------------------------------------------
-!     Perform vertical interpolation from sigma to height 
+!     Perform vertical interpolation from aigma to height 
 !-----------------------------------------------------------------------
 !
       nz = models(Iatmos)%nLevs

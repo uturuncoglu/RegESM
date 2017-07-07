@@ -175,7 +175,8 @@
 !-----------------------------------------------------------------------
 !
       logical :: file_exists
-      integer :: i, k, localPet, petCount, comm, nports
+      integer :: i, k, localPet, petCount, comm, nports, nf
+      character(255), allocatable :: pipelines(:)
 !
       type(ESMF_VM) :: vm
 !
@@ -254,17 +255,26 @@
 !     Initialize co-processor
 !-----------------------------------------------------------------------
 !
-      inquire(file=trim(coproc_fname), exist=file_exists)
-      if (file_exists) then
-        call my_coprocessorinitializewithpython(comm,                   &
-             trim(coproc_fname)//char(0), input_ports, nports)
-      else
-        if (localPet == models(Icopro)%petList(1)) then
-          write(*,20) "[ERROR "//trim(models(Icopro)%name)//"] - "//    &
-                      trim(coproc_fname)//" not found! exiting ..."
+      nf = ubound(coproc_fnames, dim=1)
+      if (.not. allocated(pipelines)) allocate(pipelines(nf))
+!
+      do i = 1, nf
+        inquire(file=trim(coproc_fnames(i)), exist=file_exists)
+        if (file_exists) then
+          pipelines(i) = trim(coproc_fnames(i))//char(0)
+        else
+          if (localPet == models(Icopro)%petList(1)) then
+            write(*,20) "[ERROR "//trim(models(Icopro)%name)//"] - "//  &
+                        trim(coproc_fnames(i))//" not found! Exiting!"
+          end if
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
         end if
-        call ESMF_Finalize(endflag=ESMF_END_ABORT)
-      end if
+      end do 
+!
+      call my_coprocessorinitializewithpython(comm, pipelines, nf,      &
+                                              input_ports, nports)
+!
+      if (allocated(pipelines)) deallocate(pipelines)
 !
 !-----------------------------------------------------------------------
 !     Format definition 
