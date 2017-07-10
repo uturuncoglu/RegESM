@@ -142,7 +142,6 @@ namespace ESMFAdaptor {
       field->SetName(vname);
       field->SetNumberOfComponents(1);
       
-      //field->SetArray(data, *size, 1);
       field->SetNumberOfValues(*size);
       for (int i = 0; i < *size; i++) {
         field->SetValue(i, data[i]);
@@ -224,17 +223,13 @@ namespace ESMFAdaptor {
     if (lb) {
       this->IndLonL = lb[0];
       this->IndLatL = lb[1];
-      //this->IndLatL = lb[0];
-      //this->IndLonL = lb[1];
-      //this->IndLevL = 0;
+      this->IndLevL = 0;
       if (lb[2] > 0) this->IndLevL = lb[2]; 
     }
     if (ub) {
       this->IndLonU = ub[0];
       this->IndLatU = ub[1];
-      //this->IndLatU = ub[0];
-      //this->IndLonU = ub[1];
-      //this->IndLevU = 0;
+      this->IndLevU = 0;
       if (ub[2] > 0) this->IndLevU = ub[2]; 
     }
   }
@@ -245,10 +240,8 @@ namespace ESMFAdaptor {
     if (idd) {
       if (dims[2] == 0) {
         idd->SetWholeExtent(0, dims[0]-1, 0, dims[1]-1, 0, 0);
-        //idd->SetWholeExtent(0, dims[1]-1, 0, dims[0]-1, 0, 0);
       } else {
         idd->SetWholeExtent(0, dims[0]-1, 0, dims[1]-1, 0, dims[2]-1);
-        //idd->SetWholeExtent(0, dims[1]-1, 0, dims[0]-1, 0, dims[2]-1);
       }
       idd->SetGrid(grid);
       return true;

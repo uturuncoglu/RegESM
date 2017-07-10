@@ -87,8 +87,6 @@ namespace ESMFAdaptor {
       void SetLev(int nlev, int ncells, double* lev);
 
       vtkSmartPointer<vtkMultiBlockDataSet> GetGrid() const;
-      //vtkSmartPointer<vtkMultiBlockDataSet> GetGrid2d() const;
-      //vtkSmartPointer<vtkMultiBlockDataSet> GetGrid3d() const;
      
       // link grid with coprocessor data
       static bool SetToCoprocessor(vtkCPDataDescription* coprocessorData, const char* name, int* dims, vtkSmartPointer<vtkMultiBlockDataSet> grid);

@@ -180,8 +180,6 @@ extern "C" void create_grid(const char* name, int nProc, int myRank, int* dims, 
   grid->SetNPoints(nPoints);
   grid->SetLon(dims[0], nPoints, lonCoord);
   grid->SetLat(dims[1], nPoints, latCoord);
-  //grid->SetLat(dims[0], nPoints, latCoord);
-  //grid->SetLon(dims[1], nPoints, lonCoord);
   if (levCoord != 0) {
     grid->SetLev(dims[2], nPoints, levCoord);
   } 

@@ -494,19 +494,6 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Swap the grid for import fields
-!-----------------------------------------------------------------------
-!
-      call ESMF_StateGet(importState, trim(itemNameList(i)),            &
-                         field, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-      call ESMF_FieldEmptySet(field, grid=grid, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
-!
-!-----------------------------------------------------------------------
 !     Deallocate temporary arrays to free the memory
 !-----------------------------------------------------------------------
 !
@@ -1102,6 +1089,17 @@
       if (allocated(lat2d)) deallocate(lat2d)
 !
 !-----------------------------------------------------------------------
+!     Destroy temorary arrays
+!-----------------------------------------------------------------------
+!
+      call ESMF_ArrayDestroy(arrX, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+      call ESMF_ArrayDestroy(arrY, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
 !     Measure performance of creating 2d grid 
 !-----------------------------------------------------------------------
 !
@@ -1276,6 +1274,20 @@
       if (allocated(lev3d)) deallocate(lev3d)
 !
 !-----------------------------------------------------------------------
+!     Destroy temorary arrays
+!-----------------------------------------------------------------------
+!
+      call ESMF_ArrayDestroy(arrX, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+      call ESMF_ArrayDestroy(arrY, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+      call ESMF_ArrayDestroy(arrZ, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=__FILE__)) return
+!
+!-----------------------------------------------------------------------
 !     Measure performance of creating 3d grid 
 !-----------------------------------------------------------------------
 !
@@ -1434,7 +1446,7 @@
         allocate(var1d(nPoints3D))
       end if
 !
-      call ntooned_2d(lb, ub, ptr3d, var1d)
+      call ntooned_3d(lb, ub, ptr3d, var1d)
 !
 !-----------------------------------------------------------------------
 !     Add field to Catalyst
