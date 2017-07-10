@@ -59,8 +59,8 @@ extern "C" void my_coprocessorinitializewithpython_(int *fcomm, const char pytho
       MPI_Comm handle = MPI_Comm_f2c(*fcomm);
       vtkMPICommunicatorOpaqueComm *Comm = new vtkMPICommunicatorOpaqueComm(&handle);
       g_coprocessor->Initialize(*Comm);
-      vtkSmartPointer<vtkCPPythonScriptPipeline> pipeline = vtkSmartPointer<vtkCPPythonScriptPipeline>::New();
       for (int i = 0; i < *nscript; i++) {
+        vtkSmartPointer<vtkCPPythonScriptPipeline> pipeline = vtkSmartPointer<vtkCPPythonScriptPipeline>::New();
         pipeline->Initialize(pythonScriptNames[i]);
         g_coprocessor->AddPipeline(pipeline);
       }
