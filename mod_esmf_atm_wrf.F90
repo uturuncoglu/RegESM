@@ -34,7 +34,8 @@
           NUOPC_SetServices          => SetServices,                    &
           NUOPC_Label_Advance        => label_Advance,                  &
           NUOPC_Label_DataInitialize => label_DataInitialize,           &
-          NUOPC_Label_SetClock       => label_SetClock
+          NUOPC_Label_SetClock       => label_SetClock,                 &
+          NUOPC_Label_CheckImport    => label_CheckImport
 !
       use mod_types
       use mod_shared
@@ -100,7 +101,35 @@
                                 specRoutine=ATM_DataInit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
-
+!
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_SetClock,  &
+                                specRoutine=ATM_SetClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!      call NUOPC_CompSpecialize(gcomp,                                  &
+!                                specLabel=NUOPC_Label_CheckImport,      &
+!                                specPhaseLabel="RunPhase1",             &
+!                                specRoutine=ATM_CheckImport, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
+!
+      call NUOPC_CompSpecialize(gcomp, specLabel=NUOPC_Label_Advance,   &
+                                specRoutine=ATM_ModelAdvance, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Register finalize routine    
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridCompSetEntryPoint(gcomp,                            &
+                                      methodflag=ESMF_METHOD_FINALIZE,  &
+                                      userRoutine=ATM_SetFinalize,      &
+                                      rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
       end subroutine ATM_SetServices
 !
       subroutine ATM_SetInitializeP1(gcomp, importState, exportState,   &
@@ -851,12 +880,427 @@
 !-----------------------------------------------------------------------
 !
       if (restarted .and. currTime == esmRestartTime) then
+!
+!-----------------------------------------------------------------------
+!     Put export fields
+!-----------------------------------------------------------------------
+!
 !        call ATM_Put(gcomp, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end if
 !
       end subroutine ATM_DataInit
+!
+      subroutine ATM_SetClock(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: fac1, fac2, maxdiv
+      integer :: ref_year,   str_year,   end_year
+      integer :: ref_month,  str_month,  end_month
+      integer :: ref_day,    str_day,    end_day
+      integer :: ref_hour,   str_hour,   end_hour
+      integer :: ref_minute, str_minute, end_minute
+      integer :: ref_second, str_second, end_second
+      integer :: run_days, run_hours, run_minutes, run_seconds
+!
+      type(ESMF_Calendar) :: cal
+      type(ESMF_Clock) :: cmpClock 
+      type(ESMF_TimeInterval) :: timeStep
+      type(ESMF_Time) :: startTime, currTime
+      type(ESMF_Time) :: cmpRefTime, cmpStartTime, cmpStopTime
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Create gridded component clock 
+!-----------------------------------------------------------------------
+!
+      cal = ESMF_CalendarCreate(ESMF_CALKIND_GREGORIAN,                 &
+                                name="gregorian",                       &
+                                rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set reference time
+!     place head_grid%id for 1
+!-----------------------------------------------------------------------
+!
+      call nl_get_simulation_start_year(1, ref_year)
+      call nl_get_simulation_start_month(1, ref_month)
+      call nl_get_simulation_start_day(1, ref_day)
+      call nl_get_simulation_start_hour(1, ref_hour)
+      call nl_get_simulation_start_minute(1, ref_minute)
+      call nl_get_simulation_start_second(1, ref_second)
+!
+!      write(*, fmt="(A,6I5)") "REF TIME :: ", ref_year, ref_month, ref_day, ref_hour, ref_minute, ref_second
+!
+      call ESMF_TimeSet(cmpRefTime,                                     &
+                        yy=ref_year,                                    &
+                        mm=ref_month,                                   &
+                        dd=ref_day,                                     &
+                        h=ref_hour,                                     &
+                        m=ref_minute,                                   &
+                        s=ref_second,                                   &
+                        calendar=cal,                                   &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set start time
+!-----------------------------------------------------------------------
+!
+      call nl_get_start_year(1, str_year)
+      call nl_get_start_month(1, str_month)
+      call nl_get_start_day(1, str_day)
+      call nl_get_start_hour(1, str_hour)
+      call nl_get_start_minute(1, str_minute)
+      call nl_get_start_second(1, str_second)
+!
+!      write(*, fmt="(A,6I5)") "STR TIME :: ", str_year, str_month, str_day, str_hour, str_minute, str_second
+!
+      call ESMF_TimeSet(cmpStartTime,                                   &
+                        yy=str_year,                                    &
+                        mm=str_month,                                   &
+                        dd=str_day,                                     &
+                        h=str_hour,                                     &
+                        m=str_minute,                                   &
+                        s=str_second,                                   &
+                        calendar=cal,                                   &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set stop time
+!-----------------------------------------------------------------------
+!
+      call nl_get_end_year(1, end_year)
+      call nl_get_end_month(1, end_month)
+      call nl_get_end_day(1, end_day)
+      call nl_get_end_hour(1, end_hour)
+      call nl_get_end_minute(1, end_minute)
+      call nl_get_end_second(1, end_second)
+!
+!      write(*, fmt="(A,6I5)") "END TIME :: ", end_year, end_month, end_day, end_hour, end_minute, end_second
+!
+      call ESMF_TimeSet(cmpStopTime,                                    &
+                        yy=end_year,                                    &
+                        mm=end_month,                                   &
+                        dd=end_day,                                     &
+                        h=end_hour,                                     &
+                        m=end_minute,                                   &
+                        s=end_second,                                   &
+                        calendar=cal,                                   &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get component clock
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, clock=cmpClock, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ClockGet(cmpClock, timeStep=timeStep,                   &
+                         currTime=currTime, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Compare driver time vs. component time
+!-----------------------------------------------------------------------
+!
+!      if (restarted) then
+!        startTime = esmRestartTime
+!      else
+!        startTime = esmStartTime
+!      end if
+!
+!      if (cmpStartTime /= startTime) then
+!        call ESMF_TimePrint(cmpStartTime, options="string isofrac", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!
+!        call ESMF_TimePrint(startTime, options="string isofrac", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!
+!        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+!             msg='ESM and ATM start times do not match: '//             &
+!             'please check the config files')
+!        return
+!      end if
+!
+!      if (cmpStopTime /= esmStopTime) then
+!        call ESMF_TimePrint(cmpStopTime, options="string", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!
+!        call ESMF_TimePrint(esmStopTime, options="string", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
+!
+!        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+!             msg='ESM and ATM stop times do not match: '//              &
+!             'please check the config files')
+!        return
+!      end if
+!
+      if (cal /= esmCal) then
+        call ESMF_CalendarPrint(cal, options="calkindflag", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_CalendarPrint(esmCal, options="calkindflag", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+             msg='ESM and ATM calendars do not match: '//               &
+             'please check the config files')
+        return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Modify component clock time step 
+!-----------------------------------------------------------------------
+!
+      fac1 = maxval(connectors(Iatmos,:)%divDT,mask=models(:)%modActive)
+      fac2 = maxval(connectors(:,Iatmos)%divDT,mask=models(:)%modActive)
+      maxdiv = max(fac1, fac2)
+!
+      call ESMF_ClockSet(cmpClock, name='atm_clock',                    &
+                         timeStep=timeStep/maxdiv, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end subroutine ATM_SetClock
+!
+      subroutine ATM_ModelAdvance(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use module_domain, only : head_grid
+      use module_wrf_top, only : wrf_run
+      use MYESMF_TimeMod, only : MYESMF_Time
+      use module_symbols_util, only : WRFU_TimeSet
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: tstr, tend
+      integer :: localPet, petCount, phase
+      integer :: yy, mm, dd, h, m, s
+      character(ESMF_MAXSTR) :: str1, str2
+!
+      type(MYESMF_Time) :: timeFrom2, timeTo2
+!     
+      type(ESMF_VM) :: vm
+      type(ESMF_Clock) :: clock
+      type(ESMF_TimeInterval) :: timeStep
+      type(ESMF_Time) :: timeFrom1, timeTo1
+      type(ESMF_Time) :: refTime, startTime, stopTime, currTime
+      type(ESMF_State) :: importState, exportState
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, clock=clock, importState=importState,&
+                            exportState=exportState, currentPhase=phase,&
+                            vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get start, stop and current time and time step
+!-----------------------------------------------------------------------
+!
+      call ESMF_ClockGet(clock, timeStep=timeStep, refTime=refTime,     &
+                         startTime=startTime, stopTime=stopTime,        &
+                         currTime=currTime, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Calculate run time
+!-----------------------------------------------------------------------
+!
+      if (restarted) then
+        timeFrom1 = esmRestartTime
+      else
+        timeFrom1 = currTime
+      end if
+      timeTo1 = timeFrom1+timeStep
+!
+!-----------------------------------------------------------------------
+!     Debug: write time information 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel >= 0 .and. localPet == 0) then
+        call ESMF_TimeGet(currTime,                                     &
+                          timeStringISOFrac=str1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        call ESMF_TimeGet(currTime+timeStep,                            &
+                          timeStringISOFrac=str2, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+!
+        if (debugLevel == 0) then
+          write(*,40) trim(str1), trim(str2), phase
+        end if
+      end if
+!
+!-----------------------------------------------------------------------
+!     Convert ESMF_Time to MYESMF_Time
+!     MYESMF_Time is the old version of ESMF_Time implemented in WRF
+!-----------------------------------------------------------------------
+!
+      call ESMF_TimeGet(timeFrom1,                                      &
+                        yy=yy,                                          &
+                        mm=mm,                                          &
+                        dd=dd,                                          &
+                        h=h,                                            &
+                        m=m,                                            &
+                        s=s,                                            &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call WRFU_TimeSet(timeFrom2,                                      &
+                        yy=yy,                                          &
+                        mm=mm,                                          &
+                        dd=dd,                                          &
+                        h=h,                                            &
+                        m=m,                                            &
+                        s=s,                                            &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_TimeGet(timeTo1,                                        &
+                        yy=yy,                                          &
+                        mm=mm,                                          &
+                        dd=dd,                                          &
+                        h=h,                                            &
+                        m=m,                                            &
+                        s=s,                                            &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call WRFU_TimeSet(timeTo2,                                        &
+                        yy=yy,                                          &
+                        mm=mm,                                          &
+                        dd=dd,                                          &
+                        h=h,                                            &
+                        m=m,                                            &
+                        s=s,                                            &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get import fields 
+!-----------------------------------------------------------------------
+!
+!      if ((currTime /= refTime) .or. restarted) then
+!        call ATM_Get(gcomp, rc=rc)
+!      end if
+!
+!-----------------------------------------------------------------------
+!     Run ATM component
+!-----------------------------------------------------------------------
+!
+      head_grid%start_subtime = timeFrom2 
+      head_grid%stop_subtime = timeTo2
+!
+      call wrf_run()
+!
+!-----------------------------------------------------------------------
+!     Put export fields 
+!-----------------------------------------------------------------------
+!
+!      call ATM_Put(gcomp, rc=rc)
+!
+!-----------------------------------------------------------------------
+!     Formats 
+!-----------------------------------------------------------------------
+!
+ 40   format(' Running ATM Component: ',A,' --> ',A,' Phase: ',I1)
+!
+      end subroutine ATM_ModelAdvance
+!
+      subroutine ATM_SetFinalize(gcomp, importState, exportState,       &
+                                 clock, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use module_wrf_top, only : wrf_finalize
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      type(ESMF_State) :: importState
+      type(ESMF_State) :: exportState
+      type(ESMF_Clock) :: clock
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Call model finalize routines
+!-----------------------------------------------------------------------
+!
+      call wrf_finalize()
+!
+      end subroutine ATM_SetFinalize
 !
       end module mod_esmf_atm
 

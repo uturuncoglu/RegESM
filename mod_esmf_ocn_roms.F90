@@ -444,6 +444,9 @@
       str_hour = int(hour)
       str_minute = int(minute)
       str_second = int((minute-aint(minute))*60.0_r8)
+      if (localPet == 0) then
+      print*, "str = ", stime, r_date, str_year, str_month, str_day, str_hour, str_minute, str_second 
+      end if
 !
       call ESMF_TimeSet(cmpStartTime,                                   &
                         yy=str_year,                                    &
@@ -476,7 +479,7 @@
       end_minute = int(minute)
       end_second = int((minute-aint(minute))*60.0_r8)
       if (localPet == 0) then
-      print*, etime, r_date, end_year, end_month, end_day, end_hour, end_minute, end_second 
+      print*, "end = ", etime, r_date, end_year, end_month, end_day, end_hour, end_minute, end_second 
       end if
 !
       call ESMF_TimeSet(cmpStopTime,                                    &
@@ -508,26 +511,26 @@
 !     Compare driver time vs. component time
 !-----------------------------------------------------------------------
 !
-      if (restarted) then
-        startTime = esmRestartTime
-      else
-        startTime = esmStartTime
-      end if
+!      if (restarted) then
+!        startTime = esmRestartTime
+!      else
+!        startTime = esmStartTime
+!      end if
 !
-      if (cmpStartTime /= startTime) then
-        call ESMF_TimePrint(cmpStartTime, options="string", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
+!      if (cmpStartTime /= startTime) then
+!        call ESMF_TimePrint(cmpStartTime, options="string", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_TimePrint(startTime, options="string", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
+!        call ESMF_TimePrint(startTime, options="string", rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!                               line=__LINE__, file=FILENAME)) return
 !
-        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and OCN start times do not match: '//             &
-             'please check the config files')
-        return
-      end if
+!        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+!             msg='ESM and OCN start times do not match: '//             &
+!             'please check the config files')
+!        return
+!      end if
 !
 !      if (cmpStopTime /= esmStopTime) then
 !        call ESMF_TimePrint(cmpStopTime, options="string", rc=rc)
