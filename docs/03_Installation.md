@@ -21,7 +21,8 @@ The basic requirements of the installation processes of the RegESM can be divide
 ## 3.1. Preparing Working Environment
 
 This section includes detailed information about the installation of required libraries and tools on a Linux based environment. The users also note that the installation procedure might change based on the used computing environment, compiler and MPI version.
-The user defined **PROG** environment variable, which is used in this section, is mainly indicates the directory for the installation of external tools and libraries.
+
+The user defined **PROG** environment variable, which is used in this section, is mainly indicates the directory for the installation of external tools and libraries.
 
 **A helper script for installation of the dependencies is basically provided along with the RegESM source code and can be accesses from [here](https://github.com/uturuncoglu/RegESM/blob/master/install-deps.sh).**
 
@@ -32,15 +33,26 @@ Before installation of [HDF5](https://www.hdfgroup.org/HDF5/) library, it is nec
 To install zlib:
 
 ```
-cd $PROGSwget http://zlib.net/zlib-1.2.8.tar.gz 
-tar -zxvf zlib-1.2.8.tar.gzcd zlib-1.2.8export CC=iccexport FC=ifort./configure --prefix=`pwd`make
+cd $PROGS
+wget http://zlib.net/zlib-1.2.8.tar.gz 
+tar -zxvf zlib-1.2.8.tar.gz
+cd zlib-1.2.8
+export CC=icc
+export FC=ifort
+./configure --prefix=`pwd`
+make
 make install
 ```
 
 To install HDF5:
 
 ```
-cd $PROGSwget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.11/src/hdf5-1.8.11.tar.gztar -zxvf hdf5-1.8.11.tar.gz./configure --prefix=`pwd` --with-zlib=$PROGS/zlib-1.2.8 --enable-fortran --enable-cxx CC=icc FC=ifort CXX=icpcmakemake install
+cd $PROGS
+wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.11/src/hdf5-1.8.11.tar.gz
+tar -zxvf hdf5-1.8.11.tar.gz
+./configure --prefix=`pwd` --with-zlib=$PROGS/zlib-1.2.8 --enable-fortran --enable-cxx CC=icc FC=ifort CXX=icpc
+make
+make install
 ```
 
 ### 3.1.2. Network Common Data Form (NetCDF)
@@ -50,25 +62,55 @@ The [NetCDF](https://www.unidata.ucar.edu/software/netcdf/) library is distribut
 To install C interface:
 
 ```
-cd $PROGSwget ftp://ftp.unidata.ucar.edu/pub/netcdf/old/netcdf-4.3.0.tar.gztar -zxvf netcdf-4.3.0.tar.gzcd netcdf-4.3.0mkdir srcmv * src/.cd src./configure --prefix=$PROGS/netcdf-4.3.0 CC=icc FC=ifort LDFLAGS="-L$PROGS/zlib-1.2.8/lib - L$PROGS//hdf5-1.8.11/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I/$PROGS/hdf5- 1.8.11/include"makemake installexport LD_LIBRARY_PATH=$PROGS/netcdf-4.3.0/lib:$LD_LIBRARY_PATH
+cd $PROGS
+wget ftp://ftp.unidata.ucar.edu/pub/netcdf/old/netcdf-4.3.0.tar.gz
+tar -zxvf netcdf-4.3.0.tar.gz
+cd netcdf-4.3.0
+mkdir src
+mv * src/.
+cd src
+./configure --prefix=$PROGS/netcdf-4.3.0 CC=icc FC=ifort LDFLAGS="-L$PROGS/zlib-1.2.8/lib - L$PROGS//hdf5-1.8.11/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include -I/$PROGS/hdf5- 1.8.11/include"
+make
+make install
+export LD_LIBRARY_PATH=$PROGS/netcdf-4.3.0/lib:$LD_LIBRARY_PATH
 ```
 
 To install C++ interface:
 
 ```
-cd $PROGSwget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-cxx-4.2.tar.gzcd netcdf-cxx-4.2mkdir srcmv * src/.cd src./configure --prefix=$PROGS/netcdf-cxx-4.2 CC=icc CXX=icpc LDFLAGS="-L$PROGS/zlib-1.2.8/lib - L$PROGS/hdf5-1.8.11/lib -L$PROGS/netcdf-4.3.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include - I/$PROGS/hdf5-1.8.11/include -I$PROGS/netcdf-4.3.0/include"makemake install
+cd $PROGS
+wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-cxx-4.2.tar.gz
+cd netcdf-cxx-4.2
+mkdir src
+mv * src/.
+cd src
+./configure --prefix=$PROGS/netcdf-cxx-4.2 CC=icc CXX=icpc LDFLAGS="-L$PROGS/zlib-1.2.8/lib - L$PROGS/hdf5-1.8.11/lib -L$PROGS/netcdf-4.3.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include - I/$PROGS/hdf5-1.8.11/include -I$PROGS/netcdf-4.3.0/include"
+make
+make install
 ```
 
 To install Fortran interface:
 
 ```
-cd $PROGSwget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-fortran-4.2.tar.gzcd netcdf-fortran-4.2mkdir srcmv * src/.cd src./configure --prefix=$PROGS/netcdf-fortran-4.2 CC=icc FC=ifort LDFLAGS="-L$PROGS/zlib-1.2.8/lib - L$PROGS/hdf5-1.8.11/lib -L$PROGS/netcdf-4.3.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include - I/$PROGS/hdf5-1.8.11/include -I$PROGS/netcdf-4.3.0/include"makemake install
+cd $PROGS
+wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-fortran-4.2.tar.gz
+cd netcdf-fortran-4.2
+mkdir src
+mv * src/.
+cd src
+./configure --prefix=$PROGS/netcdf-fortran-4.2 CC=icc FC=ifort LDFLAGS="-L$PROGS/zlib-1.2.8/lib - L$PROGS/hdf5-1.8.11/lib -L$PROGS/netcdf-4.3.0/lib" CPPFLAGS="-I$PROGS/zlib-1.2.8/include - I/$PROGS/hdf5-1.8.11/include -I$PROGS/netcdf-4.3.0/include"
+make
+make install
 ```
 
 Then, link content of include and library folders of C++ and Fortran under C interface installation directory to use all the libraries from single location (NETCDF environmant variable).
 
 ```
-cd $PROGS/netcdf-4.3.0/libln -s ../../netcdf-cxx-4.2/lib/* .ln -s ../../netcdf-fortran-4.2/lib/* .ln -s ../../netcdf-cxx-4.2/include/* .ln -s ../../netcdf-fortran-4.2/include/* . 
+cd $PROGS/netcdf-4.3.0/lib
+ln -s ../../netcdf-cxx-4.2/lib/* .
+ln -s ../../netcdf-fortran-4.2/lib/* .
+ln -s ../../netcdf-cxx-4.2/include/* .
+ln -s ../../netcdf-fortran-4.2/include/* . 
 export NETCDF=$PROGS/netcdf-4.3.0
 export PATH=$NETCDF/bin:$PATH
 ```
@@ -78,7 +120,14 @@ export PATH=$NETCDF/bin:$PATH
 This step is optional but if there is a plan to use ESMF NetCDF I/O capabilities to write exchange fields to disk through the use of [parallel-netcdf](https://trac.mcs.anl.gov/projects/parallel-netcdf) library (1.3.1) is required.
 
 ```
-cd $PROGSwget http://ftp.mcs.anl.gov/pub/parallel-netcdf/parallel-netcdf-1.3.1.tar.gztar -zxvf parallel-netcdf-1.3.1.tar.gzcd parallel-netcdf-1.3.1./configure --prefix=`pwd` --with-mpi=/opt/openmpi/1.6.5/intel/2013psm FC=mpif90 F77=mpif90 CXX=mpiccpcmakemake installexport PNETCDF=$PROGS/parallel-netcdf-1.3.1
+cd $PROGS
+wget http://ftp.mcs.anl.gov/pub/parallel-netcdf/parallel-netcdf-1.3.1.tar.gz
+tar -zxvf parallel-netcdf-1.3.1.tar.gz
+cd parallel-netcdf-1.3.1
+./configure --prefix=`pwd` --with-mpi=/opt/openmpi/1.6.5/intel/2013psm FC=mpif90 F77=mpif90 CXX=mpiccpc
+make
+make install
+export PNETCDF=$PROGS/parallel-netcdf-1.3.1
 ```
 
 Also note that the path for MPI installation and MPI implementation might change. In this case, user must supply correct path to “--with-mpi” configuration option.
@@ -88,7 +137,12 @@ Also note that the path for MPI installation and MPI implementation might change
 This library is mainly required for ESMF installation. It is responsible to read/write grid definitions and attributes (field, component and state level) in XML format.
 
 ```
-cd $PROGSwget http://apache.bilkent.edu.tr//xerces/c/3/sources/xerces-c-3.1.1.tar.gz tar -zxvf xerces-c-3.1.1.tar.gzcd xerces-c-3.1.1./configure --prefix=$PROGS/xerces-c-3.1.1 CC=icc CXX=icpcmakemake install
+cd $PROGS
+wget http://apache.bilkent.edu.tr//xerces/c/3/sources/xerces-c-3.1.1.tar.gz tar -zxvf xerces-c-3.1.1.tar.gz
+cd xerces-c-3.1.1
+./configure --prefix=$PROGS/xerces-c-3.1.1 CC=icc CXX=icpc
+make
+make install
 ```
 
 ### 3.1.5. Earth System Modeling Framework (ESMF)
@@ -98,7 +152,10 @@ The one of the main component of the coupled model is the coupling library, whic
 Before starting to the installation of ESMF library, the users need to pay attention to the following issues;
 
 * The coupled model needs special features of ESMF (>7.1.0b20). 
-* If there is a plan to use the debug level (>2) to check the exchange fields, then ESMF library might be installed with parallel I/O and netCDF support (for more information, look at the example environment variables defined in ESMF installation related with NETCDF and PNETCDF).* After netCDF version 4.3.0 the C++ interface is changed and ESMF is not compatible with it. So, it is better to use the <= 4.3.0 version of netCDF in this case.Example environment variable definitions (sh/bash shell) for ESMF installations:
+* If there is a plan to use the debug level (>2) to check the exchange fields, then ESMF library might be installed with parallel I/O and netCDF support (for more information, look at the example environment variables defined in ESMF installation related with NETCDF and PNETCDF).
+* After netCDF version 4.3.0 the C++ interface is changed and ESMF is not compatible with it. So, it is better to use the <= 4.3.0 version of netCDF in this case.
+
+Example environment variable definitions (sh/bash shell) for ESMF installations:
 
 ```
 export ESMF_OS=Linux
@@ -122,7 +179,9 @@ export ESMF_NETCDF_LIBPATH=$PROGS/netcdf-4.4.0/lib
 export ESMF_XERCES=standard
 export ESMF_XERCES_INCLUDE=$PROGS/xerces-c-3.1.4/include
 export ESMF_XERCES_LIBPATH=$PROGS/xerces-c-3.1.4/lib
-```Also note that the environment variables must be changed to install ESMF library to other computing systems or clusters that use different MPI version and operating system. The detailed information about definition of environment variables for ESMF library can be found in [here](https://www.earthsystemcog.org/projects/esmf/platforms_6_3_0rp1) and [here](https://www.earthsystemcog.org/projects/esmf/daily_builds).
+```
+
+Also note that the environment variables must be changed to install ESMF library to other computing systems or clusters that use different MPI version and operating system. The detailed information about definition of environment variables for ESMF library can be found in [here](https://www.earthsystemcog.org/projects/esmf/platforms_6_3_0rp1) and [here](https://www.earthsystemcog.org/projects/esmf/daily_builds).
 
 Then, following command can be used to compile and install ESMF,
 
@@ -130,15 +189,21 @@ Then, following command can be used to compile and install ESMF,
 cd $ESMF_DIR 
 make >&make.log 
 make install
-```After installation of the ESMF library, user can create a new environment variables like **ESMF_INC**, **ESMF_LIB** and **ESMFMKFILE** to help RegESM configure script to find the location of the required files for the ESMF library.
+```
+
+After installation of the ESMF library, user can create a new environment variables like **ESMF_INC**, **ESMF_LIB** and **ESMFMKFILE** to help RegESM configure script to find the location of the required files for the ESMF library.
 
 ```
 export ESMF_INC=$ESMF_INSTALL_PREFIX/include
 export ESMF_LIB=$ESMF_INSTALL_PREFIX/lib/libO/Linux.intel.64.intelmpi.default
 export ESMFMKFILE=$ESMF_INSTALL_PREFIX/lib/libO/Linux.intel.64.intelmpi.default/esmf.mk
 
-```At this level, it is always better to install ESMF library also with debug support (change **ESMF_BOPT** environment variable from **O** to **g** and install the library again after issuing make clean command). To have both optimized and debug version of ESMF library might help to find the source of the possible errors caused by the coupled model. Be aware that the production runs can be done with the optimized version of ESMF.
-To install bit-to-bit reproducible version of the ESMF library, please read the [Section 6](06_Known_Issues.md).
+```
+
+At this level, it is always better to install ESMF library also with debug support (change **ESMF_BOPT** environment variable from **O** to **g** and install the library again after issuing make clean command). To have both optimized and debug version of ESMF library might help to find the source of the possible errors caused by the coupled model. Be aware that the production runs can be done with the optimized version of ESMF.
+
+To install bit-to-bit reproducible version of the ESMF library, please read the [Section 6](06_Known_Issues.md).
+
 ## 3.2 Installation of Model Components
 
 After installing the required libraries, the next step is installing individual model components with coupling support. In this case, user might install individual model components to any desired location (or path) in the file system and point out the installation directories in the configuration phase of the coupled model. At this level, it is strongly recommended that given suggestion in this document about the installation of the individual model components and driver itself can help to prevent most of the problems in the installation phase and help to fix them. Using hierarchical directory structure for the installation of the model components and driver helps to simplify the installation procedure. The following figure includes exmaple directory structure for the installation of RegESM.
@@ -159,18 +224,28 @@ ln -s $DRV_SRC/regesm.x
 To install RegCM with coupling support user must issue following commands,
 
 ```
-mkdir $ATM_SRCcd $ATM_SRCwget https://gforge.ictp.it/gf/download/frsrelease/252/1580/RegCM-4.5.0.tar.gztar –zxvf RegCM-4.5.0.tar.gzcd RegCM-4.5.0./bootstrap.sh
-./configure –prefix=`pwd` --enable-cpl CC=icc FC=ifortmakemake install
+mkdir $ATM_SRC
+cd $ATM_SRC
+wget https://gforge.ictp.it/gf/download/frsrelease/252/1580/RegCM-4.5.0.tar.gz
+tar -zxvf RegCM-4.5.0.tar.gz
+cd RegCM-4.5.0
+./bootstrap.sh
+./configure --prefix=`pwd` --enable-cpl CC=icc FC=ifort
+make
+make install
 ``` 
 
-The **ATM_SRC** environment variable is used to point the installation directory of the atmospheric model and user might replace it by any valid directory name.The command that is given here is for Intel Compiler and Linux operating system and might change in different working environment amd compiler. By design, the model components do not have any ESMF related code and user does not need to use ESMF library in the installation of the individual model components. All ESMF related code is placed in "driver" side (RegESM). To that end, the installation of the model is almost same as the standalone version except given extra configure option (**--enable-cpl**) to enable coupling support.
+The **ATM_SRC** environment variable is used to point the installation directory of the atmospheric model and user might replace it by any valid directory name.
+The command that is given here is for Intel Compiler and Linux operating system and might change in different working environment amd compiler. By design, the model components do not have any ESMF related code and user does not need to use ESMF library in the installation of the individual model components. All ESMF related code is placed in "driver" side (RegESM). To that end, the installation of the model is almost same as the standalone version except given extra configure option (**--enable-cpl**) to enable coupling support.
 
 The additional configuration parameters (see Doc/README.namelist in the RegCM source directory) for the RegCM need to be activated when the model is running in the coupled mode and the interaction with other model components such as ocean, wave or both of them. In this case, the user need to use and turn on coupling related options in the RegCM configuration file.
 
 **Physics parameters:**
 
 ```
-&physicsparam...iocncpl = 1,
+&physicsparam
+...
+iocncpl = 1,
 iwavcpl = 1,
 ...
 ```
@@ -180,7 +255,9 @@ In this case, **iocncpl** activates coupling with ocean model (ROMS or MITgcm) a
 **Coupling parameters:**
 
 ```
-&cplparamcpldt = 10800.,zomax = 0.005,
+&cplparam
+cpldt = 10800.,
+zomax = 0.005,
 ustarmax = 1.2,
 / 
 ```
@@ -191,15 +268,24 @@ The coupling interval (in seconds) given with **cpldt** option must be consisten
 
 Implementation of the new atmospheric model component is still under development and there is a plan to release it around September, 2017. The new atmospheric model component will replace the existing one (RegCM) to solve the stability issues of coupled modeling system due to the problem in the implementation of the RegCM non-hydrostatic core, which is inherited from outdated MM5 code. We are expecting to have more stable modeling system expecially for very high resolution (< 3 km) applications along with WRF online nesting capablity.  
 
-### 3.2.3 Regional Ocean Model (ROMS)To install ROMS with coupling support, the user need to patch the original version of the model. The patch includes set of minor modifications to prepare ROMS ocean model for the coupling. The reader also notes that there is no any generic patch for the all versions ROMS due to the existence of the different versions and branches (i.e. [Rutgers University’s ROMS](https://www.myroms.org), [CROCCO (or AGRIF ROMS)](https://www.croco-ocean.org), [UCLA ROMS](http://research.atmos.ucla.edu/cesr/ROMS_page.html), [ROMS with sea-ice](https://github.com/kshedstrom/roms)) of the model. On the other hand, we are colaborating with Rutgers University to implement out-of-box support for ROMS model. There is a plan to have initial version of the Rutgers University’s ROMS soon.The current version of the RegESM comes with patches that are created by using a snapshot of the [ROMS external branch with sea-ice support](https://github.com/kshedstrom/roms) and [Rutgers University’s ROMS (revision 809)](https://www.myroms.org). The user also note that the sea-ice branch has cpability of coupled with CICE model but this version is not tested with RegESM modeling system yet. All patches can be found under [here](https://github.com/uturuncoglu/RegESM/tree/master/tools/ocn). Applying the selected patch is simple and the given version of the patch can be used as a reference to modify the any possible future ROMS versions and revisions.
+### 3.2.3 Regional Ocean Model (ROMS)
+
+To install ROMS with coupling support, the user need to patch the original version of the model. The patch includes set of minor modifications to prepare ROMS ocean model for the coupling. The reader also notes that there is no any generic patch for the all versions ROMS due to the existence of the different versions and branches (i.e. [Rutgers University’s ROMS](https://www.myroms.org), [CROCCO (or AGRIF ROMS)](https://www.croco-ocean.org), [UCLA ROMS](http://research.atmos.ucla.edu/cesr/ROMS_page.html), [ROMS with sea-ice](https://github.com/kshedstrom/roms)) of the model. On the other hand, we are colaborating with Rutgers University to implement out-of-box support for ROMS model. There is a plan to have initial version of the Rutgers University’s ROMS soon.
+
+The current version of the RegESM comes with patches that are created by using a snapshot of the [ROMS external branch with sea-ice support](https://github.com/kshedstrom/roms) and [Rutgers University’s ROMS (revision 809)](https://www.myroms.org). The user also note that the sea-ice branch has cpability of coupled with CICE model but this version is not tested with RegESM modeling system yet. All patches can be found under [here](https://github.com/uturuncoglu/RegESM/tree/master/tools/ocn). Applying the selected patch is simple and the given version of the patch can be used as a reference to modify the any possible future ROMS versions and revisions.
 
 To get specific revision and to apply patch:
 
 ```
 svn checkout -r 809 --username [USER NAME] https://www.myroms.org/svn/src/trunk roms-r809
 cd roms-r809
-wget https://raw.githubusercontent.com/uturuncoglu/RegESM/master/tools/ocn/roms-r809.patchpatch -p 3 < roms-r809.patch
-```**Do not forget to replace [USER NAME] in the commands***To activate coupling in ROMS, user could add following CPP flags in the header file (*.h) created for specific application.
+wget https://raw.githubusercontent.com/uturuncoglu/RegESM/master/tools/ocn/roms-r809.patch
+patch -p 3 < roms-r809.patch
+```
+
+**Do not forget to replace [USER NAME] in the commands***
+
+To activate coupling in ROMS, user could add following CPP flags in the header file (*.h) created for specific application.
 
 | CPP Flag | Description |
 |:---:| :---:|
@@ -220,15 +306,21 @@ To install MITgcm (MITgcm_c63s) with coupling support, the user must need to act
 
 The HD river routing model is the property of Max Planck Institute, Germany and it is distributed via a user agreement. So, it is not possible to distribute it freely along with the driver. In this case, our main philosophy is to create a specific patch for individual model components rather than distributing them along with the modeling system or tightly integrating them into RegESM to create a monolitic model. In RegESM design, we heavily modified the original HD model to allow coupling with RegESM easily. The following list summarizes the modification done by ITU (thanks to [Stefan Hagemann](http://www.mpimet.mpg.de/en/staff/stefan-hagemann/) from Max Plack Institue for his valuable comments, help and sharing the code).
 
-* The file format of the model output and restart files are changed from binary (SRV format) to more generic data format (NetCDF).* The model main code is splitted into three parts (initialization, run and finalize) to make available model coupling with ESMF library.* The necessary modifications are done for the coupling to allow data exchange between model components. In this case, new preprocessor flag is added to model to activate coupling.* A set of NCL functions is created to drive the standalone model using RegCM output and to create SRV formatted input files.
+* The file format of the model output and restart files are changed from binary (SRV format) to more generic data format (NetCDF).
+* The model main code is splitted into three parts (initialization, run and finalize) to make available model coupling with ESMF library.
+* The necessary modifications are done for the coupling to allow data exchange between model components. In this case, new preprocessor flag is added to model to activate coupling.
+* A set of NCL functions is created to drive the standalone model using RegCM output and to create SRV formatted input files.
 
 Because of the license restriction that is mentioned previously, the HD model and the modifications for the coupling are not distributed publicly via GitHub repository. If there is plan to use the three component modeling system, then user should get the license from the Max Planck Institute for the standalone version of the HD model and contact with the [developer](mailto:ufuk.turucoglu@itu.edu.tr) to get the modified version of the HD model to use in the coupled modeling system. The user also port his/her own RTM component to the coupled modeling system by following same methodology given the list and the help of the RegESM source code ([mod\_esmf\_rtm.F90](https://github.com/uturuncoglu/RegESM/blob/master/mod_esmf_rtm.F90)).
 
 To install modified version of HD model with coupling support, user should edit the Makefile (basically add **-DCPL** preprocessor flag for model coupling) and issue following commands:
 
 ```
-mkdir $RTM_SRCtar –zxvf hd_online.tar.gz 
-cd hd_onlinemakemake install
+mkdir $RTM_SRC
+tar –zxvf hd_online.tar.gz 
+cd hd_online
+make
+make install
 ```
 
 ### 3.2.6 A Third Generation Ocean Wave Prediction Model (WAM)
@@ -238,7 +330,10 @@ The ECMWF’s [WAM](http://www.ecmwf.int/en/research/modelling-and-prediction/ma
 To install modified version of WAM model with coupling support, user should issue following commands:
 
 ```
-mkdir $WAM_SRCtar -zxvf wav.tar.gzcd mk./create_binaries
+mkdir $WAM_SRC
+tar -zxvf wav.tar.gz
+cd mk
+./create_binaries
 ```
 
 **Note that user need to edit hidden .dirset file to change the installation path (PRODADMDIR) and FCFLAGS. In this case, the FCFLAGS must include -DCPL to activate coupling support. You might also need to modify the make_netcdf and pnetcdf.mk to point correct path for NetCDF library installation.**
@@ -254,9 +349,12 @@ Currently, RegESM project is maintained and distributed by using a [GitHub repos
 To install RegESM with four component (ATM, OCN, RTM and WAV):
 
 ```
-cd $ESM_SRCgit clone https://github.com/uturuncoglu/RegESM.gitcd RegESM
+cd $ESM_SRC
+git clone https://github.com/uturuncoglu/RegESM.git
+cd RegESM
 ./configure --prefix=$ESM_SRC/RegESM --with-atm=$ATM_SRC --with-ocn=$OCN_SRC/Build --with-rtm=$RTM_SRC –with-wav=$WAV_SRC/obj CC=icc FC=ifort
-makemake install
+make
+make install
 ```
 
 If RegESM model is used with fewer components then the options given in the configure script can be modified based on the selected model components such as ATM-OCN, ATM-OCN-RTM, ATM-WAV. The configure options **--with-atm**, **--with-ocn**, **--with-rtm** and **--with-wav** are used to point the installation directories of the model components. For ROMS case, **--with-ocn** option must point "Build" directory that holds the compiled source files of the ROMS installation but "build" directory for MITgcm. For the wave component (WAV) "obj" directory must be given to **--with-wav**.
