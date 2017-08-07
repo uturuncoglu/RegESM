@@ -662,4 +662,56 @@
 ! 
       end function replace_str
 !
+      function auto_tile (ain) result (aout)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      integer, intent(in) :: ain
+      integer :: aout(2)
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, atmp, divisor
+      integer :: arr(100)
+!
+      atmp = ain
+!
+      i = 0
+      do
+        if (mod(atmp,2) /= 0 .or. atmp == 1) exit
+        i = i+1
+        atmp = atmp/2
+        arr(i) = 2 
+      end do
+!
+      divisor = 3
+      do
+        if (divisor > atmp) exit
+        do
+          if (mod(atmp,divisor) /= 0 .or. atmp == 1) exit
+          i = i+1
+          atmp = atmp/divisor
+          arr(i) = divisor
+        end do
+        divisor = divisor+2
+      end do
+!
+      aout = 1
+      if (i > 1) then
+        do j = 1, i-1
+          aout(1) = aout(1)*arr(j)
+        end do
+        aout(2) = arr(i)
+      else
+        aout(1) = i
+        aout(2) = 1
+      end if
+!
+      end function auto_tile 
+!
       end module mod_shared

@@ -32,6 +32,7 @@
       use NUOPC
 !
       use mod_types
+      use mod_shared
 !
       implicit none
       contains
@@ -595,6 +596,10 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       end do
+!
+      if (any(models(Icopro)%tile == -1)) then
+        models(Icopro)%tile = auto_tile(models(Icopro)%nPets)
+      end if
 !
       if (models(Icopro)%nPets /=                                       &
           models(Icopro)%tile(1)*models(Icopro)%tile(2)) then
