@@ -31,7 +31,7 @@ make
 make install
 ```
 
-**Note:** CMake 3.4.3 or higher is required to install LLVM.
+**Note:** CMake 3.4.3 or higher is required to install LLVM. Be aware that you might need to use addtional -DCMAKE_CXX_FLAGS="-shared-intel" option in newer version of Intel compilers (17.0.4).
 
 **Installing Mesa:**
 
