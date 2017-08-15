@@ -1,3 +1,8 @@
+//=======================================================================
+// Regional Earth System Model (RegESM)
+// Copyright (c) 2013-2017 Ufuk Turuncoglu
+// Licensed under the MIT License.
+//=======================================================================
 #include "mpi.h"
 #include "grid.h"
 #include "vtkMPI.h"
