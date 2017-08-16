@@ -47,4 +47,4 @@ clean-local:
 mod_types.o: mod_types.F90
 mod_utils.o: mod_utils.F90 mod_types.o
 mod_shared.o: mod_shared.F90 mod_types.o
-mod_config.o: mod_config.F90 mod_types.o
+mod_config.o: mod_config.F90 mod_types.o mod_shared.o

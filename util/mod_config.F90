@@ -1,21 +1,8 @@
-!-----------------------------------------------------------------------
-!
-!     This file is part of ITU RegESM.
-!
-!     ITU RegESM is free software: you can redistribute it and/or modify
-!     it under the terms of the GNU General Public License as published by
-!     the Free Software Foundation, either version 3 of the License, or
-!     (at your option) any later version.
-!
-!     ITU RegESM is distributed in the hope that it will be useful,
-!     but WITHOUT ANY WARRANTY; without even the implied warranty of
-!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See thec
-!     GNU General Public License for more details.
-!
-!     You should have received a copy of the GNU General Public License
-!     along with ITU RegESM.  If not, see <http://www.gnu.org/licenses/>.
-!
-!-----------------------------------------------------------------------
+!=======================================================================
+! Regional Earth System Model (RegESM)
+! Copyright (c) 2013-2017 Ufuk Turuncoglu
+! Licensed under the MIT License.
+!=======================================================================
 #define FILENAME "util/mod_config.F90" 
 !
 !-----------------------------------------------------------------------
@@ -32,6 +19,7 @@
       use NUOPC
 !
       use mod_types
+      use mod_shared
 !
       implicit none
       contains
@@ -595,6 +583,10 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       end do
+!
+      if (any(models(Icopro)%tile == -1)) then
+        models(Icopro)%tile = auto_tile(models(Icopro)%nPets)
+      end if
 !
       if (models(Icopro)%nPets /=                                       &
           models(Icopro)%tile(1)*models(Icopro)%tile(2)) then

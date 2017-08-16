@@ -1,24 +1,8 @@
-!-----------------------------------------------------------------------
-!
-!     This file is part of ITU RegESM.
-!
-!     ITU RegESM is free software: you can redistribute it and/or
-!     modify
-!     it under the terms of the GNU General Public License as published
-!     by
-!     the Free Software Foundation, either version 3 of the License, or
-!     (at your option) any later version.
-!
-!     ITU RegESM is distributed in the hope that it will be useful,
-!     but WITHOUT ANY WARRANTY; without even the implied warranty of
-!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!     GNU General Public License for more details.
-!
-!     You should have received a copy of the GNU General Public License
-!     along with ITU RegESM.  If not, see
-!     <http://www.gnu.org/licenses/>.
-!
-!-----------------------------------------------------------------------
+!=======================================================================
+! Regional Earth System Model (RegESM)
+! Copyright (c) 2013-2017 Ufuk Turuncoglu
+! Licensed under the MIT License.
+!=======================================================================
 #define FILENAME "util/mod_shared.F90" 
 !
 !-----------------------------------------------------------------------
@@ -661,5 +645,57 @@
       end do
 ! 
       end function replace_str
+!
+      function auto_tile (ain) result (aout)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations
+!-----------------------------------------------------------------------
+!
+      integer, intent(in) :: ain
+      integer :: aout(2)
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, atmp, divisor
+      integer :: arr(100)
+!
+      atmp = ain
+!
+      i = 0
+      do
+        if (mod(atmp,2) /= 0 .or. atmp == 1) exit
+        i = i+1
+        atmp = atmp/2
+        arr(i) = 2 
+      end do
+!
+      divisor = 3
+      do
+        if (divisor > atmp) exit
+        do
+          if (mod(atmp,divisor) /= 0 .or. atmp == 1) exit
+          i = i+1
+          atmp = atmp/divisor
+          arr(i) = divisor
+        end do
+        divisor = divisor+2
+      end do
+!
+      aout = 1
+      if (i > 1) then
+        do j = 1, i-1
+          aout(1) = aout(1)*arr(j)
+        end do
+        aout(2) = arr(i)
+      else
+        aout(1) = i
+        aout(2) = 1
+      end if
+!
+      end function auto_tile 
 !
       end module mod_shared
