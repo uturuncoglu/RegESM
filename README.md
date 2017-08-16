@@ -1,6 +1,7 @@
 RegESM: **Reg**ional **E**arth **S**ystem **M**odel
 ======
 
+[![DOI](https://zenodo.org/badge/7665906.svg)](https://zenodo.org/badge/latestdoi/7665906)
 [![Build Status](https://travis-ci.org/uturuncoglu/RegESM.svg?branch=master)](https://travis-ci.org/uturuncoglu/RegESM) still under testing
 
 Supported Components
