@@ -57,6 +57,8 @@ Please cite following publications in case of using RegESM coupled modeling syst
 
 * Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, 48(9), 2919–2947, doi:10.1007/s00382-016-3241-1 [link](http://link.springer.com/article/10.1007/s00382-016-3241-1)
 
+* Turuncoglu, U.U., 2017. Integration of ParaView Catalyst with Regional Earth System Model, Kitware Source (Software Developer's Quarterly), 42, 7-10. [link](https://blog.kitware.com/integration-of-paraview-catalyst-with-regional-earth-system-model/) 
+
 Previous publications with early version of the two-component (atmosphere-ocean) coupled model:
 
 * Turuncoglu, U. U., Giuliani, G., Elguindi, N., and Giorgi, F., 2013. Modelling the Caspian Sea and its catchment area using a coupled regional atmosphere-ocean model (RegCM4-ROMS): model design and preliminary results, Geosci. Model Dev., 6, 283-299, doi:10.5194/gmd-6-283-2013 [link](http://www.geosci-model-dev.net/6/283/2013/)
