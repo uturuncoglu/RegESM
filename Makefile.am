@@ -88,8 +88,8 @@ endif
 if DO_COMPILE_PARAVIEW
 COPLIBPTH = cop
 LIBS += -L$(COPLIBPTH) -lcop -L$(PVDIR)/lib `$(PVDIR)/bin/paraview-config --libs \
-        vtkCommonDataModel \
         vtkCommonCore \
+        vtkCommonDataModel \
         vtkPVCatalyst \
         vtkPVPythonCatalyst \
         vtkParallelMPI | cut -d ' ' -f3-`
@@ -98,8 +98,8 @@ CPPFLAGS += -I$(PVSRC)/VTK/Common/Core \
             -I$(PVSRC)/VTK/Common/DataModel \
             -I$(PVSRC)/CoProcessing/Catalyst \
             -I$(PVSRC)/CoProcessing/PythonCatalyst \
-            -I$(PVSRC)/VTK/Common/DataModel \
             -I$(PVSRC)/VTK/Parallel/MPI \
+            -I$(PVSRC)/VTK/IO/XMLParser \
             -I$(PVDIR)/VTK/Common/Core \
             -I$(PVDIR)/VTK/Utilities/KWIML \
             -I$(PVDIR)/VTK/Common/DataModel \
