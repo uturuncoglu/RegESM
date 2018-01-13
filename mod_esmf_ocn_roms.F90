@@ -3056,7 +3056,7 @@
 !-----------------------------------------------------------------------
 !
       select case (trim(adjustl(itemNameList(i))))
-      case ('mask')
+      case ('mask2d')
         do jj = JstrR, JendR
           do ii= IstrR, IendR
             ptr2d(ii,jj) = GRID(ng)%rmask(ii,jj)
@@ -3219,6 +3219,20 @@
       zvar = ZERO_R8
 !
       select case (trim(adjustl(itemNameList(i))))
+      case ('rho')
+        call vInterpolation(ng, OCEAN(ng)%rho(IstrR:IendR,JstrR:JendR,1:N(ng)), &
+                            IstrR, IendR, JstrR, JendR, 1, N(ng),               &
+                            GRID(ng)%z_r(IstrR:IendR,JstrR:JendR,1:N(ng)),      &
+                            zvar(IstrR:IendR,JstrR:JendR,1:kz), kz, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      case ('pden')
+        call vInterpolation(ng, OCEAN(ng)%pden(IstrR:IendR,JstrR:JendR,1:N(ng)), &
+                            IstrR, IendR, JstrR, JendR, 1, N(ng),               &
+                            GRID(ng)%z_r(IstrR:IendR,JstrR:JendR,1:N(ng)),      &
+                            zvar(IstrR:IendR,JstrR:JendR,1:kz), kz, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
       case ('temp')
         call vInterpolation(ng, OCEAN(ng)%t(IstrR:IendR,JstrR:JendR,1:N(ng),nstp(ng),itemp), &
                             IstrR, IendR, JstrR, JendR, 1, N(ng),               &
