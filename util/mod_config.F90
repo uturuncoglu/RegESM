@@ -1010,6 +1010,7 @@
         if (.not. models(i)%modActive) cycle
 !
         do j = 1, nf
+          if (.not. allocated(models(i)%exportField)) cycle
           lname = trim(models(i)%exportField(j)%long_name)
           sname = trim(models(i)%exportField(j)%short_name)
           units = trim(models(i)%exportField(j)%units)
@@ -1031,6 +1032,7 @@
 !
         nf = size(models(i)%importField)
         do j = 1, nf
+          if (.not. allocated(models(i)%importField)) cycle
           lname = trim(models(i)%importField(j)%long_name)
           sname = trim(models(i)%importField(j)%short_name)
           units = trim(models(i)%importField(j)%units)
