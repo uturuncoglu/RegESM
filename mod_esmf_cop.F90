@@ -301,7 +301,7 @@
       rc = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
-!     Set import fields 
+!     Set import fields (one-way interaction, there is no export fields) 
 !-----------------------------------------------------------------------
 !
       do i = 1, ubound(models(Icopro)%importField, dim=1)
@@ -313,20 +313,6 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end do 
-!
-!-----------------------------------------------------------------------
-!     Set export fields 
-!-----------------------------------------------------------------------
-!
-      do i = 1, ubound(models(Icopro)%exportField, dim=1)
-        call NUOPC_Advertise(exportState,                               &
-             StandardName=trim(models(Icopro)%exportField(i)%long_name),&
-             name=trim(models(Icopro)%exportField(i)%short_name),       &
-             TransferOfferGeomObject="cannot provide",                  &
-             rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=FILENAME)) return
-      end do
 !
       end subroutine COP_SetInitializeP1
 !
