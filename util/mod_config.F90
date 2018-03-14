@@ -597,11 +597,32 @@
       end if
 !
       if (localPet == 0) then
-        write(*, fmt='(A12,I2,A,I2)') "Co-processing Tiles: ",          &
+        write(*, fmt='(A,I2,A,I2)') "Co-processing Tiles: ",            &
               models(Icopro)%tile(1),"x",models(Icopro)%tile(2)
       end if
 !
       end if
+!
+!-----------------------------------------------------------------------
+!     Read width of halo or ghost region 
+!-----------------------------------------------------------------------
+!
+      if (models(Icopro)%modActive) then
+!
+      call ESMF_ConfigFindLabel(cf, 'CoProcessorHaloWidth:', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_ConfigGetAttribute(cf, models(Icopro)%haloWidth, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+          line=__LINE__, file=FILENAME)) return
+!
+      if (localPet == 0) then
+        write(*, fmt='(A,I2)') "Co-processing Halo/Ghost Width: ",      &
+              models(Icopro)%haloWidth
+      end if
+!
+      end if 
 !
 !-----------------------------------------------------------------------
 !     Read vertical levels for model components

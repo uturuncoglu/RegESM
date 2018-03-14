@@ -114,6 +114,7 @@
         integer :: nPets
         logical :: modActive
         integer :: tile(2)
+        integer :: haloWidth
         integer :: nLevs
         real(ESMF_KIND_R8), allocatable :: levs(:)
         integer, allocatable :: petList(:) 
