@@ -352,6 +352,7 @@ To install RegESM with four component (ATM, OCN, RTM and WAV):
 cd $ESM_SRC
 git clone https://github.com/uturuncoglu/RegESM.git
 cd RegESM
+./bootstrap.sh
 ./configure --prefix=$ESM_SRC/RegESM --with-atm=$ATM_SRC --with-ocn=$OCN_SRC/Build --with-rtm=$RTM_SRC –with-wav=$WAV_SRC/obj CC=icc FC=ifort
 make
 make install
