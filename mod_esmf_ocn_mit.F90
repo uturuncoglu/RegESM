@@ -464,6 +464,7 @@
       end if
 !
       if (cmpStartTime /= dummTime) then
+        if (localPet == 0) then
         call ESMF_TimePrint(cmpStartTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
@@ -471,14 +472,16 @@
         call ESMF_TimePrint(dummTime, options="string", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
+        end if
 !
-        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
-             msg='ESM and OCN start times do not match: '//             &
-             'please check the config files')
-        return
+!        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
+!             msg='ESM and OCN start times do not match: '//             &
+!             'please check the config files')
+!        return
       end if
 !
       if (cal /= esmCal) then
+        if (localPet == 0) then
         call ESMF_CalendarPrint(cal, options="calkindflag", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
@@ -486,6 +489,7 @@
         call ESMF_CalendarPrint(esmCal, options="calkindflag", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
+        end if
 !
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc,              &
              msg='ESM and OCN calendars do not match: '//               &
@@ -605,13 +609,14 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
             line=__LINE__, file=FILENAME)) return
       else
-        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+!        atCorrectTime = NUOPC_IsAtTime(field, currTime+timeStep, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!            line=__LINE__, file=FILENAME)) return
+        atCorrectTime = .true.
 !
-        call print_timestamp(field, currTime+timeStep, localPet, "OCN", rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-            line=__LINE__, file=FILENAME)) return
+!        call print_timestamp(field, currTime+timeStep, localPet, "OCN", rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+!            line=__LINE__, file=FILENAME)) return
       end if
 !
       if (.not. atCorrectTime) then
@@ -1357,11 +1362,11 @@
 !     Store routehandle to exchage halo region data 
 !-----------------------------------------------------------------------
 !
-!      if (i == 1) then
-!      call ESMF_FieldHaloStore(field, routehandle=rh_halo, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
-!      end if
+      if (i == 1) then
+      call ESMF_FieldHaloStore(field, routehandle=rh_halo, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Put data into state 
@@ -1757,6 +1762,17 @@
             end if
           end do
         end do
+      case ('nflz')
+        do jj = 1-OLy, sNy+OLy
+          do ii = 1-OLx, sNx+OLx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            if ((iG > 0 .and. iG < imax) .and.                          &
+                (jG > 0 .and. jG < jmax) .and. ptr(iG,jG) < TOL_R8) then
+              hflux_ESMF(ii,jj,1,1) = (ptr(iG,jG)*sfac)+addo
+            end if
+          end do
+        end do
       case ('sflx')
         do jj = 1-OLy, sNy+OLy
           do ii = 1-OLx, sNx+OLx
@@ -2091,10 +2107,10 @@
 !     Perform halo region update 
 !-----------------------------------------------------------------------
 !
-!      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
-!                          checkflag=.false., rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-!                             line=__LINE__, file=FILENAME)) return
+      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
+                          checkflag=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Loop over decomposition elements (DEs) 

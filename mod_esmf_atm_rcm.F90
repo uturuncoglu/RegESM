@@ -3,7 +3,7 @@
 ! Copyright (c) 2013-2017 Ufuk Turuncoglu
 ! Licensed under the MIT License. 
 !=======================================================================
-#define FILENAME "mod_esmf_atm.F90"
+#define FILENAME "mod_esmf_atm_rcm.F90"
 !
 !-----------------------------------------------------------------------
 !     ATM gridded component code 
