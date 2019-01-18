@@ -9,7 +9,7 @@ Supported Components
 
 * Atmosphere (ATM):
     * [RegCM](http://gforge.ictp.it/gf/project/regcm/) version >4.5 (it needs extra patch for co-processing)
-    * [WRF](http://www2.mmm.ucar.edu/wrf/users/download/get_source.html) version 3.8.1 (under development)
+    * [WRF](http://www2.mmm.ucar.edu/wrf/users/download/get_source.html) version 3.8.1
 * Ocean (OCN): 
     * [ROMS](http://www.myroms.org) revision 809
     * [ROMS-Ice](https://github.com/kshedstrom/roms): The driver is not tested with new CICE implementation !!!
@@ -19,7 +19,7 @@ Supported Components
 * Wave (WAV):
     * [WAM](http://journals.ametsoc.org/doi/pdf/10.1175/1520-0485(1988)018%3C1775:TWMTGO%3E2.0.CO%3B2) version Cycle\_4.5.3\_MPI
 * Co-processing (COP):
-    * [ParaView](http://www.paraview.org) version 5.3.0: It requires [Catalyst](http://www.paraview.org/in-situ/) module and also GPU with graphics mode enabled.
+    * [ParaView](http://www.paraview.org) version 5.4.1: It requires [Catalyst](http://www.paraview.org/in-situ/) module and also GPU with graphics mode enabled.
 
 Prerequisites
 =============
@@ -48,16 +48,21 @@ A tutorial for two component coupling (RegCM+ROMS) over Black Sea can be found i
 Talks
 =====
 
+* Turuncoglu, U.U. and Mahendra Roppa, 2018. A New Modeling Framework for In-Situ Visualization Integrated in Earth System Models, [GTC2018 GPU Technology Conference](https://2018gputechconf.smarteventscloud.com/connect/search.ww#loadSearch-searchPhrase=&searchType=session&tc=0&sortBy=abbreviationSort&p=), March 26-29, 2018, San Jose, CA,
+USA. [pdf](https://drive.google.com/file/d/1b1jJodf-FB9GkjKNaZzqvHYe9_FcLJFm/view?usp=sharing)
+
 * Turuncoglu, U.U., 2017. Towards in situ visualization integrated model coupling framework for earth system science, [Fourth Workshop on Coupling Technologies for Earth System Models](https://www.earthsystemcog.org/projects/cw2017/), Princeton, NJ, USA. [pdf](https://drive.google.com/open?id=0B9HveJUZae21MHhkMjB0al93SDQ)
 
 References
 =============
 
-Please cite following publications in case of using RegESM coupled modeling system or any variants of it: 
+Please cite following publications in case of using RegESM coupled modeling system or any variants of it:
 
-* Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, 48(9), 2919–2947, doi:10.1007/s00382-016-3241-1 [link](http://link.springer.com/article/10.1007/s00382-016-3241-1)
+* Turuncoglu, U.U., 2019. Toward modular in situ visualization in Earth system models: the regional modeling system RegESM 1.1, Geosci. Model Dev., 12, 233-259, https://doi.org/10.5194/gmd-12-233-2019. [link](https://www.geosci-model-dev.net/12/233/2019/)
 
 * Turuncoglu, U.U., 2017. Integration of ParaView Catalyst with Regional Earth System Model, Kitware Source (Software Developer's Quarterly), 42, 7-10. [link](https://blog.kitware.com/integration-of-paraview-catalyst-with-regional-earth-system-model/) 
+
+* Turuncoglu, U.U., Sannino, G., 2016. Validation of newly designed regional earth system model (RegESM) for Mediterranean Basin, Climate Dynamics, 48(9), 2919–2947, doi:10.1007/s00382-016-3241-1 [link](http://link.springer.com/article/10.1007/s00382-016-3241-1)
 
 Previous publications with early version of the two-component (atmosphere-ocean) coupled model:
 
