@@ -233,24 +233,44 @@
        call wrf_init()
 !
 !-----------------------------------------------------------------------
-!     Set-up grid and load coordinate data 
+!     Set-up grid and load coordinate data
 !-----------------------------------------------------------------------
 !
-      call ATM_SetGridArrays(gcomp, rc)
+      call ATM_SetGridArrays2d(gcomp, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set-up grid and load coordinate data (3d)
+!-----------------------------------------------------------------------
+!
+      if (models(Icopro)%modActive) then
+      call ATM_SetGridArrays3d(gcomp, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Set-up fields and register to import/export states
 !-----------------------------------------------------------------------
 !
-      call ATM_SetStates(gcomp, rc)
+      call ATM_SetStates2d(gcomp, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
+!-----------------------------------------------------------------------
+!     Set-up fields and register to import/export states (3d)
+!-----------------------------------------------------------------------
+!
+      if (models(Icopro)%modActive) then
+      call ATM_SetStates3d(gcomp, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
       end subroutine ATM_SetInitializeP2
 !
-      subroutine ATM_SetGridArrays(gcomp, rc)
+      subroutine ATM_SetGridArrays2d(gcomp, rc)
 !
 !-----------------------------------------------------------------------
 !     Used module declarations 
@@ -314,22 +334,15 @@
 !     ips, ipe, jps, jpe, kps, kpe => patch extent
 !-----------------------------------------------------------------------
 !
-!      call get_grid(head_grid) 
-!      call find_grid_by_id(3, head_grid, grid)
-!
       call get_ijk_from_grid(head_grid, ids, ide, jds, jde, kds, kde,   &
                                         ims, ime, jms, jme, kms, kme,   &
                                         ips, ipe, jps, jpe, kps, kpe)
-!      call get_ijk_from_grid(grid, ids, ide, jds, jde, kds, kde,        &
-!                                   ims, ime, jms, jme, kms, kme,        &
-!                                   ips, ipe, jps, jpe, kps, kpe)
 !
 !-----------------------------------------------------------------------
 !     Allocate import arrays in WRF side
 !-----------------------------------------------------------------------
 !
       call drv_allocate(head_grid)
-!      call drv_allocate(grid)
 !
 !-----------------------------------------------------------------------
 !     Calculate patchs and number of CPUs in each direction 
@@ -359,17 +372,6 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-!      numprocsX = 0
-!      numprocsY = 0
-!      do pe = 0, petCount-1
-!        if (ips == ipatchStarts(pe)) then
-!          numprocsY = numprocsY+1
-!        end if
-!        if (jps == jpatchStarts(pe)) then
-!          numprocsX = numprocsX+1
-!        end if        
-!      end do
-!
       if (.not. allocated(ipatchEnds)) then
         allocate(ipatchEnds(0:petCount-1))
       end if
@@ -378,8 +380,7 @@
         allocate(jpatchEnds(0:petCount-1))
       end if
 !
-      !call ESMF_VMAllGatherV(vm, sendData=(/ min(ide-1,ipe) /),         &
-      call ESMF_VMAllGatherV(vm, sendData=(/ ipe /),         &
+      call ESMF_VMAllGatherV(vm, sendData=(/ ipe /),                    &
                              sendCount=1, recvData=ipatchEnds,          &
                              recvCounts=(/ (1, k = 0, petCount-1) /),   &
                              recvOffsets=(/ (k, k = 0, petCount-1) /),  &
@@ -387,8 +388,7 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
 !
-      !call ESMF_VMAllGatherV(vm, sendData=(/ min(jde-1,jpe) /),         &
-      call ESMF_VMAllGatherV(vm, sendData=(/ jpe /),         &
+      call ESMF_VMAllGatherV(vm, sendData=(/ jpe /),                    &
                              sendCount=1, recvData=jpatchEnds,          &
                              recvCounts=(/ (1, k = 0, petCount-1) /),   &
                              recvOffsets=(/ (k, k = 0, petCount-1) /),  &
@@ -409,17 +409,10 @@
         deBlockList(1,2,pe) = ipatchEnds(pe-1)
         deBlockList(2,1,pe) = jpatchStarts(pe-1) 
         deBlockList(2,2,pe) = jpatchEnds(pe-1)
-        !if (localPet == 0) write(*,fmt="(9I5)") pe, deBlockList(1,1,pe), deBlockList(1,2,pe), ips, ipe, deBlockList(2,1,pe), deBlockList(2,2,pe), jps, jpe
-        if (localPet == 0) write(*,fmt="(9I5)") pe, ipatchStarts(pe-1), ipatchEnds(pe-1), jpatchStarts(pe-1), jpatchEnds(pe-1) 
       end do
 !
-      !minIndex = (/ 1, 1 /)
-      !maxIndex = (/ maxval(ipatchEnds), maxval(jpatchEnds) /)
-      !maxIndex = (/ minval(ipatchEnds), minval(jpatchEnds) /)
-      !maxIndex = (/ minval(ipatchEnds), minval(jpatchEnds) /)
       minIndex = (/ minval(ipatchStarts), minval(jpatchStarts) /)
       maxIndex = (/ maxval(ipatchEnds), maxval(jpatchEnds) /)
-      if (localPet == 0) write(*,fmt="(4I5)") minIndex(1), maxIndex(1), minIndex(2), maxIndex(2)
 !
       distGrid = ESMF_DistGridCreate(minIndex=minIndex,                 &
                                      maxIndex=maxIndex,                 &
@@ -443,7 +436,7 @@
 !
       models(Iatmos)%grid = ESMF_GridCreate(distgrid=distGrid,          &
                                             indexflag=ESMF_INDEX_GLOBAL,&
-                                            name="atm_grid",            &
+                                            name="atm_grid2d",          &
                                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -545,8 +538,6 @@
 !-----------------------------------------------------------------------
 !
       if (debugLevel > 0) then
-          ! bdy_mask(1) = Left/West, bdy_mask(2) = Right/East
-          ! bdy_mask(3) = Bottom/South, bdy_mask(4) = Top/North
           write(*,30) localPet, 1, adjustl("DAT/ATM/GRD/"//name),       &
                       lbound(head_grid%xlong, dim=1),                   &
                       ubound(head_grid%xlong, dim=1),                   &
@@ -554,11 +545,6 @@
                       ubound(head_grid%xlong, dim=2),                   &
                       head_grid%bdy_mask(1), head_grid%bdy_mask(2),     &
                       head_grid%bdy_mask(3), head_grid%bdy_mask(4)
-!          write(*,30) localPet, 1, adjustl("DAT/ATM/GRD/"//name),       &
-!                      lbound(grid%xlong, dim=1),                        &
-!                      ubound(grid%xlong, dim=1),                        &
-!                      lbound(grid%xlong, dim=2),                        &
-!                      ubound(grid%xlong, dim=2)
       end if
 !
       do i = lbnd(1), ubnd(1)
@@ -567,13 +553,6 @@
           ptrY(i,j) = head_grid%xlat(i,j) 
           ptrM(i,j) = head_grid%landmask(i,j) 
           ptrA(i,j) = head_grid%dx*head_grid%dy
-          !if (head_grid%bdy_mask(4)) then
-          !  print*, localPet, head_grid%xlong(lbnd(1),lbnd(2)), head_grid%xlong(ubnd(1),ubnd(2)), head_grid%xlong(ubnd(1),ubnd(2)-1)  
-          !end if
-          !ptrX(i,j) = grid%xlong(i,j)
-          !ptrY(i,j) = grid%xlat(i,j) 
-          !ptrM(i,j) = grid%landmask(i,j) 
-          !ptrA(i,j) = grid%dx*grid%dy
         end do
       end do
 !
@@ -651,11 +630,429 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8, 4L)
+ 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ",            &
+             4I8," ",L," ",L," ",L," ",L)
 !
-      end subroutine ATM_SetGridArrays
+      end subroutine ATM_SetGridArrays2d
 !
-      subroutine ATM_SetStates(gcomp, rc)
+      subroutine ATM_SetGridArrays3d(gcomp, rc)
+!
+!-----------------------------------------------------------------------
+!     Used module declarations 
+!-----------------------------------------------------------------------
+!
+      use module_domain, only : head_grid, get_ijk_from_grid
+      use module_domain, only : find_grid_by_id
+      use module_domain_type
+      use module_drv, only : drv_allocate
+!
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp), intent(inout) :: gcomp
+      integer :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, k, kz, pe
+      integer :: ids, ide, jds, jde, kds, kde,                          &
+                 ims, ime, jms, jme, kms, kme,                          &
+                 ips, ipe, jps, jpe, kps, kpe
+      integer :: localPet, petCount 
+      integer :: numprocsX, numprocsY
+      integer :: lbnd(3), ubnd(3)
+      integer :: minIndex(3), maxIndex(3)
+      integer, allocatable :: ipatchStarts(:), jpatchStarts(:), kpatchStarts(:)
+      integer, allocatable :: ipatchEnds(:), jpatchEnds(:), kpatchEnds(:)
+      integer, allocatable :: deBlockList(:,:,:)
+      real(ESMF_KIND_R8), pointer :: ptrX(:,:,:)
+      real(ESMF_KIND_R8), pointer :: ptrY(:,:,:)
+      real(ESMF_KIND_R8), pointer :: ptrZ(:,:,:)
+      real(ESMF_KIND_R8), pointer :: ptrA(:,:,:)
+      integer(ESMF_KIND_I4), pointer :: ptrM(:,:,:)
+      character(ESMF_MAXSTR) :: cname, name
+      type(domain), pointer :: grid
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_DistGrid) :: distGrid
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get variables related with grid partitioning
+!     ids, ide, jds, jde, kds, kde => domain extent
+!     ims, ime, jms, jme, kms, kme => memory extent
+!     ips, ipe, jps, jpe, kps, kpe => patch extent
+!-----------------------------------------------------------------------
+!
+      call get_ijk_from_grid(head_grid, ids, ide, jds, jde, kds, kde,   &
+                                        ims, ime, jms, jme, kms, kme,   &
+                                        ips, ipe, jps, jpe, kps, kpe)
+!
+!-----------------------------------------------------------------------
+!     Allocate import arrays in WRF side
+!-----------------------------------------------------------------------
+!
+      call drv_allocate(head_grid)
+!
+!-----------------------------------------------------------------------
+!     Calculate patchs and number of CPUs in each direction 
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(ipatchStarts)) then
+        allocate(ipatchStarts(0:petCount-1))
+      end if
+!
+      if (.not. allocated(jpatchStarts)) then
+        allocate(jpatchStarts(0:petCount-1))
+      end if
+!
+      if (.not. allocated(kpatchStarts)) then
+        allocate(kpatchStarts(0:petCount-1))
+      end if
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ ips /), sendCount=1,       &
+                             recvData=ipatchStarts,                     &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ jps /), sendCount=1,       &
+                             recvData=jpatchStarts,                     &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ kps /), sendCount=1,       &
+                             recvData=kpatchStarts,                     &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(ipatchEnds)) then
+        allocate(ipatchEnds(0:petCount-1))
+      end if
+!
+      if (.not. allocated(jpatchEnds)) then
+        allocate(jpatchEnds(0:petCount-1))
+      end if
+!
+      if (.not. allocated(kpatchEnds)) then
+        allocate(kpatchEnds(0:petCount-1))
+      end if
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ ipe /),                    &
+                             sendCount=1, recvData=ipatchEnds,          &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ jpe /),                    &
+                             sendCount=1, recvData=jpatchEnds,          &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMAllGatherV(vm, sendData=(/ kpe /),                    &
+                             sendCount=1, recvData=kpatchEnds,          &
+                             recvCounts=(/ (1, k = 0, petCount-1) /),   &
+                             recvOffsets=(/ (k, k = 0, petCount-1) /),  &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create ESMF DistGrid based on model domain decomposition
+!-----------------------------------------------------------------------
+!
+      kz = models(Iatmos)%nLevs
+!
+      if (.not.allocated(deBlockList)) then
+        allocate(deBlockList(3,2,petCount))
+      end if
+!
+      do pe = 1, petCount
+        deBlockList(1,1,pe) = ipatchStarts(pe-1)
+        deBlockList(1,2,pe) = ipatchEnds(pe-1)
+        deBlockList(2,1,pe) = jpatchStarts(pe-1) 
+        deBlockList(2,2,pe) = jpatchEnds(pe-1)
+        deBlockList(3,1,pe) = 1 
+        deBlockList(3,2,pe) = kz
+      end do
+!
+      minIndex = (/ minval(ipatchStarts), minval(jpatchStarts), 1 /)
+      maxIndex = (/ maxval(ipatchEnds), maxval(jpatchEnds), kz /)
+!
+      distGrid = ESMF_DistGridCreate(minIndex=minIndex,                 &
+                                     maxIndex=maxIndex,                 &
+                                     deBlockList=deBlockList,           &
+                                     rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Define component grid (dot and cross points)
+!-----------------------------------------------------------------------
+!
+      if (.not. allocated(models(Iatmos)%mesh)) then
+        allocate(models(Iatmos)%mesh(1))
+        models(Iatmos)%mesh(1)%gtype = Icross
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create ESMF Grid
+!-----------------------------------------------------------------------
+!
+      models(Iatmos)%grid3d = ESMF_GridCreate(distgrid=distGrid,        &
+                                            indexflag=ESMF_INDEX_GLOBAL,&
+                                            name="atm_grid3d",          &
+                                            rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Allocate coordinates 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddCoord(models(Iatmos)%grid3d,                     &
+                             staggerLoc=ESMF_STAGGERLOC_CENTER,         &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Allocate items for masking
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddItem(models(Iatmos)%grid3d,                      &
+                            staggerLoc=ESMF_STAGGERLOC_CENTER,          &
+                            itemflag=ESMF_GRIDITEM_MASK,                &
+                            rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set mask value for land and ocean 
+!-----------------------------------------------------------------------
+!
+      models(Iatmos)%isLand = 1
+      models(Iatmos)%isOcean = 0
+!
+!-----------------------------------------------------------------------
+!     Allocate items for grid area 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridAddItem(models(Iatmos)%grid3d,                      &
+                            staggerLoc=ESMF_STAGGERLOC_CENTER,          &
+                            itemflag=ESMF_GRIDITEM_AREA,                &
+                            rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get pointers and set coordinates for the grid 
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGetCoord(models(Iatmos)%grid3d,                     &
+                             localDE=0,                                 &
+                             staggerLoc=ESMF_STAGGERLOC_CENTER,         &
+                             coordDim=1,                                &
+                             farrayPtr=ptrX,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGetCoord(models(Iatmos)%grid3d,                     &
+                             localDE=0,                                 &
+                             staggerLoc=ESMF_STAGGERLOC_CENTER,         &
+                             coordDim=2,                                &
+                             farrayPtr=ptrY,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGetCoord(models(Iatmos)%grid3d,                     &
+                             localDE=0,                                 &
+                             staggerLoc=ESMF_STAGGERLOC_CENTER,         &
+                             coordDim=3,                                &
+                             computationalLBound=lbnd,                  &
+                             computationalUBound=ubnd,                  &
+                             farrayPtr=ptrZ,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGetItem(models(Iatmos)%grid3d,                      &
+                            localDE=0,                                  &
+                            staggerLoc=ESMF_STAGGERLOC_CENTER,          &
+                            itemflag=ESMF_GRIDITEM_MASK,                &
+                            farrayPtr=ptrM,                             &
+                            rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_GridGetItem (models(Iatmos)%grid3d,                     &
+                             localDE=0,                                 &
+                             staggerLoc=ESMF_STAGGERLOC_CENTER,         &
+                             itemflag=ESMF_GRIDITEM_AREA,               &
+                             farrayPtr=ptrA,                            &
+                             rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Debug: write size of pointers    
+!-----------------------------------------------------------------------
+!
+      name = GRIDDES(models(Iatmos)%mesh(1)%gtype)
+!
+      if (debugLevel > 0) then
+        write(*,110) localPet, 1, adjustl("PTR/ATM/GRD/"//name),        &
+                    lbnd(1), ubnd(1), lbnd(2), ubnd(2), lbnd(3), ubnd(3)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Fill the pointers    
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 0) then
+          write(*,110) localPet, 1, adjustl("DAT/ATM/GRD/"//name),      &
+                      lbound(head_grid%xlong, dim=1),                   &
+                      ubound(head_grid%xlong, dim=1),                   &
+                      lbound(head_grid%xlong, dim=2),                   &
+                      ubound(head_grid%xlong, dim=2),                   &
+                      lbnd(3),                                          &
+                      ubnd(3),                                          &
+                      head_grid%bdy_mask(1), head_grid%bdy_mask(2),     &
+                      head_grid%bdy_mask(3), head_grid%bdy_mask(4)
+      end if
+!
+      do k = 1, kz 
+        do i = lbnd(1), ubnd(1)
+          do j = lbnd(2), ubnd(2)
+            ptrX(i,j,k) = head_grid%xlong(i,j)
+            ptrY(i,j,k) = head_grid%xlat(i,j) 
+            ptrZ(i,j,k) = models(Iatmos)%levs(k) 
+            ptrM(i,j,k) = head_grid%landmask(i,j) 
+            ptrA(i,j,k) = head_grid%dx*head_grid%dy
+          end do
+        end do
+      end do
+!
+      if (head_grid%bdy_mask(2)) then
+        do k = 1, kz 
+        ptrX(ubnd(1),:,k) = ptrX(ubnd(1)-1,:,k)+(ptrX(ubnd(1)-1,:,k)-ptrX(ubnd(1)-2,:,k))
+        ptrY(ubnd(1),:,k) = ptrY(ubnd(1)-1,:,k)+(ptrY(ubnd(1)-1,:,k)-ptrY(ubnd(1)-2,:,k))
+        ptrZ(ubnd(1),:,k) = models(Iatmos)%levs(k) 
+        end do
+      end if
+!
+      if (head_grid%bdy_mask(4)) then
+        do k = 1, kz 
+        ptrX(:,ubnd(2),k) = ptrX(:,ubnd(2)-1,k)+(ptrX(:,ubnd(2)-1,k)-ptrX(:,ubnd(2)-2,k))
+        ptrY(:,ubnd(2),k) = ptrY(:,ubnd(2)-1,k)+(ptrY(:,ubnd(2)-1,k)-ptrY(:,ubnd(2)-2,k))
+        ptrZ(:,ubnd(2),k) = models(Iatmos)%levs(k) 
+        end do
+      end if
+!
+!-----------------------------------------------------------------------
+!     Nullify pointers 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptrX)) then
+        nullify(ptrX)
+      end if
+      if (associated(ptrY)) then
+        nullify(ptrY)
+      end if
+      if (associated(ptrZ)) then
+        nullify(ptrZ)
+      end if
+      if (associated(ptrM)) then
+        nullify(ptrM)
+      end if
+      if (associated(ptrA)) then
+        nullify(ptrA)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(ipatchStarts)) then
+        deallocate(ipatchStarts)
+      end if
+      if (allocated(jpatchStarts)) then
+        deallocate(jpatchStarts)
+      end if
+      if (allocated(kpatchStarts)) then
+        deallocate(kpatchStarts)
+      end if
+      if (allocated(ipatchEnds)) then
+        deallocate(ipatchEnds)
+      end if
+      if (allocated(jpatchEnds)) then
+        deallocate(jpatchEnds)
+      end if
+      if (allocated(kpatchEnds)) then
+        deallocate(kpatchEnds)
+      end if
+      if (allocated(deBlockList)) then
+        deallocate(deBlockList)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Debug: write out component grid in VTK format 
+!-----------------------------------------------------------------------
+!
+      if (debugLevel > 1) then
+      call ESMF_GridWriteVTK(models(Iatmos)%grid,                       &
+                         filename="atmos_"//                            &
+                         trim(GRIDDES(models(Iatmos)%mesh(1)%gtype))//  &
+                         "point",&
+                         staggerLoc=ESMF_STAGGERLOC_CENTER,             &
+                         rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
+!
+!-----------------------------------------------------------------------
+!     Format definition 
+!-----------------------------------------------------------------------
+!
+ 110  format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ",            &
+             6I8," ",L," ",L," ",L," ",L)
+!
+      end subroutine ATM_SetGridArrays3d
+!
+      subroutine ATM_SetStates2d(gcomp, rc)
       implicit none
 !
 !-----------------------------------------------------------------------
@@ -891,7 +1288,263 @@
 !
       if (allocated(itemNameList)) deallocate(itemNameList)
 !
-      end subroutine ATM_SetStates
+      end subroutine ATM_SetStates2d
+!
+      subroutine ATM_SetStates3d(gcomp, rc)
+      implicit none
+!
+!-----------------------------------------------------------------------
+!     Imported variable declarations 
+!-----------------------------------------------------------------------
+!
+      type(ESMF_GridComp) :: gcomp
+      integer, intent(out) :: rc
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, k, localPet, petCount, itemCount, localDECount
+      real*8, dimension(:,:,:), pointer :: ptr
+      character(ESMF_MAXSTR), allocatable :: itemNameList(:)
+!
+      type(ESMF_VM) :: vm
+      type(ESMF_Field) :: field
+      type(ESMF_ArraySpec) :: arraySpec
+      type(ESMF_StaggerLoc) :: staggerLoc 
+      type(ESMF_State) :: importState, exportState
+!
+      rc = ESMF_SUCCESS
+!
+!-----------------------------------------------------------------------
+!     Get gridded component 
+!-----------------------------------------------------------------------
+!
+      call ESMF_GridCompGet(gcomp, importState=importState,             &
+                            exportState=exportState, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set array descriptor
+!-----------------------------------------------------------------------
+!
+      call ESMF_ArraySpecSet(arraySpec, typekind=ESMF_TYPEKIND_R8,      &
+                             rank=3, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid3d,                          &
+                        localDECount=localDECount,                      &
+                        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get list of export fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+!
+      call ESMF_StateGet(exportState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create export fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+      k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
+!
+!-----------------------------------------------------------------------
+!     Check rank of the export field 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%exportField(k)%rank .eq. 3) then
+!
+!-----------------------------------------------------------------------
+!     Set staggering type 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%exportField(k)%gtype == Icross) then
+        staggerLoc = ESMF_STAGGERLOC_CENTER
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create field 
+!-----------------------------------------------------------------------
+!
+      field = ESMF_FieldCreate(models(Iatmos)%grid3d,                   &
+                               arraySpec,                               &
+                               staggerloc=staggerLoc,                   &
+                               name=trim(itemNameList(i)),              &
+                               rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put data into state 
+!-----------------------------------------------------------------------
+! 
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize pointer 
+!-----------------------------------------------------------------------
+!
+      ptr = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Add field export state
+!-----------------------------------------------------------------------
+!
+      call NUOPC_Realize(exportState, field=field, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList) 
+!
+!-----------------------------------------------------------------------
+!     Get list of import fields 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      if (.not. allocated(itemNameList)) then
+        allocate(itemNameList(itemCount))
+      end if
+!
+      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Create import fields 
+!-----------------------------------------------------------------------
+!
+      do i = 1, itemCount
+      k = get_varid(models(Iatmos)%importField, trim(itemNameList(i)))
+!
+!-----------------------------------------------------------------------
+!     Check rank of the import field 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%importField(k)%rank .eq. 3) then
+!
+!-----------------------------------------------------------------------
+!     Set staggering type 
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%importField(k)%gtype == Icross) then
+        staggerLoc = ESMF_STAGGERLOC_CENTER
+      end if
+!
+!-----------------------------------------------------------------------
+!     Create field 
+!-----------------------------------------------------------------------
+!
+      field = ESMF_FieldCreate(models(Iatmos)%grid3d,                   &
+                               arraySpec,                               &
+                               staggerloc=staggerLoc,                   &
+                               name=trim(itemNameList(i)),              &
+                               rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Put data into state 
+!-----------------------------------------------------------------------
+! 
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDe=j, farrayPtr=ptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Initialize pointer 
+!-----------------------------------------------------------------------
+!
+      ptr = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr)) then
+        nullify(ptr)
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Add field import state
+!-----------------------------------------------------------------------
+!
+      call NUOPC_Realize(importState, field=field, rc=rc) 
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+      end if
+!
+      end do
+!
+!-----------------------------------------------------------------------
+!     Deallocate arrays    
+!-----------------------------------------------------------------------
+!
+      if (allocated(itemNameList)) deallocate(itemNameList)
+!
+      end subroutine ATM_SetStates3d
 !
       subroutine ATM_DataInit(gcomp, rc)
       implicit none
@@ -1598,6 +2251,7 @@
 !
       use module_domain, only : head_grid, get_ijk_from_grid
       use module_model_constants, only : stbolt
+      use module_state_description, only : p_qv, p_qc, p_qr, p_qi, p_qs
 !
       implicit none
 !
@@ -1615,7 +2269,7 @@
       integer :: ids, ide, jds, jde, kds, kde,                          &
                  ims, ime, jms, jme, kms, kme,                          &
                  ips, ipe, jps, jpe, kps, kpe
-      integer :: i, j, k, m, n
+      integer :: i, j, k, m, n, p, nz
       integer :: iyear, iday, imonth, ihour, iminute, isec, iunit
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
@@ -1624,6 +2278,8 @@
       real(ESMF_KIND_R8) :: cff, cff1, cff2, cff3 
       real(ESMF_KIND_R8), parameter :: eps=1.0e-10
       real(ESMF_KIND_R8), pointer :: ptr2d(:,:)
+      real(ESMF_KIND_R8), pointer :: ptr3d(:,:,:)
+      real(ESMF_KIND_R8), allocatable :: varout(:,:,:)
       integer(ESMF_KIND_I8) :: tstep
 !
       type(ESMF_VM) :: vm
@@ -1707,6 +2363,12 @@
       do i = 1, itemCount
 !
       k = get_varid(models(Iatmos)%exportField, trim(itemNameList(i)))
+!
+!-----------------------------------------------------------------------
+!     Check rank of the export field
+!-----------------------------------------------------------------------
+!
+      if (models(Iatmos)%exportField(k)%rank .eq. 2) then
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
@@ -1968,6 +2630,114 @@
       end do
 !
 !-----------------------------------------------------------------------
+!     Check rank of the export field
+!-----------------------------------------------------------------------
+!
+      else if (models(Iatmos)%exportField(k)%rank .eq. 3) then
+!
+!-----------------------------------------------------------------------
+!     Get number of local DEs
+!-----------------------------------------------------------------------
+! 
+      call ESMF_GridGet(models(Iatmos)%grid3d,                          &
+                        localDECount=localDECount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Get field from export state 
+!-----------------------------------------------------------------------
+!
+      call ESMF_StateGet(exportState, trim(itemNameList(i)),            &
+                         field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Loop over decomposition elements (DEs) 
+!-----------------------------------------------------------------------
+!
+      do j = 0, localDECount-1
+!
+!-----------------------------------------------------------------------
+!     Get pointer from field 
+!-----------------------------------------------------------------------
+!
+      call ESMF_FieldGet(field, localDE=j, farrayPtr=ptr3d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+!
+!-----------------------------------------------------------------------
+!     Set initial value to missing 
+!-----------------------------------------------------------------------
+!
+      ptr3d = MISSING_R8
+!
+!-----------------------------------------------------------------------
+!     Put data to export field 
+!-----------------------------------------------------------------------
+!
+      nz = models(Iatmos)%nLevs
+!
+      select case (trim(adjustl(itemNameList(i))))
+      case ('qv')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%moist(ips:ipe,kps:kpe,jps:jpe,p_qv),  &
+                        varout)
+      case ('qc')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%moist(ips:ipe,kps:kpe,jps:jpe,p_qc),  &
+                        varout)
+      case ('qr')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%moist(ips:ipe,kps:kpe,jps:jpe,p_qr),  &
+                        varout)
+      case ('qi')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%moist(ips:ipe,kps:kpe,jps:jpe,p_qi),  &
+                        varout)
+      case ('qs')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%moist(ips:ipe,kps:kpe,jps:jpe,p_qs),  &
+                        varout)
+         
+      end select
+!
+      if (allocated(varout)) then
+        do p = 1, nz
+          do m = ips, ipe
+            do n = jps, jpe
+              ptr3d(m,n,p) = varout(m,n,p)
+            end do
+          end do
+        end do
+        deallocate(varout)
+      end if
+!
+!-----------------------------------------------------------------------
+!     Nullify pointer to make sure that it does not point on a random 
+!     part in the memory 
+!-----------------------------------------------------------------------
+!
+      if (associated(ptr3d)) then
+        nullify(ptr3d)
+      end if
+!
+      end do
+!
+      end if
+!
+!-----------------------------------------------------------------------
 !     Debug: write field in netCDF format    
 !-----------------------------------------------------------------------
 !
@@ -2001,15 +2771,78 @@
 !
       end subroutine ATM_Put
 !
-      recursive subroutine get_grid(grid)
+      subroutine wrf_vintrp(ips, ipe, jps, jpe, kps, kpe, bdy_mask, hgt, varin, varout)
+      implicit none
 !
 !-----------------------------------------------------------------------
-!     Used module declarations 
+!     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-      use module_domain
-      use module_configure
-      use module_nesting
+      integer, intent(in) :: ips, ipe, jps, jpe, kps, kpe
+      logical, intent(in) :: bdy_mask(4)
+      real, intent(in) :: hgt(ips:ipe,kps:kpe,jps:jpe)
+      real, intent(in) :: varin(ips:ipe,kps:kpe,jps:jpe)      
+      real*8, allocatable, intent(inout) :: varout(:,:,:)      
+!
+!-----------------------------------------------------------------------
+!     Local variable declarations 
+!-----------------------------------------------------------------------
+!
+      integer :: i, j, k, nz, ipos
+!
+!-----------------------------------------------------------------------
+!     Get vertical coordinate array 
+!-----------------------------------------------------------------------
+!
+      nz = models(Iatmos)%nLevs
+      if (.not. allocated(varout)) allocate(varout(ips:ipe,jps:jpe,1:nz))
+!
+      do i = ips, ipe
+        do j = jps, jpe
+          do k = 1, nz
+            ipos = locate(hgt(i,:,j), real(models(Iatmos)%levs(k)))
+            if (ipos == -1) then
+              varout(i,j,k) = MISSING_R8
+            else if(ipos < kpe .and. ipos > 0) then
+              varout(i,j,k) = varin(i,ipos,j)+                          &
+                              (models(Iatmos)%levs(k)-hgt(i,ipos,j))*   &
+                              (varin(i,ipos+1,j)-varin(i,ipos,j))/      &
+                              (hgt(i,ipos+1,j)-hgt(i,ipos,j))
+            else if(ipos == kpe) then
+              varout(i,j,k) = varin(i,kpe,j)
+            else if(ipos == 0) then
+              varout(i,j,k) = varin(i,1,j)
+            else
+              write(6,fmt='("ERROR: Unexpected value of ipos : ",I0)') ipos
+            end if
+          end do
+        end do
+      end do
+!
+!-----------------------------------------------------------------------
+!     Fill north and east edges
+!-----------------------------------------------------------------------
+!
+      if (bdy_mask(2)) then
+        do k = 1, nz
+          varout(ipe,:,k) = varout(ipe-1,:,k)
+        end do
+      end if
+!
+      if (bdy_mask(4)) then
+        do k = 1, nz
+          varout(:,jpe,k) = varout(:,jpe-1,k)
+        end do
+      end if
+!
+      end subroutine wrf_vintrp
+!
+      integer function locate(xx,x)
+!
+!-----------------------------------------------------------------------
+!     Locate a value in a sorted array
+!     https://github.com/astrofrog/fortranlib
+!-----------------------------------------------------------------------
 !
       implicit none
 !
@@ -2017,81 +2850,43 @@
 !     Imported variable declarations 
 !-----------------------------------------------------------------------
 !
-!      integer, intent(in) :: pid
-!      integer, intent(in) :: nid
-      type(domain), intent(in), pointer :: grid
+      real, dimension(:), intent(in) :: xx
+      real, intent(in) :: x
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-      integer :: kid, nest_id, parent_id, max_dom
-      type(domain), pointer :: grid_ptr
-      logical :: grid_allowed
+      integer :: n,jl,jm,ju
+      logical :: ascnd
 !
-      call nl_get_max_dom(1, max_dom)
-!
-      do kid = 1, max_nests
-        !if (associated(grid%nests(kid)%ptr)) then
-        !end if  
-        print*, "--- turuncu ---", max_dom, kid, associated(grid%nests(kid)%ptr)
+      n=size(xx)
+      ascnd = (xx(n) >= xx(1))
+      jl=0
+      ju=n+1
+      do
+        if (ju-jl <= 1) exit
+        jm=(ju+jl)/2
+        if (ascnd .eqv. (x >= xx(jm))) then
+          jl=jm
+        else
+          ju=jm
+        end if
       end do
-
-
-
-!      logical, dimension(max_domains) :: active_domain 
 !
-!      call set_current_grid_ptr(grid)
+      if (x == xx(1)) then
+        locate = 1
+      else if (x == xx(n)) then
+        locate = n-1
+      else if(ascnd.and. (x > xx(n) .or. x < xx(1))) then
+        locate = -1
+      else if(.not.ascnd.and. (x < xx(n) .or. x > xx(1))) then
+        locate = -1
+      else
+        locate = jl
+      end if
 !
-!      grid_ptr => grid
-!
-!      do while (associated(grid_ptr))
-!        do kid = 1, max_nests
-!          if (associated(grid_ptr%nests(kid)%ptr)) then
-!            call set_current_grid_ptr(grid_ptr%nests(kid)%ptr)
-!            call get_grid(grid_ptr%nests(kid)%ptr)
-!          end if
-!          print*, "--- turuncu ---", kid, associated(grid_ptr%nests(kid)%ptr)
-!        end do
-!      end do
-
-!      call set_current_grid_ptr(grid)
-!      print*, "--- turuncu ---", grid%id
-
-!      call nl_get_max_dom(1, max_dom)
-!
-!      do nest_id = 2, max_dom
-!        call nl_get_grid_allowed(nest_id, grid_allowed)        
-!        if ( .not. active_domain(nest_id) .and. grid_allowed) then
-!          call nl_get_parent_id(nest_id, parent_id)
-!          if ( parent_id == pid ) then
-!            do kid = 1, max_nests
-!              if ( .NOT. ASSOCIATED ( parent%nests(kid)%ptr ) ) THEN  
-!            end do
-!          end if 
-!        end if
-!      end do
-
-!      do id = 1, max_dom
-!        if (id == 1) then
-!          if (associated(head_grid)) then
-!            grid_ptr => head_grid
-!          end if
-!        else
-!          do kid = 1, max_nests
-!            if (associated(grid_ptr%nests(kid)%ptr)) then
-!              nest_ptr => grid_ptr%nests(kid)%ptr
-!              if (kid == grid_id) then
-!                grid_ptr => nest_ptr
-!              end if 
-!              nest_ptr => NULL()
-!            end if
-!            print*, "--- turuncu ---", id, associated(grid_ptr), kid, associated(grid_ptr%nests(kid)%ptr) 
-!          end do
-!        end if
-!      end do 
-
-      end subroutine get_grid 
+      end function locate
 !
       end module mod_esmf_atm
 
