@@ -929,15 +929,10 @@
                              line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
-!     Put export fields (only for initial and restart run)
+!     Put export fields (only for restart run)
 !-----------------------------------------------------------------------
 !
-      if (restarted .and. currTime == esmRestartTime) then
-!
-!-----------------------------------------------------------------------
-!     Put export fields
-!-----------------------------------------------------------------------
-!
+      if (cplType == 1 .and. restarted .and. currTime == esmRestartTime) then
         call ATM_Put(gcomp, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
@@ -1213,7 +1208,7 @@
 !     Calculate run time
 !-----------------------------------------------------------------------
 !
-      if (restarted) then
+      if (restarted .and. (currTime-esmRestartTime) < timeStep) then
         timeFrom1 = esmRestartTime
       else
         timeFrom1 = currTime
@@ -1235,9 +1230,7 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
 !
-        if (debugLevel == 0) then
-          write(*,50) trim(str1), trim(str2), phase
-        end if
+        write(*,50) trim(str1), trim(str2), phase
       end if
 !
 !-----------------------------------------------------------------------
@@ -1293,8 +1286,16 @@
 !     Get import fields 
 !-----------------------------------------------------------------------
 !
-      if ((currTime /= refTime) .or. restarted) then
+      if (cplType == 1) then
         call ATM_Get(gcomp, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
+                               line=__LINE__, file=FILENAME)) return
+      else
+        if ((currTime-esmRestartTime) >= timeStep) then
+          call ATM_Get(gcomp, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,&
+                                 line=__LINE__, file=FILENAME)) return
+        end if
       end if
 !
 !-----------------------------------------------------------------------
@@ -1311,6 +1312,8 @@
 !-----------------------------------------------------------------------
 !
       call ATM_Put(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Formats 
@@ -1806,15 +1809,15 @@
       case ('wndu')
         do m = ips, ipe 
           do n = jps, jpe
-            ptr2d(m,n) = 0.5*(head_grid%U10(m,n)+head_grid%U10(m+1,n))*head_grid%cosa(m,n)-&
-                         0.5*(head_grid%V10(m,n)+head_grid%V10(m,n+1))*head_grid%sina(m,n)
+             ptr2d(m,n) = head_grid%U10(m,n)*head_grid%cosa(m,n)-        &
+                          head_grid%V10(m,n)*head_grid%sina(m,n)
           end do
         end do
       case ('wndv') 
         do m = ips, ipe 
           do n = jps, jpe
-            ptr2d(m,n) = 0.5*(head_grid%V10(m,n)+head_grid%V10(m,n+1))*head_grid%cosa(m,n)+&
-                         0.5*(head_grid%U10(m,n)+head_grid%U10(m+1,n))*head_grid%sina(m,n) 
+             ptr2d(m,n) = head_grid%V10(m,n)*head_grid%cosa(m,n)+        &
+                          head_grid%U10(m,n)*head_grid%sina(m,n)
           end do
         end do
       case ('swrd') 
@@ -1901,7 +1904,7 @@
         do m = ips, ipe
           do n = jps, jpe
             ptr2d(m,n) = head_grid%GSW(m,n)-                            &
-                         head_grid%GLW(m,n)-(STBOLT*head_grid%EMISS(m,n)*head_grid%SST(m,n)**4)-&
+                         (head_grid%GLW(m,n)-(STBOLT*head_grid%EMISS(m,n)*head_grid%SST(m,n)**4))-&
                          head_grid%LH(m,n)-                             &
                          head_grid%HFX(m,n) 
           end do
@@ -1909,8 +1912,8 @@
       case ('nflz')
         do m = ips, ipe
           do n = jps, jpe
-            ptr2d(m,n) = head_grid%HFX(m,n)-head_grid%LH(m,n)+                            &
-                         head_grid%GLW(m,n)-(STBOLT*head_grid%EMISS(m,n)*head_grid%SST(m,n)**4)
+            ptr2d(m,n) = head_grid%HFX(m,n)+head_grid%LH(m,n)+                            &
+                         (head_grid%GLW(m,n)-(STBOLT*head_grid%EMISS(m,n)*head_grid%SST(m,n)**4))
           end do
         end do
       case ('sflx')
