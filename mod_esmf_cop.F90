@@ -581,8 +581,8 @@
       tlw = 0
       if (hasTop) tuw(1) = models(Icopro)%haloWidth
       if (hasRight) tuw(2) = models(Icopro)%haloWidth
-      if (hasBottom) tlw(1) = models(Icopro)%haloWidth
-      if (hasLeft) tlw(2) = models(Icopro)%haloWidth
+      !if (hasBottom) tlw(1) = models(Icopro)%haloWidth
+      !if (hasLeft) tlw(2) = models(Icopro)%haloWidth
 !
       call ESMF_FieldEmptyComplete(field,                               &
                                    typekind=ESMF_TYPEKIND_R8,           &
@@ -991,10 +991,14 @@
 !-----------------------------------------------------------------------
 !
       nPoints2D = 1
-      if (hasTop) cc2d(1) = cc2d(1)+tuw(1)-1
-      if (hasRight) cc2d(2) = cc2d(2)+tuw(2)-1
-      if (hasBottom) cc2d(1) = cc2d(1)+tlw(1)-1
-      if (hasLeft) cc2d(2) = cc2d(2)+tlw(2)-1
+!      if (hasTop) cc2d(1) = cc2d(1)+tuw(1)-1
+!      if (hasRight) cc2d(2) = cc2d(2)+tuw(2)-1
+!      if (hasBottom) cc2d(1) = cc2d(1)+tlw(1)-1
+!      if (hasLeft) cc2d(2) = cc2d(2)+tlw(2)-1
+      if (hasTop) cc2d(1) = cc2d(1)+tuw(1)!-1
+      if (hasRight) cc2d(2) = cc2d(2)+tuw(2)!-1
+      !if (hasBottom) cc2d(1) = cc2d(1)-tlw(1)!-1
+      !if (hasLeft) cc2d(2) = cc2d(2)-tlw(2)!-1
 !
       do k = 1, 2
         nPoints2D = nPoints2D*cc2d(k)
@@ -1007,10 +1011,14 @@
       lb = (/ lbound(ptr2X,dim=1), lbound(ptr2X,dim=2), 0 /)
       ub = (/ ubound(ptr2X,dim=1), ubound(ptr2X,dim=2), 0 /)
 !
-      if (hasTop) ub(1) = ub(1)+tuw(1)-1
-      if (hasRight) ub(2) = ub(2)+tuw(2)-1
-      if (hasBottom) lb(1) = lb(1)-tlw(1)+1
-      if (hasLeft) lb(2) = lb(2)-tlw(2)+1
+      !if (hasTop) ub(1) = ub(1)+tuw(1)-1
+      !if (hasRight) ub(2) = ub(2)+tuw(2)-1
+      !if (hasBottom) lb(1) = lb(1)-tlw(1)+1
+      !if (hasLeft) lb(2) = lb(2)-tlw(2)+1
+      if (hasTop) ub(1) = ub(1)+tuw(1)!-1
+      if (hasRight) ub(2) = ub(2)+tuw(2)!-1
+      !if (hasBottom) lb(1) = lb(1)-tlw(1)!+1
+      !if (hasLeft) lb(2) = lb(2)-tlw(2)!+1
 !
 !      write(*,fmt="(A,5I5,I8)") "grid 2d = ", localPet, lb(1), ub(1), lb(2), ub(2), nPoints2D
 !
@@ -1174,10 +1182,14 @@
 !-----------------------------------------------------------------------
 !
       nPoints3D = 1
-      if (hasTop) cc3d(1) = cc3d(1)+tuw(1)-1
-      if (hasRight) cc3d(2) = cc3d(2)+tuw(2)-1
-      if (hasBottom) cc3d(1) = cc3d(1)+tlw(1)-1
-      if (hasLeft) cc3d(2) = cc3d(2)+tlw(2)-1
+      !if (hasTop) cc3d(1) = cc3d(1)+tuw(1)-1
+      !if (hasRight) cc3d(2) = cc3d(2)+tuw(2)-1
+      !if (hasBottom) cc3d(1) = cc3d(1)+tlw(1)-1
+      !if (hasLeft) cc3d(2) = cc3d(2)+tlw(2)-1
+      if (hasTop) cc3d(1) = cc3d(1)+tuw(1)!-1
+      if (hasRight) cc3d(2) = cc3d(2)+tuw(2)!-1
+      !if (hasBottom) cc3d(1) = cc3d(1)-tlw(1)!-1
+      !if (hasLeft) cc3d(2) = cc3d(2)-tlw(2)!-1
 !
       do k = 1, 3
         nPoints3D = nPoints3D*cc3d(k)
@@ -1192,12 +1204,16 @@
       ub = (/ ubound(ptr3X,dim=1), ubound(ptr3X,dim=2),                 &
               ubound(ptr3X,dim=3) /)
 !
-      if (hasTop) ub(1) = ub(1)+tuw(1)-1
-      if (hasRight) ub(2) = ub(2)+tuw(2)-1
-      if (hasBottom) lb(1) = lb(1)-tlw(1)+1
-      if (hasLeft) lb(2) = lb(2)-tlw(2)+1
+!      if (hasTop) ub(1) = ub(1)+tuw(1)-1
+!      if (hasRight) ub(2) = ub(2)+tuw(2)-1
+!      if (hasBottom) lb(1) = lb(1)-tlw(1)+1
+!      if (hasLeft) lb(2) = lb(2)-tlw(2)+1
+      if (hasTop) ub(1) = ub(1)+tuw(1)!-1
+      if (hasRight) ub(2) = ub(2)+tuw(2)!-1
+      !if (hasBottom) lb(1) = lb(1)-tlw(1)!+1
+      !if (hasLeft) lb(2) = lb(2)-tlw(2)!+1
 !
-!      write(*,fmt="(A,7I5,I8)") "grid 3d = ", localPet, lb(1), ub(1), lb(2), ub(2), lb(3), ub(3), nPoints3D
+      write(*,fmt="(A,7I5,I8,4L)") "grid 3d [L:R:B:T] = ", localPet, lb(1), ub(1), lb(2), ub(2), lb(3), ub(3), nPoints3D, hasLeft, hasRight, hasBottom, hasTop
 !
       if (debugLevel > 1) then
         if (localPet == 0) then
@@ -1362,10 +1378,10 @@
       lb = (/ lbound(ptr2d,dim=1), lbound(ptr2d,dim=2), 0 /)
       ub = (/ ubound(ptr2d,dim=1), ubound(ptr2d,dim=2), 0 /)
 !
-      if (hasTop) ub(1) = ub(1)-1
-      if (hasRight) ub(2) = ub(2)-1
-      if (hasBottom) lb(1) = lb(1)+1
-      if (hasLeft) lb(2) = lb(2)+1
+!      if (hasTop) ub(1) = ub(1)-1
+!      if (hasRight) ub(2) = ub(2)-1
+      !if (hasBottom) lb(1) = lb(1)+1
+      !if (hasLeft) lb(2) = lb(2)+1
 !
       nPoints2D = 1
       do k = 1, 2
@@ -1427,10 +1443,10 @@
       ub = (/ ubound(ptr3d,dim=1), ubound(ptr3d,dim=2),                 &
               ubound(ptr3d,dim=3) /)
 !
-      if (hasTop) ub(1) = ub(1)-1
-      if (hasRight) ub(2) = ub(2)-1
-      if (hasBottom) lb(1) = lb(1)+1
-      if (hasLeft) lb(2) = lb(2)+1
+!      if (hasTop) ub(1) = ub(1)-1
+!      if (hasRight) ub(2) = ub(2)-1
+!      if (hasBottom) lb(1) = lb(1)+1
+!      if (hasLeft) lb(2) = lb(2)+1
 !
       nPoints3D = 1
       do k = 1, 3
