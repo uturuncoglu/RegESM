@@ -1,6 +1,6 @@
 !=======================================================================
 ! Regional Earth System Model (RegESM)
-! Copyright (c) 2013-2017 Ufuk Turuncoglu
+! Copyright (c) 2013-2019 Ufuk Turuncoglu
 ! Licensed under the MIT License.
 !=======================================================================
 #define FILENAME "util/mod_utils.F90" 
