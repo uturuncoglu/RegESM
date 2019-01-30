@@ -1595,7 +1595,8 @@
 !-----------------------------------------------------------------------
 !
       integer :: i, j, ii, jj, bi, bj, iG, jG, imax, jmax
-      integer :: id, iyear, iday, imonth, ihour, iunit
+      integer :: id, iunit
+      integer :: iyear, iday, imonth, ihour, iminute, isec
       integer :: LBi, UBi, LBj, UBj
       integer :: localPet, petCount, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
@@ -1635,7 +1636,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
       call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
-                        dd=iday, h=ihour, rc=rc)
+                        dd=iday, h=ihour, m=iminute, s=isec, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end if
@@ -1970,7 +1971,7 @@
 !
       if (debugLevel == 3) then
         write(ofile,80) 'ocn_import', trim(itemNameList(i)),            &
-                        iyear, imonth, iday, ihour, localPet
+                     iyear, imonth, iday, ihour, iminute, isec
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
@@ -1991,7 +1992,9 @@
 !
  60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
  70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
- 80   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+ 80   format(A10,'_',A,'_',                                             &
+             I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I2.2)
+
 !
       end subroutine OCN_Get
 !
@@ -2017,7 +2020,8 @@
 !-----------------------------------------------------------------------
 !
       integer :: bi, bj, iG, jG, imax, jmax
-      integer :: i, j, ii, jj, iunit, iyear, iday, imonth, ihour
+      integer :: i, j, ii, jj, iunit
+      integer :: iyear, iday, imonth, ihour, iminute, isec
       integer :: petCount, localPet, itemCount, localDECount
       character(ESMF_MAXSTR) :: cname, ofile
       character(ESMF_MAXSTR), allocatable :: itemNameList(:)
@@ -2055,7 +2059,7 @@
                              line=__LINE__, file=FILENAME)) return
 !
       call ESMF_TimeGet(currTime, yy=iyear, mm=imonth,                  &
-                        dd=iday, h=ihour, rc=rc)
+                        dd=iday, h=ihour, m=iminute, s=isec, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
       end if
@@ -2107,10 +2111,10 @@
 !     Perform halo region update 
 !-----------------------------------------------------------------------
 !
-      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
-                          checkflag=.false., rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=FILENAME)) return
+!      call ESMF_FieldHalo(field, routehandle=rh_halo,                   &
+!                          checkflag=.false., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+!                             line=__LINE__, file=FILENAME)) return
 !
 !-----------------------------------------------------------------------
 !     Loop over decomposition elements (DEs) 
@@ -2183,7 +2187,7 @@
 !
       if (debugLevel == 3) then
         write(ofile,100) 'ocn_export', trim(itemNameList(i)),           &
-                        iyear, imonth, iday, ihour, localPet
+                     iyear, imonth, iday, ihour, iminute, isec
         call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
@@ -2203,7 +2207,9 @@
 !-----------------------------------------------------------------------
 !
  90   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
- 100  format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2)
+ 100  format(A10,'_',A,'_',                                             &
+             I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I2.2)
+
 !
       end subroutine OCN_Put
 !
