@@ -117,7 +117,8 @@ LIBS += -L$(COPLIBPTH) -lcop -L$(PVDIR)/lib `$(PVDIR)/bin/paraview-config --libs
         vtkCommonDataModel \
         vtkPVCatalyst \
         vtkPVPythonCatalyst \
-        vtkParallelMPI | cut -d ' ' -f3-`
+        vtkParallelMPI \
+        vtkVTKm | cut -d ' ' -f3-`
 CPPFLAGS += -I$(PVSRC)/VTK/Common/Core \
             -I$(PVSRC)/VTK/Utilities/KWIML \
             -I$(PVSRC)/VTK/Common/DataModel \

@@ -230,7 +230,7 @@ if eval "test x$DEBUG = x1"; then
     AC_SUBST(CXXFLAGS)
   fi
   if eval "test x"$CXX" = xicpc"; then
-    CXXFLAGS="-O0 -g -Wall -Wcheck"
+    CXXFLAGS="-O0 -g -Wall -Wcheck -std=c++11"
     AC_SUBST(CXXFLAGS)
   fi
   if eval "test x"$FC" = xxlf2003"; then
@@ -274,6 +274,10 @@ else
   if eval "test x"$FC" = xpgf90 -o x"$FC" = xpgf95"; then
     FCFLAGS="-fastsse $FCFLAGS"
     AC_SUBST(FCFLAGS)
+  fi
+  if eval "test x"$CXX" = xicpc"; then
+    CXXFLAGS="-O3 -std=c++11"
+    AC_SUBST(CXXFLAGS)
   fi
 fi
 
