@@ -69,7 +69,6 @@ extern "C" void my_coprocessorinitializewithpython_(int *fcomm, const char pytho
         pipeline->Initialize(pythonScriptNames[i]);
         g_coprocessor->AddPipeline(pipeline);
       }
-      //pipeline->FastDelete();
     }
 
     if (!g_coprocessorData) {
@@ -78,7 +77,6 @@ extern "C" void my_coprocessorinitializewithpython_(int *fcomm, const char pytho
       // must be input port for all model components and for all dimensions
       for (int i = 0; i < *size; i++) {
         g_coprocessorData->AddInput(strarr[i]);
-        //std::cout << "adding input port [" << i << "] = " << strarr[i] << std::endl;
       }
     }
   }
@@ -97,11 +95,6 @@ extern "C" void my_requestdatadescription_(int* timeStep, double* time, int* cop
   vtkIdType tStep = *timeStep;
   g_coprocessorData->SetTimeData(*time, tStep);
 
-  //std::cout << "Number of Input Descriptions = " << g_coprocessorData->GetNumberOfInputDescriptions() << std::endl;
-  //printf("Force Output = %10s\n", g_coprocessorData->GetForceOutput() ? "True" : "False");
-  //g_coprocessorData->SetForceOutput(1);
-  //g_coprocessorData->SetForceOutputOn();
-
   if (g_coprocessor->RequestDataDescription(g_coprocessorData)) {
     g_isTimeDataSet = true;
     *coprocessThisTimeStep = 1;
@@ -109,8 +102,6 @@ extern "C" void my_requestdatadescription_(int* timeStep, double* time, int* cop
     g_isTimeDataSet = false;
     *coprocessThisTimeStep = 0;
   }
-  //std::cout << "time = " << g_isTimeDataSet << " " << *coprocessThisTimeStep << std::endl;
-  //std::cout << "time = " <<  g_coprocessorData->GetTime() << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////n
@@ -138,22 +129,14 @@ extern "C" void my_needtocreategrid_(int* needGrid, const char* name) {
         iter->Delete();
       }
     }
-    //std::cout << "check grid for input " << name << " - DEFINED." << std::endl;
   } else {
     *needGrid = 1;
-    //std::cout << "check grid for input " << name << " - NOT DEFINED !!!" << std::endl;
   }
 }
 
 ////////////////////////////////////////////////////////////////////n
 
 extern "C" void my_coprocess_() {
-//  unsigned int nofid = g_coprocessorData->GetNumberOfInputDescriptions();
-//  for (unsigned int i = 0; i < nofid; i++) {
-//    unsigned int j = g_coprocessorData->GetInputDescription(i)->GetNumberOfFields();
-//    std::cout << i << " " << j << std::endl; 
-//  }
-
   if(!g_isTimeDataSet) {
     vtkGenericWarningMacro("Time data not set.");
   } else {
@@ -165,7 +148,7 @@ extern "C" void my_coprocess_() {
 
 ////////////////////////////////////////////////////////////////////n
 
-extern "C" void create_grid(const char* name, int nProc, int myRank, int* dims, int* lb, int* ub, int nPoints, double* lonCoord, double* latCoord, double* levCoord) {
+extern "C" void create_grid(const char* name, int nProc, int myRank, int* dims, int* lb, int* ub, int nPoints, float* lonCoord, float* latCoord, float* levCoord) {
   if (!g_coprocessorData) {
     vtkGenericWarningMacro("Unable to access CoProcessorData.");
     return;
@@ -195,14 +178,12 @@ extern "C" void create_grid(const char* name, int nProc, int myRank, int* dims, 
 
   // create input port for grid
   if (levCoord == 0) {
-    //std::cout << "2d - " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
     if (! ESMFAdaptor::Grid<ESMFAdaptor::RECTILINEAR>::SetToCoprocessor(g_coprocessorData, name, dims, grid->GetGrid())) {
       vtkGenericWarningMacro(<< "No input data description for '" << name << "'");
       delete grid;
       grid = NULL; 
     }
   } else {
-    //std::cout << "3d - " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
     if (! ESMFAdaptor::Grid<ESMFAdaptor::RECTILINEAR>::SetToCoprocessor(g_coprocessorData, name, dims, grid->GetGrid())) {
       vtkGenericWarningMacro(<< "No input data description for '" << name << "'");
       delete grid;
@@ -219,18 +200,11 @@ extern "C" void create_grid(const char* name, int nProc, int myRank, int* dims, 
 //
 // Add field(s) to the data container
 //
-extern "C" void add_scalar_(double* data, char* name, int* size, int* mpiSize, int* mpiRank, const char* iname) {
+extern "C" void add_scalar_(float* data, char* name, int* size, int* mpiSize, int* mpiRank, const char* iname) {
   for (g_iter = g_grid.begin(); g_iter != g_grid.end(); g_iter++) {
     char *dumm = g_iter->GetName();
     if (strcmp(dumm, iname) >= 0) {
-      //std::cout << "add scalar = " << *mpiRank << " " << name << " to " << iname << " port " << std::endl;
       g_iter->SetAttributeValue(g_coprocessorData, data, name, iname, size, mpiSize, mpiRank);
-//    vtkDataSet* grid = vtkDataSet::SafeDownCast(g_coprocessorData->GetInputDescriptionByName(name)->GetGrid());
-//    double *corr = new double[3];
-//    for (vtkIdType i = 0; i < grid->GetNumberOfPoints(); i++) {
-//      grid->GetPoint(i, corr); 
-//      std::cout << i << " " << corr[0] << " " << corr[1] << " " << corr[2] << std::endl;
-//    }    
     }
   } 
 }

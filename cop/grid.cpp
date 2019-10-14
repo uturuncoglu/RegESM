@@ -15,6 +15,7 @@
 #include "vtkMath.h"
 #include "vtkSmartPointer.h"
 #include "vtkDoubleArray.h"
+#include "vtkFloatArray.h"
 #include "vtkIntArray.h"
 #include "vtkPointData.h"
 #include "vtkStructuredGrid.h"
@@ -47,11 +48,15 @@ namespace ESMFAdaptor {
     Lev(NULL),
     grid(NULL) {}
 
+  //
   // deconstructor
+  //
   template<GridType gridType>
   Grid<gridType>::~Grid(){}
 
+  //
   // creates the grid and the data used to add attributes to the grid
+  //
   template<GridType gridType>
   vtkSmartPointer<vtkMultiBlockDataSet> Grid<gridType>::CreateGrid(const char* name){
     //
@@ -68,7 +73,7 @@ namespace ESMFAdaptor {
     //
     // insert grid coordinate to points
     //
-    points->SetDataTypeToDouble();
+    points->SetDataTypeToFloat();
     points->SetNumberOfPoints(this->NPoints);
     if (this->Lev == NULL) { // 2d
       for (int i = 0; i < this->NPoints; i++) {
@@ -90,9 +95,6 @@ namespace ESMFAdaptor {
                       this->IndLevL-1, this->IndLevU-1);
     }
     
-    //std::cout << this->MPIRank << " " << this->IndLonL-1 << " " << this->IndLonU-1 << " " << this->IndLatL-1 << " " << this->IndLatU-1 << " " << this->IndLevL-1 << " " << this->IndLevU-1<< " " << NPoints << " " << grid->GetNumberOfPoints() << " " << grid->GetNumberOfCells() << " " << name << std::endl;
-    //std::cout << "There are " << grid->GetNumberOfPoints() << " points and " << grid->GetNumberOfCells() << " cells in " << name << " " << this->MPIRank << std::endl;
-
     //
     // create multi-block grid 
     //
@@ -107,7 +109,7 @@ namespace ESMFAdaptor {
   }
 
   template<GridType gridType>
-  void Grid<gridType>::SetAttributeValue(vtkCPDataDescription* coprocessorData, double* data, const char* vname, const char* pname, int* size, int* mpiSize, int* mpiRank) {
+  void Grid<gridType>::SetAttributeValue(vtkCPDataDescription* coprocessorData, float* data, const char* vname, const char* pname, int* size, int* mpiSize, int* mpiRank) {
     //
     // Get grid
     //
@@ -118,49 +120,22 @@ namespace ESMFAdaptor {
       return;
     }
    
-    // OBSERVATION: GetNumberOfFields return non-zero if AddPointField is used 
-    //coprocessorData->GetInputDescriptionByName(pname)->AddPointField(vname);
-    //unsigned int nofid = coprocessorData->GetInputDescriptionByName(pname)->GetNumberOfFields();
-    //std::cout << pname << " " << nofid << std::endl;
-    //std::cout << *mpiRank << " of " << *mpiSize << " " << vname << " " << pname << std::endl;
-
     //
     // Create dataset and fill with input data
     //
     vtkMultiPieceDataSet *multiPiece = vtkMultiPieceDataSet::SafeDownCast(grid->GetBlock(0));
     vtkDataSet *dataSet = vtkDataSet::SafeDownCast(multiPiece->GetPiece(*mpiRank));
 
-    //
-    // Check variable
-    //
-    //if (dataSet->GetPointData()->HasArray(vname)) {
-    //  dataSet->GetPointData()->RemoveArray(vname);
-    //  std::cout << "variable removed = " << vname << std::endl; 
-    //}
-
-    // BUG: idd->IsFieldNeeded(vname) always return False after first time step
-    // FIX: the control is removed to solve it temporary. need to revisit again
-    //std::cout <<  vname << " " << idd->IsFieldNeeded(vname) << std::endl;
-    //if (idd->IsFieldNeeded(vname)) {
-      //std::cout << "update variable " << vname << " " << coprocessorData->GetTime() << std::endl;
-      vtkSmartPointer<vtkDoubleArray> field = vtkSmartPointer<vtkDoubleArray>::New();
-      field->SetName(vname);
-      field->SetNumberOfComponents(1);
+    vtkSmartPointer<vtkFloatArray> field = vtkSmartPointer<vtkFloatArray>::New();
+    field->SetName(vname);
+    field->SetNumberOfComponents(1);
       
-      field->SetNumberOfValues(*size);
-      for (int i = 0; i < *size; i++) {
-        field->SetValue(i, data[i]);
-      } 
+    field->SetNumberOfValues(*size);
+    for (int i = 0; i < *size; i++) {
+      field->SetValue(i, data[i]);
+    } 
 
-      int i = dataSet->GetPointData()->AddArray(field);
-      //std::cout << *mpiRank << " " << vname << " " << i << " " << dataSet->GetPointData()->GetNumberOfArrays() << std::endl;
-      //field->Delete();
-
-      //for (int i = 0; i < *size; i++) {
-      //  std::cout << vname << " = " << *mpiRank << " " << i << " " << data[i] << std::endl;
-      //}
-    //}
-
+    int i = dataSet->GetPointData()->AddArray(field);
   }
 
   // Creates a 2D and a 3D grid of the specified 'type'
@@ -197,28 +172,28 @@ namespace ESMFAdaptor {
   }
 
   template<GridType gridType>  
-  void Grid<gridType>::SetLon(int nlon, int npoints, double* lon) {
+  void Grid<gridType>::SetLon(int nlon, int npoints, float* lon) {
     this->NLon = nlon;
     if (lon) {
-      this->Lon = new double[npoints];
+      this->Lon = new float[npoints];
       std::copy(lon, lon + npoints, this->Lon);
     }
   }
   
   template<GridType gridType>  
-  void Grid<gridType>::SetLat(int nlat, int npoints, double* lat) { 
+  void Grid<gridType>::SetLat(int nlat, int npoints, float* lat) { 
     this->NLat = nlat;
     if (lat) {
-      this->Lat = new double[npoints];
+      this->Lat = new float[npoints];
       std::copy(lat, lat + npoints, this->Lat);
     }
   }
 
   template<GridType gridType>
-  void Grid<gridType>::SetLev(int nlev, int npoints, double* lev) {
+  void Grid<gridType>::SetLev(int nlev, int npoints, float* lev) {
     this->NLev = nlev;
     if (lev) {
-      this->Lev = new double[npoints];
+      this->Lev = new float[npoints];
       std::copy(lev, lev + npoints, this->Lev);
     }
   }

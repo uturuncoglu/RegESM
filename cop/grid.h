@@ -47,9 +47,9 @@ namespace ESMFAdaptor {
       int IndLevL, IndLevU;  
 
       // dimension data of each MPI process
-      double* Lon;
-      double* Lat;
-      double* Lev;
+      float* Lon;
+      float* Lat;
+      float* Lev;
 
       // grid
       vtkSmartPointer<vtkMultiBlockDataSet> grid;
@@ -87,9 +87,9 @@ namespace ESMFAdaptor {
       void SetBounds(int* lb, int* ub);
 
       // sets coordinate variables for grid
-      void SetLon(int nlon, int ncells, double* lon);
-      void SetLat(int nlat, int ncells, double* lat);
-      void SetLev(int nlev, int ncells, double* lev);
+      void SetLon(int nlon, int ncells, float* lon);
+      void SetLat(int nlat, int ncells, float* lat);
+      void SetLev(int nlev, int ncells, float* lev);
 
       vtkSmartPointer<vtkMultiBlockDataSet> GetGrid() const;
      
@@ -97,7 +97,7 @@ namespace ESMFAdaptor {
       static bool SetToCoprocessor(vtkCPDataDescription* coprocessorData, const char* name, int* dims, vtkSmartPointer<vtkMultiBlockDataSet> grid);
 
       // update data
-      static void SetAttributeValue(vtkCPDataDescription* coprocessorData, double* data, const char* vname, const char* pname, int* size, int* mpiSize, int* mpiRank);
+      static void SetAttributeValue(vtkCPDataDescription* coprocessorData, float* data, const char* vname, const char* pname, int* size, int* mpiSize, int* mpiRank);
   };
 };
 

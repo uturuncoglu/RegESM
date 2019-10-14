@@ -1,6 +1,3 @@
-!=======================================================================
-! Regional Earth System Model (RegESM)
-! Copyright (c) 2013-2019 Ufuk Turuncoglu
 ! Licensed under the MIT License.
 !=======================================================================
 #define FILENAME "mod_esmf_cop.F90"
@@ -60,9 +57,9 @@
         integer(c_int) :: lb(*)
         integer(c_int) :: ub(*)
         integer(c_int), value :: nPoints
-        real(c_double) :: lonCoord(*)
-        real(c_double) :: latCoord(*)
-        real(c_double), optional :: levCoord(*)
+        real(c_float) :: lonCoord(*)
+        real(c_float) :: latCoord(*)
+        real(c_float), optional :: levCoord(*)
         end subroutine
       end interface
 !
@@ -581,8 +578,6 @@
       tlw = 0
       if (hasTop) tuw(1) = models(Icopro)%haloWidth
       if (hasRight) tuw(2) = models(Icopro)%haloWidth
-      !if (hasBottom) tlw(1) = models(Icopro)%haloWidth
-      !if (hasLeft) tlw(2) = models(Icopro)%haloWidth
 !
       call ESMF_FieldEmptyComplete(field,                               &
                                    typekind=ESMF_TYPEKIND_R8,           &
@@ -769,9 +764,9 @@
       real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3X
       real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3Y
       real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3Z
-      real(ESMF_KIND_R8), allocatable, dimension(:) :: lon1d
-      real(ESMF_KIND_R8), allocatable, dimension(:) :: lat1d
-      real(ESMF_KIND_R8), allocatable, dimension(:) :: lev1d
+      real(ESMF_KIND_R4), allocatable, dimension(:) :: lon1d
+      real(ESMF_KIND_R4), allocatable, dimension(:) :: lat1d
+      real(ESMF_KIND_R4), allocatable, dimension(:) :: lev1d
       real(ESMF_KIND_R8), allocatable, dimension(:,:) :: lon2d
       real(ESMF_KIND_R8), allocatable, dimension(:,:) :: lat2d
       real(ESMF_KIND_R8), allocatable, dimension(:,:,:) :: lon3d
@@ -779,7 +774,7 @@
       real(ESMF_KIND_R8), allocatable, dimension(:,:,:) :: lev3d
       real(ESMF_KIND_R8), dimension(:,:), pointer :: ptr2d
       real(ESMF_KIND_R8), dimension(:,:,:), pointer :: ptr3d
-      real(ESMF_KIND_R8), allocatable, dimension(:) :: var1d
+      real(ESMF_KIND_R4), allocatable, dimension(:) :: var1d
       real(ESMF_KIND_R8), dimension(3) :: low, upp
 !
       type(ESMF_VM) :: vm
@@ -850,9 +845,9 @@
         allocate(itemNameList(itemCount))
       end if
 !
-      call ESMF_StateGet(importState, itemNameList=itemNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
+      call ESMF_StateGet(importState,                                   &
+                         itemorderflag=ESMF_ITEMORDER_ADDORDER,         &
+                         itemNameList=itemNameList, rc=rc)
 !
 !-----------------------------------------------------------------------
 !     Loop over import fields
@@ -945,6 +940,9 @@
                                line=__LINE__, file=__FILE__)) return
       end if
 !
+      if (allocated(lon2d)) deallocate(lon2d)
+      if (allocated(lat2d)) deallocate(lat2d)
+!
       call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=ptr2X, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
@@ -991,14 +989,8 @@
 !-----------------------------------------------------------------------
 !
       nPoints2D = 1
-!      if (hasTop) cc2d(1) = cc2d(1)+tuw(1)-1
-!      if (hasRight) cc2d(2) = cc2d(2)+tuw(2)-1
-!      if (hasBottom) cc2d(1) = cc2d(1)+tlw(1)-1
-!      if (hasLeft) cc2d(2) = cc2d(2)+tlw(2)-1
-      if (hasTop) cc2d(1) = cc2d(1)+tuw(1)!-1
-      if (hasRight) cc2d(2) = cc2d(2)+tuw(2)!-1
-      !if (hasBottom) cc2d(1) = cc2d(1)-tlw(1)!-1
-      !if (hasLeft) cc2d(2) = cc2d(2)-tlw(2)!-1
+      if (hasTop) cc2d(1) = cc2d(1)+tuw(1)
+      if (hasRight) cc2d(2) = cc2d(2)+tuw(2)
 !
       do k = 1, 2
         nPoints2D = nPoints2D*cc2d(k)
@@ -1011,22 +1003,14 @@
       lb = (/ lbound(ptr2X,dim=1), lbound(ptr2X,dim=2), 0 /)
       ub = (/ ubound(ptr2X,dim=1), ubound(ptr2X,dim=2), 0 /)
 !
-      !if (hasTop) ub(1) = ub(1)+tuw(1)-1
-      !if (hasRight) ub(2) = ub(2)+tuw(2)-1
-      !if (hasBottom) lb(1) = lb(1)-tlw(1)+1
-      !if (hasLeft) lb(2) = lb(2)-tlw(2)+1
-      if (hasTop) ub(1) = ub(1)+tuw(1)!-1
-      if (hasRight) ub(2) = ub(2)+tuw(2)!-1
-      !if (hasBottom) lb(1) = lb(1)-tlw(1)!+1
-      !if (hasLeft) lb(2) = lb(2)-tlw(2)!+1
-!
-!      write(*,fmt="(A,5I5,I8)") "grid 2d = ", localPet, lb(1), ub(1), lb(2), ub(2), nPoints2D
+      if (hasTop) ub(1) = ub(1)+tuw(1)
+      if (hasRight) ub(2) = ub(2)+tuw(2)
 !
       if (debugLevel > 1) then
         if (localPet == 0) then
-        write(*,fmt="(A)") "---------------------------------------"
-        write(*,fmt="(A)") trim(to_upper(gname))//" GRID DEFINITION"
-        write(*,fmt="(A)") "---------------------------------------"
+          write(*,fmt="(A)") "---------------------------------------"
+          write(*,fmt="(A)") trim(to_upper(gname))//" GRID DEFINITION"
+          write(*,fmt="(A)") "---------------------------------------"
         end if
         write(*,fmt="(I3,4I5,2I8,I10,2I5,2L3)") localPet, lb(1), ub(1), &
                              lb(2), ub(2), cc2d(1), cc2d(2), nPoints2D, &
@@ -1039,10 +1023,8 @@
         allocate(lat1d(nPoints2D))
       end if
 !
-      call ntooned_2d(lb(1:2), ub(1:2),                                 &
-                      lon2d(lb(1):ub(1),lb(2):ub(2)), lon1d)
-      call ntooned_2d(lb(1:2), ub(1:2),                                 &
-                      lat2d(lb(1):ub(1),lb(2):ub(2)), lat1d)
+      call ntooned_2d(lb, ub, lon2d(lb(1):ub(1),lb(2):ub(2)), lon1d)
+      call ntooned_2d(lb, ub, lat2d(lb(1):ub(1),lb(2):ub(2)), lat1d)
 !
 !-----------------------------------------------------------------------
 !     Define grid (2d) in co-porcessing side via Catalyst adaptor
@@ -1071,8 +1053,6 @@
 !
       if (allocated(lon1d)) deallocate(lon1d)
       if (allocated(lat1d)) deallocate(lat1d)
-      if (allocated(lon2d)) deallocate(lon2d)
-      if (allocated(lat2d)) deallocate(lat2d)
 !
 !-----------------------------------------------------------------------
 !     Destroy temorary arrays
@@ -1111,14 +1091,12 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
 !
-      call ESMF_GridGetCoord(grid, coordDim=1, array=arrX, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
-!
-      call ESMF_ArrayGet(arrX, minIndexPTile=minIndexPTile,             &
-                         maxIndexPTile=maxIndexPTile, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
+      minIndexPTile(1,1) = lbound(lon2d,dim=1)
+      maxIndexPTile(1,1) = ubound(lon2d,dim=1)
+      minIndexPTile(2,1) = lbound(lon2d,dim=2)
+      maxIndexPTile(2,1) = ubound(lon2d,dim=2)
+      minIndexPTile(3,1) = lbound(ptr3X,dim=3)
+      maxIndexPTile(3,1) = ubound(ptr3X,dim=3)
 !
       if (.not. allocated(lon3d)) then
         allocate(lon3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
@@ -1126,18 +1104,7 @@
                        minIndexPTile(3,1):maxIndexPTile(3,1)))
       end if
 !
-      do k = 1, models(Icopro)%nPets
-        call ESMF_ArrayGather(arrX, farray=lon3d,                       &
-                              rootPet=k-1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=__FILE__)) return
-      end do
-!
       call ESMF_GridGetCoord(grid, coordDim=2, farrayPtr=ptr3Y, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
-!
-      call ESMF_GridGetCoord(grid, coordDim=2, array=arrY, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
 !
@@ -1147,49 +1114,25 @@
                        minIndexPTile(3,1):maxIndexPTile(3,1)))
       end if
 !
-      do k = 1, models(Icopro)%nPets
-        call ESMF_ArrayGather(arrY, farray=lat3d,                       &
-                              rootPet=k-1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=__FILE__)) return
-      end do
-!
       call ESMF_GridGetCoord(grid, coordDim=3, farrayPtr=ptr3Z,         &
                              computationalCount=cc3d,                   &
                              rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=__FILE__)) return
 !
-      call ESMF_GridGetCoord(grid, coordDim=3, array=arrZ, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
-!                             
       if (.not. allocated(lev3d)) then
         allocate(lev3d(minIndexPTile(1,1):maxIndexPTile(1,1),           &
                        minIndexPTile(2,1):maxIndexPTile(2,1),           &
                        minIndexPTile(3,1):maxIndexPTile(3,1)))
       end if
 !
-      do k = 1, models(Icopro)%nPets
-        call ESMF_ArrayGather(arrZ, farray=lev3d,                       &
-                              rootPet=k-1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
-                               line=__LINE__, file=__FILE__)) return
-      end do
-!
 !-----------------------------------------------------------------------
 !     Calculate total number of 3d points in each MPI process
 !-----------------------------------------------------------------------
 !
       nPoints3D = 1
-      !if (hasTop) cc3d(1) = cc3d(1)+tuw(1)-1
-      !if (hasRight) cc3d(2) = cc3d(2)+tuw(2)-1
-      !if (hasBottom) cc3d(1) = cc3d(1)+tlw(1)-1
-      !if (hasLeft) cc3d(2) = cc3d(2)+tlw(2)-1
-      if (hasTop) cc3d(1) = cc3d(1)+tuw(1)!-1
-      if (hasRight) cc3d(2) = cc3d(2)+tuw(2)!-1
-      !if (hasBottom) cc3d(1) = cc3d(1)-tlw(1)!-1
-      !if (hasLeft) cc3d(2) = cc3d(2)-tlw(2)!-1
+      if (hasTop) cc3d(1) = cc3d(1)+tuw(1)
+      if (hasRight) cc3d(2) = cc3d(2)+tuw(2)
 !
       do k = 1, 3
         nPoints3D = nPoints3D*cc3d(k)
@@ -1204,16 +1147,8 @@
       ub = (/ ubound(ptr3X,dim=1), ubound(ptr3X,dim=2),                 &
               ubound(ptr3X,dim=3) /)
 !
-!      if (hasTop) ub(1) = ub(1)+tuw(1)-1
-!      if (hasRight) ub(2) = ub(2)+tuw(2)-1
-!      if (hasBottom) lb(1) = lb(1)-tlw(1)+1
-!      if (hasLeft) lb(2) = lb(2)-tlw(2)+1
-      if (hasTop) ub(1) = ub(1)+tuw(1)!-1
-      if (hasRight) ub(2) = ub(2)+tuw(2)!-1
-      !if (hasBottom) lb(1) = lb(1)-tlw(1)!+1
-      !if (hasLeft) lb(2) = lb(2)-tlw(2)!+1
-!
-      write(*,fmt="(A,7I5,I8,4L)") "grid 3d [L:R:B:T] = ", localPet, lb(1), ub(1), lb(2), ub(2), lb(3), ub(3), nPoints3D, hasLeft, hasRight, hasBottom, hasTop
+      if (hasTop) ub(1) = ub(1)+tuw(1)
+      if (hasRight) ub(2) = ub(2)+tuw(2)
 !
       if (debugLevel > 1) then
         if (localPet == 0) then
@@ -1235,20 +1170,26 @@
         allocate(lev1d(nPoints3D))
       end if
 !
-      call ntooned_3d(localPet, .false., lb, ub,                        &
+      do k = lb(3), ub(3)
+        lon3d(lb(1):ub(1),lb(2):ub(2),k) = lon2d(lb(1):ub(1),lb(2):ub(2))
+        lat3d(lb(1):ub(1),lb(2):ub(2),k) = lat2d(lb(1):ub(1),lb(2):ub(2))
+        lev3d(lb(1):ub(1),lb(2):ub(2),k) = models(Iatmos)%levs(k) 
+      end do
+!
+      call ntooned_3d(lb, ub,                                           &
                       lon3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), lon1d)
-      call ntooned_3d(localPet, .false., lb, ub,                        &
+      call ntooned_3d(lb, ub,                                           &
                       lat3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), lat1d)
-      call ntooned_3d(localPet, .false., lb, ub,                        &
+      call ntooned_3d(lb, ub,                                           &
                       lev3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), lev1d)
 !
 !-----------------------------------------------------------------------
 !     Define grid (3d) in co-porcessing side via Catalyst adaptor
 !-----------------------------------------------------------------------
 !
-      dims(1) = maxIndexPTile(1,1)-minIndexPTile(1,1)+1
-      dims(2) = maxIndexPTile(2,1)-minIndexPTile(2,1)+1
-      dims(3) = maxIndexPTile(3,1)-minIndexPTile(3,1)+1
+      dims(1) = ub(1)-lb(1)+1
+      dims(2) = ub(2)-lb(2)+1
+      dims(3) = ub(3)-lb(3)+1
 !
       flag = catalyst_create_grid(0, 0.0d0, trim(gname)//char(0),       &
                                   petCount, localPet, dims,             &
@@ -1271,23 +1212,11 @@
       if (allocated(lon1d)) deallocate(lon1d)
       if (allocated(lat1d)) deallocate(lat1d)
       if (allocated(lev1d)) deallocate(lev1d)
+      if (allocated(lon2d)) deallocate(lon2d)
+      if (allocated(lat2d)) deallocate(lat2d)
       if (allocated(lon3d)) deallocate(lon3d)
       if (allocated(lat3d)) deallocate(lat3d)
       if (allocated(lev3d)) deallocate(lev3d)
-!
-!-----------------------------------------------------------------------
-!     Destroy temorary arrays
-!-----------------------------------------------------------------------
-!
-      call ESMF_ArrayDestroy(arrX, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
-      call ESMF_ArrayDestroy(arrY, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
-      call ESMF_ArrayDestroy(arrZ, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-                             line=__LINE__, file=__FILE__)) return
 !
 !-----------------------------------------------------------------------
 !     Measure performance of creating 3d grid 
@@ -1304,7 +1233,6 @@
       end if
 !
       end if
-!
 !-----------------------------------------------------------------------
 !     Create routehandle for halo update 
 !-----------------------------------------------------------------------
@@ -1378,23 +1306,16 @@
       lb = (/ lbound(ptr2d,dim=1), lbound(ptr2d,dim=2), 0 /)
       ub = (/ ubound(ptr2d,dim=1), ubound(ptr2d,dim=2), 0 /)
 !
-!      if (hasTop) ub(1) = ub(1)-1
-!      if (hasRight) ub(2) = ub(2)-1
-      !if (hasBottom) lb(1) = lb(1)+1
-      !if (hasLeft) lb(2) = lb(2)+1
-!
       nPoints2D = 1
       do k = 1, 2
         nPoints2D = nPoints2D*(ub(k)-lb(k)+1)
       end do
 !
-!      write(*,fmt="(A,5I5,I10)") "field 2d = ", localPet, lb(1), ub(1), lb(2), ub(2), nPoints2D
-!
       if (.not. allocated(var1d)) then
         allocate(var1d(nPoints2D))
       end if
 !
-      call ntooned_2d(lb(1:2), ub(1:2), ptr2d(lb(1):ub(1),lb(2):ub(2)), var1d)
+      call ntooned_2d(lb, ub, ptr2d(lb(1):ub(1),lb(2):ub(2)), var1d)
 !
 !-----------------------------------------------------------------------
 !     Add field to co-processor
@@ -1443,35 +1364,22 @@
       ub = (/ ubound(ptr3d,dim=1), ubound(ptr3d,dim=2),                 &
               ubound(ptr3d,dim=3) /)
 !
-!      if (hasTop) ub(1) = ub(1)-1
-!      if (hasRight) ub(2) = ub(2)-1
-!      if (hasBottom) lb(1) = lb(1)+1
-!      if (hasLeft) lb(2) = lb(2)+1
-!
       nPoints3D = 1
       do k = 1, 3
         nPoints3D = nPoints3D*(ub(k)-lb(k)+1)
       end do
 !
-!      write(*,fmt="(A,7I5,I10)") "field 3d = ", localPet, lb(1), ub(1), lb(2), ub(2), lb(3), ub(3), nPoints3D
-!
       if (.not. allocated(var1d)) then
         allocate(var1d(nPoints3D))
       end if
 !
-      call ntooned_3d(localPet, .true., lb, ub, ptr3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), var1d)
+      call ntooned_3d(lb, ub, ptr3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), var1d)
 !
 !-----------------------------------------------------------------------
 !     Add field to Catalyst
 !-----------------------------------------------------------------------
 !
       gname = replace_str(gname, "_grid3d", "_input3d")
-!
-!      write(*, fmt="(A,I5, 4D15.6)") "max/min = ", localPet, &
-!      minval(var1d), &
-!      maxval(var1d), &
-!      minval(minval(minval(ptr3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), dim=1), dim=1)), &
-!      maxval(maxval(maxval(ptr3d(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3)), dim=1), dim=1))
 !
       call add_scalar(var1d, trim(itemNameList(i))//char(0), nPoints3D, &
                       petCount, localPet, trim(gname)//char(0))
@@ -1548,7 +1456,7 @@
       end if
 !
       call my_requestdatadescription(its, dtime, flag)
-      if (flag) then
+      if (flag .and. its /= 0) then
         call my_coprocess()
       end if
 !
@@ -1609,10 +1517,10 @@
 !     Imported variable declarations
 !-----------------------------------------------------------------------
 !
-      integer, intent(in) :: lb(2)
-      integer, intent(in) :: ub(2)
+      integer, intent(in) :: lb(3)
+      integer, intent(in) :: ub(3)
       real*8 , intent(in) :: xnd(lb(1):ub(1),lb(2):ub(2))
-      real*8 , intent(inout) :: x1d(:)
+      real*4 , intent(inout) :: x1d(:)
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations
@@ -1623,26 +1531,24 @@
       p = 1
       do j = lb(2), ub(2)
         do i = lb(1), ub(1)
-          x1d(p) = xnd(i,j)
+          x1d(p) = real(xnd(i,j))
           p = p+1
         end do
       end do
 !
       end subroutine ntooned_2d
 !
-      subroutine ntooned_3d(localPet, isprint, lb, ub, xnd, x1d)
+      subroutine ntooned_3d(lb, ub, xnd, x1d)
       implicit none
 !
 !-----------------------------------------------------------------------
 !     Imported variable declarations
 !-----------------------------------------------------------------------
 !
-      integer, intent(in) :: localPet
-      logical, intent(in) :: isprint
       integer, intent(in) :: lb(3)
       integer, intent(in) :: ub(3)
       real*8 , intent(in) :: xnd(lb(1):ub(1),lb(2):ub(2),lb(3):ub(3))
-      real*8 , intent(inout) :: x1d(:)
+      real*4 , intent(inout) :: x1d(:)
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations
@@ -1654,7 +1560,7 @@
       do k = lb(3), ub(3)
         do j = lb(2), ub(2)
           do i = lb(1), ub(1)
-            x1d(p) = xnd(i,j,k)
+            x1d(p) = real(xnd(i,j,k))
             p = p+1
           end do
         end do
@@ -1690,9 +1596,9 @@
       integer, intent(in) :: lb(:)
       integer, intent(in) :: ub(:)
       integer, intent(in) :: nPoints
-      real*8, intent(in)  :: lon1d(nPoints)
-      real*8, intent(in)  :: lat1d(nPoints)
-      real*8, intent(in), optional  :: lev1d(nPoints)
+      real*4, intent(in)  :: lon1d(nPoints)
+      real*4, intent(in)  :: lat1d(nPoints)
+      real*4, intent(in), optional  :: lev1d(nPoints)
 !
 !-----------------------------------------------------------------------
 !     Local variable declarations
@@ -1720,7 +1626,6 @@
           call create_grid(name//char(0), petCount, localPet,           &
                            dims, lb, ub, nPoints, lon1d, lat1d)
         end if
-        !write(*,fmt="(A,6I5,I8)") name//char(0), lb, ub, nPoints 
       else
         continueProcessing = .false.
       end if
