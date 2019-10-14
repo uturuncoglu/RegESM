@@ -43,7 +43,7 @@
       integer :: localPet, petCount, lineCount, columnCount
       integer, allocatable :: petList(:)
       logical :: file_exists
-      character(100) :: fmt_123, str
+      character(len=ESMF_MAXSTR) :: fmt_123, str
 !
       type(ESMF_Config) :: cf
       type(ESMF_CalKind_Flag) :: cflag
@@ -320,9 +320,11 @@
         do i = 1, nModels
           if (models(i)%modActive) then
             k = ubound(models(i)%petList, dim=1)
-            write(fmt_123, fmt="('(A10, L, ', I3, 'I4)')") k
-            write(*, fmt=trim(fmt_123)) trim(models(i)%name)//'    ',   &
-                  models(i)%modActive, models(i)%petList
+            if (models(i)%nPets < 300) then
+              write(fmt_123, fmt="('(A10, L, ', I3, 'I4)')") k
+              write(*, fmt=trim(fmt_123)) trim(models(i)%name)//'    ', &
+                    models(i)%modActive, models(i)%petList
+            end if
           end if
         end do
       end if
@@ -421,9 +423,11 @@
           do j = 1, nModels
             if (connectors(i,j)%modActive) then
               k = ubound(connectors(i,j)%petList, dim=1)
-              write(fmt_123, fmt="('(A10, L, ', I3, 'I4)')") k
-              write(*, fmt=trim(fmt_123)) connectors(i,j)%name,         &
-                    connectors(i,j)%modActive, connectors(i,j)%petList
+              if (connectors(i,j)%nPets < 300) then
+                write(fmt_123, fmt="('(A10, L, ', I3, 'I4)')") k
+                write(*, fmt=trim(fmt_123)) connectors(i,j)%name,       &
+                      connectors(i,j)%modActive, connectors(i,j)%petList
+              end if
             end if
           end do
         end do
