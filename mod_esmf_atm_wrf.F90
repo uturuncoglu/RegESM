@@ -617,7 +617,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ",            &
+ 30   format(" PET(",I4.4,") - DE(",I2.2,") - ", A20, " : ",            &
              4I8," ",L," ",L," ",L," ",L)
 !
       end subroutine ATM_SetGridArrays2d
@@ -1034,7 +1034,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 110  format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ",            &
+ 110  format(" PET(",I4.4,") - DE(",I2.2,") - ", A20, " : ",            &
              6I8," ",L," ",L," ",L," ",L)
 !
       end subroutine ATM_SetGridArrays3d
@@ -2223,7 +2223,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
+ 60   format(' PET(',I4,') - DE(',I2,') - ', A20, ' : ', 4I8)
  70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
  80   format(A10,'_',A,'_',                                             &
              I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I2.2)
@@ -2620,7 +2620,8 @@
 !     Check rank of the export field
 !-----------------------------------------------------------------------
 !
-      else if (models(Iatmos)%exportField(k)%rank .eq. 3) then
+      else if (models(Iatmos)%exportField(k)%rank .eq. 3 .and.          &
+               models(Icopro)%modActive) then
 !
 !-----------------------------------------------------------------------
 !     Get number of local DEs
@@ -2697,7 +2698,30 @@
                         head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
                         head_grid%moist(ips:ipe,kps:kpe,jps:jpe,p_qs),  &
                         varout)
-         
+      case ('tlev')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%t_1(ips:ipe,kps:kpe,jps:jpe),         &
+                        varout)
+      case ('ulev')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%u_1(ips:ipe,kps:kpe,jps:jpe),         &
+                        varout)
+      case ('vlev')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%v_1(ips:ipe,kps:kpe,jps:jpe),         &
+                        varout)
+      case ('wlev')
+        call wrf_vintrp(ips, ipe, jps, jpe, kps, kpe,                   &
+                        head_grid%bdy_mask,                             &
+                        head_grid%z_at_w(ips:ipe,kps:kpe,jps:jpe),      &
+                        head_grid%w_1(ips:ipe,kps:kpe,jps:jpe),         &
+                        varout)
       end select
 !
       if (allocated(varout)) then
@@ -2793,12 +2817,12 @@
             else if(ipos < kpe .and. ipos > 0) then
               varout(i,j,k) = varin(i,ipos,j)+                          &
                               (models(Iatmos)%levs(k)-hgt(i,ipos,j))*   &
-                              (varin(i,ipos+1,j)-varin(i,ipos,j))/      &
-                              (hgt(i,ipos+1,j)-hgt(i,ipos,j))
+                              ((varin(i,ipos+1,j)-varin(i,ipos,j))/      &
+                              (hgt(i,ipos+1,j)-hgt(i,ipos,j)))
             else if(ipos == kpe) then
               varout(i,j,k) = varin(i,kpe,j)
             else if(ipos == 0) then
-              varout(i,j,k) = varin(i,1,j)
+              varout(i,j,k) = MISSING_R8 !varin(i,1,j)
             else
               write(6,fmt='("ERROR: Unexpected value of ipos : ",I0)') ipos
             end if
