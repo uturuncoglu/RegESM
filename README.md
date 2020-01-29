@@ -53,10 +53,17 @@ USA. [pdf](https://drive.google.com/file/d/1b1jJodf-FB9GkjKNaZzqvHYe9_FcLJFm/vie
 
 * Turuncoglu, U.U., 2017. Towards in situ visualization integrated model coupling framework for earth system science, [Fourth Workshop on Coupling Technologies for Earth System Models](https://www.earthsystemcog.org/projects/cw2017/), Princeton, NJ, USA. [pdf](https://drive.google.com/open?id=0B9HveJUZae21MHhkMjB0al93SDQ)
 
+Co-processing Component Generated Movies
+========================================
+
+* [Vimeo Site](https://vimeo.com/user63897523)
+
 References
 =============
 
 Please cite following publications in case of using RegESM coupled modeling system or any variants of it:
+
+* Turuncoglu, U.U., Onol, B., and Ilicak, M., 2019. A new approach for in situ analysis in fully coupled earth system models. In Proceedings of the Workshop on In Situ Infrastructures for Enabling Extreme-Scale Analysis and Visualization (ISAV '19). ACM, New York, NY, USA, 6-11, https://doi.org/10.1145/3364228.3364231. [link](https://dl.acm.org/citation.cfm?id=3364231)
 
 * Turuncoglu, U.U., 2019. Toward modular in situ visualization in Earth system models: the regional modeling system RegESM 1.1, Geosci. Model Dev., 12, 233-259, https://doi.org/10.5194/gmd-12-233-2019. [link](https://www.geosci-model-dev.net/12/233/2019/)
 
@@ -71,6 +78,10 @@ Previous publications with early version of the two-component (atmosphere-ocean)
 Release Notes
 =============
 ## Updates
+
+### New in Version 1.2
+* The COP component is optimized for very-high resolution applications
+
 ### New in Version 1.1
 * New co-processing component is introduced to allow in situ visualization applications for multi-component earth system model configurations
 * Updated and revisited model documentation (under doc/ directory)
