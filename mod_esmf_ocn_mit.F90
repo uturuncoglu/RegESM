@@ -389,9 +389,9 @@
       str_year = startdate_1/10000
       str_month = mod(startdate_1/100,100)
       str_day = mod(startdate_1,100)
-      str_hour = 0
-      str_minute = 0
-      str_second = 0
+      str_hour = startdate_2/10000
+      str_minute = mod(startdate_2/100,100)
+      str_second = mod(startdate_2,100)
 !
       call ESMF_TimeSet(cmpStartTime,                                   &
                         yy=str_year,                                    &
@@ -410,6 +410,15 @@
                              line=__LINE__, file=FILENAME)) return
 !
       cmpStartTime = cmpStartTime+elapsedTime
+!
+      if (localPet == 0) then
+      call ESMF_TimePrint(cmpStartTime, options="string isofrac", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      call ESMF_TimeIntervalPrint(elapsedTime, options="string isofrac", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+                             line=__LINE__, file=FILENAME)) return
+      end if
 !
 !-----------------------------------------------------------------------
 !     Set stop time
@@ -465,11 +474,11 @@
 !
       if (cmpStartTime /= dummTime) then
         if (localPet == 0) then
-        call ESMF_TimePrint(cmpStartTime, options="string", rc=rc)
+        call ESMF_TimePrint(cmpStartTime, options="string isofrac", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
-!
-        call ESMF_TimePrint(dummTime, options="string", rc=rc)
+
+        call ESMF_TimePrint(dummTime, options="string isofrac", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
         end if
@@ -791,7 +800,7 @@
       if (p == 1) then
       models(Iocean)%grid = ESMF_GridCreate(distgrid=distGrid,          &
                                             indexflag=ESMF_INDEX_GLOBAL,&
-                                            name="ocn_grid",            &
+                                            name="ocn_grid2d",          &
                                             rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
                              line=__LINE__, file=FILENAME)) return
@@ -1152,7 +1161,7 @@
 !-----------------------------------------------------------------------
 !
  20   format(" RIVER(",I2.2,") - ",I4,3F8.2," [",I3.3,":",I3.3,"] - ",I4," ",A)
- 30   format(" PET(",I3.3,") - DE(",I2.2,") - ", A20, " : ", 4I8)
+ 30   format(" PET(",I4.4,") - DE(",I2.2,") - ", A20, " : ", 4I8)
 !
       end subroutine OCN_SetGridArrays
 !
@@ -1990,7 +1999,7 @@
 !     Format definition 
 !-----------------------------------------------------------------------
 !
- 60   format(' PET(',I3,') - DE(',I2,') - ', A20, ' : ', 4I8)
+ 60   format(' PET(',I4,') - DE(',I2,') - ', A20, ' : ', 4I8)
  70   format(A10,'_',A,'_',I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I1)
  80   format(A10,'_',A,'_',                                             &
              I4,'-',I2.2,'-',I2.2,'_',I2.2,'_',I2.2,'_',I2.2)
@@ -2004,7 +2013,8 @@
 !     Used module declarations 
 !-----------------------------------------------------------------------
 !
-      use mod_mit_gcm, only : theta
+      use mod_mit_gcm, only : theta, salt, uvel, vvel, etan, maskc
+      use mod_mit_gcm, only : R_low, sflux, hflux
 !
       implicit none
 !
@@ -2146,12 +2156,76 @@
       jmax = Ny+1
 !
       select case (trim(adjustl(itemNameList(i))))
+      case ('mask2d')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = maskc(ii,jj,1,1,1)
+          end do
+        end do
+      case ('depth')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = R_low(ii,jj,1,1)
+          end do
+        end do
       case ('sst')
         do jj = 1, sNy
           do ii = 1, sNx
             iG = myXGlobalLo-1+(bi-1)*sNx+ii
             jG = myYGlobalLo-1+(bj-1)*sNy+jj
             ptr(iG,jG) = theta(ii,jj,1,1,1)
+          end do
+        end do
+      case ('ssfc')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = salt(ii,jj,1,1,1)
+          end do
+        end do
+      case ('ssh')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = etan(ii,jj,1,1)
+          end do
+        end do
+      case ('usfc')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = uvel(ii,jj,1,1,1)
+          end do
+        end do
+      case ('vsfc')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = vvel(ii,jj,1,1,1)
+          end do
+        end do
+      case ('empmr')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = sflux(ii,jj,1,1)
+          end do
+        end do
+      case ('lsls')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = hflux(ii,jj,1,1)
           end do
         end do
       end select
