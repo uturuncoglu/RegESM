@@ -77,6 +77,15 @@ fi
 AM_CONDITIONAL(DO_COMPILE_RCM, [test x"$NO_RCM_SUPPORT" = x0])
 AM_CONDITIONAL(DO_COMPILE_WRF, [test x"$NO_WRF_SUPPORT" = x0])
 
+# check parallel I/O for WRF
+if eval "test x$DO_COMPILE_WRF != x0"; then
+  WRF_PNETCDF_SUPPORT=0
+  AC_CHECK_FILE([$ATM_PREFIX/external/io_pnetcdf/wrf_io.o],
+                [WRF_PNETCDF_SUPPORT=1; AC_MSG_NOTICE([compiling WRF with pnetcdf support])])
+fi
+
+AM_CONDITIONAL(WRF_PNETCDF_SUPPORT, [test x"$WRF_PNETCDF_SUPPORT" = x1])
+
 # check OCN
 AC_ARG_WITH([ocn],
   AC_HELP_STRING([--with-ocn],

@@ -1972,7 +1972,10 @@
       if (debugLevel == 3) then
         write(ofile,80) 'ocn_import', trim(itemNameList(i)),            &
                      iyear, imonth, iday, ihour, iminute, isec
-        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        ! ALESS (
+        !call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc) 
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', overwrite=.true., rc=rc) 
+        ! ALESS )
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end if
@@ -2188,7 +2191,10 @@
       if (debugLevel == 3) then
         write(ofile,100) 'ocn_export', trim(itemNameList(i)),           &
                      iyear, imonth, iday, ihour, iminute, isec
-        call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc)
+        ! ALESS (
+        !call ESMF_FieldWrite(field, trim(ofile)//'.nc', rc=rc) 
+        call ESMF_FieldWrite(field, trim(ofile)//'.nc', overwrite=.true., rc=rc) 
+        ! ALESS )
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,  &
                                line=__LINE__, file=FILENAME)) return
       end if
@@ -2428,4 +2434,3 @@
       end function findPet
 !
       end module mod_esmf_ocn
-

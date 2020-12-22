@@ -43,6 +43,7 @@ CPPFLAGS += -I$(ATM_PREFIX)/Main -I$(ATM_PREFIX)/Main/mpplib \
 libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/Main/*.o) \
                   $(wildcard $(ATM_PREFIX)/Main/*/*.o) \
                   $(wildcard $(ATM_PREFIX)/Main/*/*/*.o) \
+                  $(wildcard $(ATM_PREFIX)/frame/*.o) \
                   $(wildcard $(ATM_PREFIX)/Share/*.o)
 endif
 if DO_COMPILE_WRF
@@ -53,6 +54,9 @@ CPPFLAGS += -I$(ATM_PREFIX)/Registry \
             -I$(ATM_PREFIX)/external/esmf_time_f90 \
             -I$(ATM_PREFIX)/main \
             -I$(ATM_PREFIX)/share 
+if WRF_PNETCDF_SUPPORT
+CPPFLAGS += -I$(ATM_PREFIX)/external/io_pnetcdf
+endif
 libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/external/RSL_LITE/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/io_netcdf/*.o) \
                   $(wildcard $(ATM_PREFIX)/external/io_grib1/*.o) \
@@ -66,6 +70,9 @@ libatm_a_LIBADD = $(wildcard $(ATM_PREFIX)/external/RSL_LITE/*.o) \
                   $(wildcard $(ATM_PREFIX)/frame/*.o) \
                   $(wildcard $(ATM_PREFIX)/dyn_em/*.o) \
                   $(ATM_PREFIX)/main/module_wrf_top.o
+if WRF_PNETCDF_SUPPORT
+libatm_a_LIBADD += $(wildcard $(ATM_PREFIX)/external/io_pnetcdf/*.o)
+endif
 endif
 endif
 
@@ -194,7 +201,7 @@ else
 regesm_x_SOURCES += mod_esmf_cop_void.F90
 endif
 
-FCLD = $(MPIFC)
+FCLD = $(MPIFC) -qopenmp
 
 %.o: %.f90
 	$(FC) $(CPPFLAGS) $(FCFLAGS) -c $<

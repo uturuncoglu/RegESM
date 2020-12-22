@@ -2170,7 +2170,7 @@
           end do
         end do
       end select
-!
+
 !-----------------------------------------------------------------------
 !     Debug: write field in ASCII format   
 !-----------------------------------------------------------------------
@@ -2268,6 +2268,9 @@
       real(ESMF_KIND_R8), pointer :: ptr3d(:,:,:)
       real(ESMF_KIND_R8), allocatable :: varout(:,:,:)
       integer(ESMF_KIND_I8) :: tstep
+      real(ESMF_KIND_R8), save, allocatable :: total_precip_stored(:,:)
+      real(ESMF_KIND_R8), allocatable       :: total_precip_tmp(:,:)
+      logical, save :: firsttime = .true.
 !
       type(ESMF_VM) :: vm
       type(ESMF_Clock) :: clock
@@ -2448,13 +2451,40 @@
             ptr2d(m,n) = head_grid%HFX(m,n)
           end do
         end do
-      case ('prec')
+      case ('evap')
         do m = ips, ipe 
           do n = jps, jpe
-            ptr2d(m,n) = (head_grid%RAINCV(m,n)+head_grid%RAINNCV(m,n))/&
-                         head_grid%DT 
+             ptr2d(m,n) = head_grid%QFX(m,n)
           end do
         end do
+      case ('prec')
+       do m = ips, ipe
+         do n = jps, jpe
+           ptr2d(m,n) = head_grid%RAINC(m,n)+head_grid%RAINNC(m,n)+head_grid%RAINSH(m,n)
+         end do
+       end do
+       ! store initial data of accumulated prec.
+       if (firsttime .and. .not. restarted) then
+          if (.not. allocated(total_precip_stored)) allocate(total_precip_stored(ips:ipe,jps:jpe))
+          total_precip_stored(ips:ipe,jps:jpe) = ZERO_R8
+          ptr2d(ips:ipe,jps:jpe) = (ptr2d(ips:ipe,jps:jpe)-total_precip_stored(ips:ipe,jps:jpe)) / ((24./connectors(Iatmos,Iocean)%divDT) * 60 * 60) ! Convert mm to mm/s
+          write(*,fmt="(A,I5.5,F15.8)") "Initialize rain,firsttime and not restart->",localPet,maxval(total_precip_stored(ips:ipe,jps:jpe))*3600.
+          firsttime = .false.
+       else if (firsttime .and. restarted) then
+          if (.not. allocated(total_precip_stored)) allocate(total_precip_stored(ips:ipe,jps:jpe))
+          total_precip_stored(ips:ipe,jps:jpe) = ptr2d(ips:ipe,jps:jpe)
+          ! First guess...there is no rain at first time step after restart
+          ptr2d(ips:ipe,jps:jpe) = (ptr2d(ips:ipe,jps:jpe)-total_precip_stored(ips:ipe,jps:jpe)) / ((24./connectors(Iatmos,Iocean)%divDT) * 60 * 60) ! Convert mm to mm/s
+          write(*,fmt="(A,I5.5,F15.8)") "Initialize rain,firsttime and restart->",localPet,maxval(total_precip_stored(ips:ipe,jps:jpe))
+          firsttime = .false.
+       else
+          if (.not. allocated(total_precip_tmp)) allocate(total_precip_tmp(ips:ipe,jps:jpe))
+          total_precip_tmp(ips:ipe,jps:jpe) = ptr2d(ips:ipe,jps:jpe)
+          ptr2d(ips:ipe,jps:jpe) = (ptr2d(ips:ipe,jps:jpe)-total_precip_stored(ips:ipe,jps:jpe)) / ((24./connectors(Iatmos,Iocean)%divDT) * 60 * 60) ! Convert mm to mm/s
+          total_precip_stored(ips:ipe,jps:jpe) = total_precip_tmp(ips:ipe,jps:jpe)
+          write(*,fmt="(A,I5.5,3F15.8)") "Precipitation Decumulated (mm/h) =  ", &
+             localPet,minval(ptr2d(ips:ipe,jps:jpe))*3600.,maxval(ptr2d(ips:ipe,jps:jpe))*3600.,maxval(total_precip_stored(ips:ipe,jps:jpe))
+       end if
       case ('wndu')
         do m = ips, ipe 
           do n = jps, jpe
@@ -2552,8 +2582,8 @@
       case ('nflx') 
         do m = ips, ipe
           do n = jps, jpe
-            ptr2d(m,n) = head_grid%GSW(m,n)-                            &
-                         (head_grid%GLW(m,n)-(STBOLT*head_grid%EMISS(m,n)*head_grid%SST(m,n)**4))-&
+            ptr2d(m,n) = head_grid%GSW(m,n)+                            &
+                         (head_grid%EMISS(m,n)*head_grid%GLW(m,n)-(STBOLT*head_grid%EMISS(m,n)*head_grid%SST(m,n)**4))-&
                          head_grid%LH(m,n)-                             &
                          head_grid%HFX(m,n) 
           end do
@@ -2565,9 +2595,10 @@
                          (head_grid%GLW(m,n)-(STBOLT*head_grid%EMISS(m,n)*head_grid%SST(m,n)**4))
           end do
         end do
-      case ('sflx')
+      case ('sflx') ! This works fine when no adaptive time step is used in WRF, otherwise is better using E-P
         do m = ips, ipe 
           do n = jps, jpe
+            ! http://forum.wrfforum.com/viewtopic.php?f=32&t=5580
             ptr2d(m,n) = head_grid%QFX(m,n)-                            &
                         (head_grid%RAINCV(m,n)+head_grid%RAINNCV(m,n))/ &
                          head_grid%DT
@@ -2876,4 +2907,3 @@
       end function locate
 !
       end module mod_esmf_atm
-
