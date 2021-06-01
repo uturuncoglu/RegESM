@@ -2169,6 +2169,18 @@
             end if
           end do
         end do
+#ifdef OCNICE
+      case ('sic')
+        do m = ips, ipe
+          do n = jps, jpe
+            if (ptr(m,n) < TOL_R8) then
+              wrf_import%sic(m,n) = (ptr(m,n)*sfac)+addo
+            else
+              wrf_import%sic(m,n) = MISSING_R8
+            end if
+          end do
+        end do
+#endif
       end select
 
 !-----------------------------------------------------------------------

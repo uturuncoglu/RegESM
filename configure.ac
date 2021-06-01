@@ -122,6 +122,12 @@ if eval "test x$OCN_PREFIX != xnone"; then
                    AC_MSG_WARN([compiling ocean model without ice model support !!!]))
   fi
 
+  if eval "test x$NO_MIT_SUPPORT = x0"; then
+    AC_CHECK_FILE([$OCN_PREFIX/SEAICE.h],
+                  [AM_CPPFLAGS="-DOCNICE $AM_CPPFLAGS"; AC_MSG_NOTICE([compiling ocean model with ice model])],
+                   AC_MSG_WARN([compiling ocean model without ice model support !!!]))
+  fi
+
   # check wetting-drying support
   #strlib="`nm $OCN_PREFIX/libNLM.a | grep wetdry_tile`"
   #AM_CONDITIONAL([DEF_WETDRY], [test -n "$strlib"])

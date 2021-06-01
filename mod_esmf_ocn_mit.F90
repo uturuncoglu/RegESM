@@ -2008,6 +2008,9 @@
 !-----------------------------------------------------------------------
 !
       use mod_mit_gcm, only : theta
+#ifdef OCNICE
+      use mod_mit_gcm, only : area
+#endif
 !
       implicit none
 !
@@ -2157,6 +2160,16 @@
             ptr(iG,jG) = theta(ii,jj,1,1,1)
           end do
         end do
+#ifdef OCNICE
+      case ('sic')
+        do jj = 1, sNy
+          do ii = 1, sNx
+            iG = myXGlobalLo-1+(bi-1)*sNx+ii
+            jG = myYGlobalLo-1+(bj-1)*sNy+jj
+            ptr(iG,jG) = area(ii,jj,1,1)
+          end do
+        end do
+#endif
       end select
 !
 !-----------------------------------------------------------------------
